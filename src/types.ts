@@ -12,6 +12,10 @@ export interface Product {
   flavors?: string[];
   subOptions?: string[];
   images?: string[];
+  isApiProduct?: boolean;
+  apiProductId?: string;
+  apiRequiredField?: string;
+  apiProvider?: 'likecard' | 'cardstore' | 'smm' | 'custom';
 }
 
 export interface StoreSettings {
@@ -32,6 +36,7 @@ export interface CartItem {
   selectedColor?: string;
   selectedFlavor?: string;
   selectedSubOptions?: CartSubOption[];
+  playerId?: string;
 }
 
 export interface OrderDetails {

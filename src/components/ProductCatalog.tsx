@@ -5,7 +5,7 @@ import { Search, ShoppingBag, ShoppingCart, X, Sparkles } from 'lucide-react';
 interface ProductCatalogProps {
   products: Product[];
   categories: StoreCategory[];
-  onAddToCart: (product: Product, selectedColor?: string, selectedFlavor?: string, selectedSubOptions?: CartSubOption[]) => void;
+  onAddToCart: (product: Product, selectedColor?: string, selectedFlavor?: string, selectedSubOptions?: CartSubOption[], playerId?: string) => void;
   formatPrice?: (price: number) => string;
   currency?: 'SAR' | 'YER';
   exchangeRate?: number;
@@ -40,7 +40,7 @@ function ProductCard({
   searchQuery = ''
 }: { 
   product: Product; 
-  onAddToCart: (product: Product, selectedColor?: string, selectedFlavor?: string, selectedSubOptions?: CartSubOption[]) => void; 
+  onAddToCart: (product: Product, selectedColor?: string, selectedFlavor?: string, selectedSubOptions?: CartSubOption[], playerId?: string) => void; 
   getProductDisplay: (p: Product) => { mainText: string; subText: string }; 
   currency?: 'SAR' | 'YER'; 
   exchangeRate?: number; 
@@ -51,6 +51,8 @@ function ProductCard({
   const [selectedFlavor, setSelectedFlavor] = useState<string>('');
   const [selectedSubOptions, setSelectedSubOptions] = useState<{ [name: string]: number }>({});
   const [activeImage, setActiveImage] = useState<string>('');
+  const [playerId, setPlayerId] = useState<string>('');
+  const [inputError, setInputError] = useState<string>('');
 
   const stockVal = product.stock !== undefined ? product.stock : 99;
   const isOutOfStock = stockVal === 0;
@@ -233,6 +235,32 @@ function ProductCard({
           </div>
         )}
 
+        {/* Game ID Player Charge API inputs if it is an API product */}
+        {product.isApiProduct && (
+          <div className="space-y-1.5 bg-gradient-to-br from-yellow-500/5 to-amber-500/5 p-3 rounded-2xl border border-yellow-500/15">
+            <label className="block text-[10px] font-bold text-yellow-405 flex items-center gap-1.5 justify-between">
+              <span>🎮 {product.apiRequiredField || "معرف اللاعب (Player ID):"}</span>
+              <span className="text-red-500 font-bold">*</span>
+            </label>
+            <input
+              type="text"
+              required
+              placeholder="أدخل المعرّف هنا (مثال: 54682012)..."
+              value={playerId}
+              onChange={(e) => {
+                setPlayerId(e.target.value);
+                if (e.target.value.trim()) setInputError('');
+              }}
+              className="w-full px-3 py-2 bg-[#060b18] border border-yellow-500/30 rounded-xl text-xs text-white focus:border-yellow-550 focus:ring-1 focus:ring-yellow-500/20 outline-none font-mono text-center tracking-wider transition-all"
+            />
+            {inputError && (
+              <span className="block text-[9px] text-red-400 font-bold animate-pulse text-right">
+                ⚠️ {inputError}
+              </span>
+            )}
+          </div>
+        )}
+
         {/* Price & Add Section */}
         <div className="flex items-center justify-between pt-2.5 border-t border-blue-900/20">
           <div>
@@ -247,10 +275,24 @@ function ProductCard({
 
           <button
             onClick={() => {
+              if (product.isApiProduct && !playerId.trim()) {
+                setInputError('يرجى كتابة الحقل المطلوب للشحن الفوري!');
+                return;
+              }
+              setInputError('');
               const subOptsArray = Object.entries(selectedSubOptions)
                 .filter(([_, q]) => (q as number) > 0)
                 .map(([name, quantity]) => ({ name, quantity: quantity as number }));
-              onAddToCart(product, selectedColor || undefined, selectedFlavor || undefined, subOptsArray.length > 0 ? subOptsArray : undefined);
+              
+              onAddToCart(
+                product, 
+                selectedColor || undefined, 
+                selectedFlavor || undefined, 
+                subOptsArray.length > 0 ? subOptsArray : undefined,
+                product.isApiProduct ? playerId.trim() : undefined
+              );
+              // Clean ID on success
+              setPlayerId('');
             }}
             disabled={isOutOfStock}
             className={`p-2.5 rounded-xl cursor-pointer shadow-md transition-all flex items-center justify-center ${
@@ -306,8 +348,6 @@ export default function ProductCatalog({ products, categories, onAddToCart, form
         subPrice = p.price;
         subUnit = 'ر.س';
       } else {
-        mainPrice = p.price;
-        mainUnit = 'ر.s'; // will use standard ر.س
         mainPrice = p.price;
         mainUnit = 'ر.س';
         subPrice = p.price * rate;

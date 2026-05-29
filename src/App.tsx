@@ -182,6 +182,30 @@ export default function App() {
   const [logoUrl, setLogoUrl] = useState(() => localStorage.getItem("store_logo_url") || "");
   const [whatsappNumber, setWhatsappNumber] = useState(() => localStorage.getItem("store_whatsapp_number") || "967770493341"); // Famous VIP support number
   const [tickerMessage, setTickerMessage] = useState(() => localStorage.getItem("store_ticker_message") || "🔥 مرحباً بكم في متجر ومستودع الذيباني VIP! نوفر لكم خدمات الشحن الفوري للألعاب والتموين الفاخر بأفضل الأسعار. اسألوا مساعدنا الذكي AI عن أي شيء! ✨");
+  const [gameApiUrl, setGameApiUrl] = useState(() => localStorage.getItem("store_game_api_url") || "");
+  const [gameApiKey, setGameApiKey] = useState(() => localStorage.getItem("store_game_api_key") || "");
+  const [gameApiProvider, setGameApiProvider] = useState(() => localStorage.getItem("store_game_api_provider") || "default");
+  const [gameApiEnabled, setGameApiEnabled] = useState(() => localStorage.getItem("store_game_api_enabled") === "true");
+  
+  // Payment Gateway API configuration states
+  const [payApiEnabled, setPayApiEnabled] = useState(() => localStorage.getItem("store_pay_api_enabled") === "true");
+  const [payApiProvider, setPayApiProvider] = useState(() => localStorage.getItem("store_pay_api_provider") || "simulated");
+  const [payApiMerchantId, setPayApiMerchantId] = useState(() => localStorage.getItem("store_pay_api_merchant_id") || "");
+  const [payApiToken, setPayApiToken] = useState(() => localStorage.getItem("store_pay_api_token") || "");
+  const [payApiUrl, setPayApiUrl] = useState(() => localStorage.getItem("store_pay_api_url") || "");
+
+  // Client interactive payment state hooks
+  const [isPayingOnlineCheckout, setIsPayingOnlineCheckout] = useState(false);
+  const [onlinePaymentProcessingState, setOnlinePaymentProcessingState] = useState<"idle" | "submitting" | "otp_verification" | "completed" | "failed">("idle");
+  const [onlineCardNumber, setOnlineCardNumber] = useState("");
+  const [onlineCardExpiry, setOnlineCardExpiry] = useState("");
+  const [onlineCardCvv, setOnlineCardCvv] = useState("");
+  const [onlineCardHolder, setOnlineCardHolder] = useState("");
+  const [onlineCvvOtp, setOnlineCvvOtp] = useState("");
+  const [onlineCvvOtpError, setOnlineCvvOtpError] = useState("");
+  const [onlinePaymentCreatedTx, setOnlinePaymentCreatedTx] = useState("");
+  const [tempPreOrderPayload, setTempPreOrderPayload] = useState<any>(null);
+
   const [activeSettings, setActiveSettings] = useState<any[]>([]);
 
   // Comprehensive customer orders list state
@@ -218,6 +242,9 @@ export default function App() {
 
   // Find active payment methods from Realtime Database, with local pre-defined regional ones as fallback
   const getPaymentMethods = (): string[] => {
+    if (payApiEnabled) {
+      return ["بوابة الدفع الإلكتروني المباشر (مدى / فيزا / بطاقات بنكية) ⚡", ...paymentMethods];
+    }
     return paymentMethods;
   };
 
@@ -260,56 +287,48 @@ export default function App() {
         if (val) {
           const loadedList: Product[] = [];
           const seenIds = new Set<string>();
+          const seenNames = new Set<string>();
+          const seenCodes = new Set<string>();
+
+          const addProductSafely = (p: any, fallbackId: string) => {
+            if (!p) return;
+            const originalId = String(p.id !== undefined && p.id !== null && p.id !== "" ? p.id : fallbackId).trim();
+            
+            // Deduplicate by ID
+            if (seenIds.has(originalId)) return;
+
+            // Strip numbers from name if match
+            const cleanName = p.name ? String(p.name).replace(/^\d+\s*/, "").trim() : "منتج مميز";
+            const nameLower = cleanName.toLowerCase();
+            if (seenNames.has(nameLower)) return; // Deduplicate by Name
+
+            const code = p.code ? String(p.code).trim() : originalId;
+            const codeLower = code.toLowerCase();
+            if (seenCodes.has(codeLower)) return; // Deduplicate by Code
+
+            seenIds.add(originalId);
+            seenNames.add(nameLower);
+            seenCodes.add(codeLower);
+
+            loadedList.push({
+              id: originalId,
+              name: cleanName,
+              description: p.description || p.name || "",
+              category: p.category || "عام",
+              price: Number(p.price) || 0,
+              image: p.image && String(p.image).startsWith("http") ? p.image : "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=500&q=80",
+              stock: p.stock !== undefined ? Number(p.stock) : 99,
+              code: code,
+              currency: p.currency === 'YER' || p.currency === 'SAR' ? p.currency : 'SAR',
+              colors: p.colors || [],
+              flavors: p.flavors || []
+            });
+          };
+
           if (Array.isArray(val)) {
-            val.forEach((p, idx) => {
-              if (p) {
-                let id = String(p.id !== undefined && p.id !== null && p.id !== "" ? p.id : idx);
-                if (seenIds.has(id)) {
-                  id = `${id}_dup_${idx}`;
-                }
-                seenIds.add(id);
-                // Strip numbers from name if match
-                const cleanName = p.name ? String(p.name).replace(/^\d+\s*/, "") : "منتج مميز";
-                loadedList.push({
-                  id,
-                  name: cleanName,
-                  description: p.description || p.name || "",
-                  category: p.category || "عام",
-                  price: Number(p.price) || 0,
-                  image: p.image && String(p.image).startsWith("http") ? p.image : "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=500&q=80",
-                  stock: p.stock !== undefined ? Number(p.stock) : 99,
-                  code: p.code || id,
-                  currency: p.currency === 'YER' || p.currency === 'SAR' ? p.currency : 'SAR',
-                  colors: p.colors || [],
-                  flavors: p.flavors || []
-                });
-              }
-            });
+            val.forEach((p, idx) => addProductSafely(p, String(idx)));
           } else {
-            Object.keys(val).forEach((key, idx) => {
-              const p = val[key];
-              if (p) {
-                let id = String(p.id !== undefined && p.id !== null && p.id !== "" ? p.id : key);
-                if (seenIds.has(id)) {
-                  id = `${id}_dup_${idx}`;
-                }
-                seenIds.add(id);
-                const cleanName = p.name ? String(p.name).replace(/^\d+\s*/, "") : "منتج مميز";
-                loadedList.push({
-                  id,
-                  name: cleanName,
-                  description: p.description || p.name || "",
-                  category: p.category || "عام",
-                  price: Number(p.price) || 0,
-                  image: p.image && String(p.image).startsWith("http") ? p.image : "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=500&q=80",
-                  stock: p.stock !== undefined ? Number(p.stock) : 99,
-                  code: p.code || id,
-                  currency: p.currency === 'YER' || p.currency === 'SAR' ? p.currency : 'SAR',
-                  colors: p.colors || [],
-                  flavors: p.flavors || []
-                });
-              }
-            });
+            Object.keys(val).forEach((key) => addProductSafely(val[key], key));
           }
 
           if (loadedList.length > 0) {
@@ -588,6 +607,60 @@ export default function App() {
             setDeliveryVisible(deliveryVisibleS.Value === "true" || deliveryVisibleS.Value === true);
             localStorage.setItem("store_delivery_visible", String(deliveryVisibleS.Value));
           }
+
+          const gameApiUrlS = loadedSettings.find(s => s.Key === "gameApiUrl");
+          if (gameApiUrlS) {
+            setGameApiUrl(gameApiUrlS.Value || "");
+            localStorage.setItem("store_game_api_url", gameApiUrlS.Value || "");
+          }
+
+          const gameApiKeyS = loadedSettings.find(s => s.Key === "gameApiKey");
+          if (gameApiKeyS) {
+            setGameApiKey(gameApiKeyS.Value || "");
+            localStorage.setItem("store_game_api_key", gameApiKeyS.Value || "");
+          }
+
+          const gameApiProviderS = loadedSettings.find(s => s.Key === "gameApiProvider");
+          if (gameApiProviderS) {
+            setGameApiProvider(gameApiProviderS.Value || "default");
+            localStorage.setItem("store_game_api_provider", gameApiProviderS.Value || "default");
+          }
+
+          const gameApiEnabledS = loadedSettings.find(s => s.Key === "gameApiEnabled");
+          if (gameApiEnabledS) {
+            setGameApiEnabled(gameApiEnabledS.Value === "true" || gameApiEnabledS.Value === true);
+            localStorage.setItem("store_game_api_enabled", String(gameApiEnabledS.Value));
+          }
+
+          const payApiEnabledS = loadedSettings.find(s => s.Key === "payApiEnabled");
+          if (payApiEnabledS) {
+            setPayApiEnabled(payApiEnabledS.Value === "true" || payApiEnabledS.Value === true);
+            localStorage.setItem("store_pay_api_enabled", String(payApiEnabledS.Value));
+          }
+
+          const payApiProviderS = loadedSettings.find(s => s.Key === "payApiProvider");
+          if (payApiProviderS) {
+            setPayApiProvider(payApiProviderS.Value || "simulated");
+            localStorage.setItem("store_pay_api_provider", payApiProviderS.Value || "simulated");
+          }
+
+          const payApiMerchantIdS = loadedSettings.find(s => s.Key === "payApiMerchantId");
+          if (payApiMerchantIdS) {
+            setPayApiMerchantId(payApiMerchantIdS.Value || "");
+            localStorage.setItem("store_pay_api_merchant_id", payApiMerchantIdS.Value || "");
+          }
+
+          const payApiTokenS = loadedSettings.find(s => s.Key === "payApiToken");
+          if (payApiTokenS) {
+            setPayApiToken(payApiTokenS.Value || "");
+            localStorage.setItem("store_pay_api_token", payApiTokenS.Value || "");
+          }
+
+          const payApiUrlS = loadedSettings.find(s => s.Key === "payApiUrl");
+          if (payApiUrlS) {
+            setPayApiUrl(payApiUrlS.Value || "");
+            localStorage.setItem("store_pay_api_url", payApiUrlS.Value || "");
+          }
         }
       });
       return () => unsubscribe();
@@ -705,7 +778,7 @@ export default function App() {
   }, [customerName]);
 
   // Cart operations
-  const handleAddToCart = (product: Product, selectedColor?: string, selectedFlavor?: string, selectedSubOptions?: { name: string; quantity: number }[]) => {
+  const handleAddToCart = (product: Product, selectedColor?: string, selectedFlavor?: string, selectedSubOptions?: { name: string; quantity: number }[], playerId?: string) => {
     let limitReached = false;
     let addedNew = false;
 
@@ -721,6 +794,7 @@ export default function App() {
         item.product.id === product.id && 
         item.selectedColor === selectedColor && 
         item.selectedFlavor === selectedFlavor &&
+        item.playerId === playerId &&
         matchSubOptions(item.selectedSubOptions, selectedSubOptions)
       );
       if (exist) {
@@ -733,13 +807,14 @@ export default function App() {
           (item.product.id === product.id && 
            item.selectedColor === selectedColor && 
            item.selectedFlavor === selectedFlavor &&
+           item.playerId === playerId &&
            matchSubOptions(item.selectedSubOptions, selectedSubOptions)) 
             ? { ...item, quantity: item.quantity + 1 } 
             : item
         );
       }
       addedNew = true;
-      return [...prev, { product, quantity: 1, selectedColor, selectedFlavor, selectedSubOptions }];
+      return [...prev, { product, quantity: 1, selectedColor, selectedFlavor, selectedSubOptions, playerId }];
     });
 
     if (limitReached) {
@@ -759,7 +834,7 @@ export default function App() {
     }
   };
 
-  const handleUpdateCartQty = (productId: string, increment: boolean, selectedColor?: string, selectedFlavor?: string, selectedSubOptions?: { name: string; quantity: number }[]) => {
+  const handleUpdateCartQty = (productId: string, increment: boolean, selectedColor?: string, selectedFlavor?: string, selectedSubOptions?: { name: string; quantity: number }[], playerId?: string) => {
     let limitReached = false;
     let foundProduct: Product | undefined;
 
@@ -777,6 +852,7 @@ export default function App() {
             item.product.id === productId &&
             item.selectedColor === selectedColor &&
             item.selectedFlavor === selectedFlavor &&
+            item.playerId === playerId &&
             matchSubOptions(item.selectedSubOptions, selectedSubOptions)
           ) {
             foundProduct = item.product;
@@ -800,7 +876,7 @@ export default function App() {
     }
   };
 
-  const handleRemoveFromCart = (productId: string, selectedColor?: string, selectedFlavor?: string, selectedSubOptions?: { name: string; quantity: number }[]) => {
+  const handleRemoveFromCart = (productId: string, selectedColor?: string, selectedFlavor?: string, selectedSubOptions?: { name: string; quantity: number }[], playerId?: string) => {
     const matchSubOptions = (a?: { name: string; quantity: number }[], b?: { name: string; quantity: number }[]) => {
       if (!a && !b) return true;
       if (!a || !b) return false;
@@ -813,6 +889,7 @@ export default function App() {
         item.product.id === productId &&
         item.selectedColor === selectedColor &&
         item.selectedFlavor === selectedFlavor &&
+        item.playerId === playerId &&
         matchSubOptions(item.selectedSubOptions, selectedSubOptions)
     );
     setCart((prev) =>
@@ -822,6 +899,7 @@ export default function App() {
             item.product.id === productId &&
             item.selectedColor === selectedColor &&
             item.selectedFlavor === selectedFlavor &&
+            item.playerId === playerId &&
             matchSubOptions(item.selectedSubOptions, selectedSubOptions)
           )
       )
@@ -889,11 +967,43 @@ export default function App() {
       return;
     }
 
+    const isOnlinePay = paymentMethod.includes("بوابة") || paymentMethod.includes("الدفع الإلكتروني") || paymentMethod.includes("بطاقات");
+    if (isOnlinePay) {
+      // Trigger checkout modal flow
+      setIsPayingOnlineCheckout(true);
+      setOnlinePaymentProcessingState("idle");
+      setOnlineCardNumber("");
+      setOnlineCardExpiry("");
+      setOnlineCardCvv("");
+      setOnlineCardHolder("");
+      setOnlineCvvOtp("");
+      setOnlineCvvOtpError("");
+
+      const orderId = `DHB-ORD-${Date.now().toString().slice(-6)}`;
+      setOnlinePaymentCreatedTx(orderId);
+
+      // Create pre-order payload to store until authorized
+      const preOrder: Order = {
+        id: orderId,
+        customerName: customerName.trim(),
+        phone: customerPhone.trim(),
+        address: customerAddress.trim(),
+        paymentMethod: "بوابة دفع إلكترونية آمنة 💳",
+        items: [...cart],
+        totalPrice: finalBillAmount,
+        date: new Date().toLocaleString("ar-YE", { hour12: true }),
+        status: "قيد المعالجة"
+      };
+      setTempPreOrderPayload(preOrder);
+      return;
+    }
+
     // Prepare WhatsApp message
     const itemsText = cart.map((item, idx) => {
       const optionDetails = [];
       if (item.selectedColor) optionDetails.push(`اللون: ${item.selectedColor}`);
       if (item.selectedFlavor) optionDetails.push(`النكهة: ${item.selectedFlavor}`);
+      if (item.playerId) optionDetails.push(`الأيدي ID: ${item.playerId}`);
       if (item.selectedSubOptions && item.selectedSubOptions.length > 0) {
         const subStrs = item.selectedSubOptions.map(s => `${s.name} (x${s.quantity})`);
         optionDetails.push(`خيارات فرعية: ${subStrs.join(' - ')}`);
@@ -997,6 +1107,105 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
     setCustomerPhone("");
     setCustomerAddress("");
     setCreatedOrderLink("");
+  };
+
+  const handleFinalizeOnlinePayment = async (orderId: string) => {
+    if (!tempPreOrderPayload) return;
+
+    // Build the final paid order
+    const finalOrder: Order = {
+      ...tempPreOrderPayload,
+      id: orderId,
+      status: "تم التسليم 🟢",
+      paymentMethod: `دفع إلكتروني آمن (${payApiProvider === 'simulated' ? 'بوابة الذيباني' : payApiProvider}) 💳`
+    };
+
+    // Update stocks safely
+    setProducts((prev) => {
+      return prev.map((p) => {
+        const cartMatch = cart.find(c => c.product.id === p.id);
+        if (cartMatch) {
+          const cap = p.stock !== undefined ? p.stock : 99;
+          return { ...p, stock: Math.max(0, cap - cartMatch.quantity) };
+        }
+        return p;
+      });
+    });
+
+    // Save statistics
+    setSalesStats((prev) => ({
+      totalRevenue: prev.totalRevenue + finalBillAmount,
+      totalOrders: prev.totalOrders + 1
+    }));
+
+    // Record order in state list and Firebase Realtime Database
+    setOrders((prev) => [finalOrder, ...prev]);
+    localStorage.setItem("last_placed_order_id", orderId);
+    localStorage.setItem("last_tracked_status", "تم التسليم 🟢");
+    setTrackedOrderId(orderId);
+    setLastTrackedStatus("تم التسليم 🟢");
+
+    // Helper to recursively remove undefined properties for Firebase compatibility
+    const cleanUndefined = (obj: any): any => {
+      if (Array.isArray(obj)) {
+        return obj.map(cleanUndefined);
+      } else if (obj !== null && typeof obj === 'object') {
+        const cleaned: any = {};
+        for (const key of Object.keys(obj)) {
+          const val = obj[key];
+          if (val !== undefined) {
+            cleaned[key] = cleanUndefined(val);
+          }
+        }
+        return cleaned;
+      }
+      return obj;
+    };
+
+    try {
+      const firebaseFriendlyOrder = cleanUndefined(finalOrder);
+      set(ref(db, `orders/${orderId}`), firebaseFriendlyOrder);
+    } catch (err) {
+      console.error("Failed to commit paid order to Firebase: ", err);
+    }
+
+    // Now, if Game Charging API is enabled, we automatically trigger topup charge for any item in cart that has playerId
+    if (gameApiEnabled) {
+      addToast("⚡ جاري تفعيل وشحن الخدمات الرقمية تلقائياً عبر الموزّع المعتمد...", "info");
+      for (const item of cart) {
+        if (item.playerId) {
+          try {
+            const chargeRes = await fetch("/api/topup/charge", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify({
+                apiUrl: gameApiUrl,
+                apiKey: gameApiKey,
+                provider: gameApiProvider,
+                productId: item.product.code || item.product.id,
+                playerId: item.playerId,
+                orderId: orderId
+              })
+            });
+            const chargeData = await chargeRes.json();
+            if (chargeRes.ok && chargeData.success) {
+              addToast(`✅ تم تسليم وشحن ${item.product.name} بنجاح مباشر لمعرّف اللعبة ${item.playerId}`, "success");
+            } else {
+              addToast(`⚠️ فشل شحن ${item.product.name} تلقائياً: ${chargeData.message || chargeData.error}. يرجى الشحن اليدوي!`, "warning");
+            }
+          } catch (topupErr: any) {
+            console.error("Topup execution failure: ", topupErr);
+            addToast(`❌ خطأ اتصال بمزود شحن ${item.product.name}`, "warning");
+          }
+        }
+      }
+    }
+
+    // Transition checkout state to success!
+    setCheckoutStep("success");
+    addToast("🎉 تمت الفوترة وتسليم البيانات التلقائية ونظام الربط بنجاح!", "success");
   };
 
   return (
@@ -1227,71 +1436,77 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
                       </p>
                     </div>
                   ) : (
-                     cart.map((item) => {
-                       const subKey = item.selectedSubOptions ? item.selectedSubOptions.map(s => `${s.name}_${s.quantity}`).join('-') : '';
-                       const uniqueItemKey = `${item.product.id}-${item.selectedColor || ''}-${item.selectedFlavor || ''}-${subKey}`;
-                       return (
-                         <div key={uniqueItemKey} className="flex gap-3 bg-[#060b18]/60 p-3 rounded-2xl border border-blue-900/40 hover:border-yellow-500/20 transition-all">
-                           <img
-                             src={item.product.image}
-                             alt={item.product.name}
-                             className="w-12 h-12 object-cover rounded-xl border border-blue-900/40"
-                           />
-                           <div className="flex-1 min-w-0 flex flex-col justify-between">
-                             <div className="space-y-0.5">
-                               <h4 className="font-bold text-white text-xs truncate leading-normal">{item.product.name}</h4>
-                               {((item.selectedColor || item.selectedFlavor) || (item.selectedSubOptions && item.selectedSubOptions.length > 0)) && (
-                                 <div className="flex flex-wrap gap-1 mt-0.5 mb-1">
-                                   {item.selectedSubOptions && item.selectedSubOptions.map((sub, sIdx) => (
-                                     <span key={sIdx} className="px-1.5 py-0.5 bg-rose-500/10 border border-rose-500/20 text-[8px] font-bold text-rose-350 rounded">
-                                       {sub.name} (x{sub.quantity})
-                                     </span>
-                                   ))}
-                                   {item.selectedColor && (
-                                     <span className="px-1.5 py-0.5 bg-yellow-500/10 border border-yellow-500/20 text-[8px] font-bold text-yellow-450 rounded">
-                                       اللون: {item.selectedColor}
-                                     </span>
-                                   )}
-                                   {item.selectedFlavor && (
-                                     <span className="px-1.5 py-0.5 bg-emerald-500/10 border border-emerald-500/20 text-[8px] font-bold text-emerald-400 rounded">
-                                       النكهة: {item.selectedFlavor}
-                                     </span>
-                                   )}
-                                 </div>
-                               )}
-                               <p className="text-[10px] text-yellow-400 font-bold">{formatPrice(getProductPriceInSAR(item.product) * item.quantity)}</p>
-                             </div>
+                    cart.map((item) => {
+                      const subKey = item.selectedSubOptions ? item.selectedSubOptions.map(s => `${s.name}_${s.quantity}`).join('-') : '';
+                      const uniqueItemKey = `${item.product.id}-${item.selectedColor || ''}-${item.selectedFlavor || ''}-${item.playerId || ''}-${subKey}`;
+                      return (
+                        <div key={uniqueItemKey} className="flex gap-3 bg-[#060b18]/60 p-3 rounded-2xl border border-blue-900/40 hover:border-yellow-500/20 transition-all animate-fade-in">
+                          <img
+                            src={item.product.image}
+                            alt={item.product.name}
+                            className="w-12 h-12 object-cover rounded-xl border border-blue-900/40"
+                          />
+                          <div className="flex-1 min-w-0 flex flex-col justify-between">
+                            <div className="space-y-0.5">
+                              <h4 className="font-bold text-white text-xs truncate leading-normal">{item.product.name}</h4>
+                              {((item.selectedColor || item.selectedFlavor || item.playerId) || (item.selectedSubOptions && item.selectedSubOptions.length > 0)) && (
+                                <div className="flex flex-wrap gap-1 mt-0.5 mb-1">
+                                  {item.selectedSubOptions && item.selectedSubOptions.map((sub, sIdx) => (
+                                    <span key={sIdx} className="px-1.5 py-0.5 bg-rose-500/10 border border-rose-500/20 text-[8px] font-bold text-rose-350 rounded">
+                                      {sub.name} (x{sub.quantity})
+                                    </span>
+                                  ))}
+                                  {item.selectedColor && (
+                                    <span className="px-1.5 py-0.5 bg-yellow-500/10 border border-yellow-500/20 text-[8px] font-bold text-yellow-450 rounded">
+                                      اللون: {item.selectedColor}
+                                    </span>
+                                  )}
+                                  {item.selectedFlavor && (
+                                    <span className="px-1.5 py-0.5 bg-emerald-500/10 border border-emerald-500/20 text-[8px] font-bold text-emerald-400 rounded">
+                                      النكهة: {item.selectedFlavor}
+                                    </span>
+                                  )}
+                                  {item.playerId && (
+                                    <span className="px-1.5 py-0.5 bg-blue-500/10 border border-blue-500/25 text-[8px] font-extrabold text-blue-400 rounded flex items-center gap-1">
+                                      <span>ID:</span>
+                                      <span className="font-mono tracking-wider">{item.playerId}</span>
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                              <p className="text-[10px] text-yellow-400 font-bold">{formatPrice(getProductPriceInSAR(item.product) * item.quantity)}</p>
+                            </div>
 
-                             <div className="flex items-center justify-between mt-1">
-                               {/* Quantity Controls */}
-                               <div className="flex items-center gap-1.5 bg-[#060b18] border border-blue-900/50 rounded-lg p-0.5">
-                                 <button
-                                   onClick={() => handleUpdateCartQty(item.product.id, false, item.selectedColor, item.selectedFlavor, item.selectedSubOptions)}
-                                   className="p-1 hover:bg-slate-800 rounded text-slate-400 transition-colors cursor-pointer"
-                                 >
-                                   <Minus className="w-3 h-3" />
-                                 </button>
-                                 <span className="text-[10px] font-bold px-1.5 text-white">{item.quantity}</span>
-                                 <button
-                                   onClick={() => handleUpdateCartQty(item.product.id, true, item.selectedColor, item.selectedFlavor, item.selectedSubOptions)}
-                                   className="p-1 hover:bg-slate-800 rounded text-slate-400 transition-colors cursor-pointer"
-                                 >
-                                   <Plus className="w-3 h-3" />
-                                 </button>
-                               </div>
-
-                               <button
-                                 onClick={() => handleRemoveFromCart(item.product.id, item.selectedColor, item.selectedFlavor, item.selectedSubOptions)}
-                                 className="text-slate-500 hover:text-red-400 p-1.5 transition-colors cursor-pointer"
-                                 title="إزالة هذا الصنف من السلة"
+                            <div className="flex items-center justify-between mt-1">
+                              {/* Quantity Controls */}
+                              <div className="flex items-center gap-1.5 bg-[#060b18] border border-blue-900/50 rounded-lg p-0.5">
+                                <button
+                                  onClick={() => handleUpdateCartQty(item.product.id, false, item.selectedColor, item.selectedFlavor, item.selectedSubOptions, item.playerId)}
+                                  className="p-1 hover:bg-slate-800 rounded text-slate-400 transition-colors cursor-pointer"
                                 >
-                                 <Trash2 className="w-3.5 h-3.5" />
-                               </button>
-                             </div>
-                           </div>
-                         </div>
-                       );
-                     })
+                                  <Minus className="w-3 h-3" />
+                                </button>
+                                <span className="text-[10px] font-bold px-1.5 text-white">{item.quantity}</span>
+                                <button
+                                  onClick={() => handleUpdateCartQty(item.product.id, true, item.selectedColor, item.selectedFlavor, item.selectedSubOptions, item.playerId)}
+                                  className="p-1 hover:bg-slate-800 rounded text-slate-400 transition-colors cursor-pointer"
+                                >
+                                  <Plus className="w-3 h-3" />
+                                </button>
+                              </div>
+
+                              <button
+                                onClick={() => handleRemoveFromCart(item.product.id, item.selectedColor, item.selectedFlavor, item.selectedSubOptions, item.playerId)}
+                                className="text-slate-500 hover:text-red-400 p-1.5 transition-colors cursor-pointer"
+                                title="إزالة هذا الصنف من السلة"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
                   )}
                 </div>
 
@@ -1974,6 +2189,56 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
                       console.error("Failed to write deliveryVisible to firebase:", err);
                     }
                   }}
+                  gameApiUrl={gameApiUrl}
+                  gameApiKey={gameApiKey}
+                  gameApiProvider={gameApiProvider}
+                  gameApiEnabled={gameApiEnabled}
+                  onUpdateGameApiSettings={(url, key, provider, enabled) => {
+                    setGameApiUrl(url);
+                    setGameApiKey(key);
+                    setGameApiProvider(provider);
+                    setGameApiEnabled(enabled);
+                    localStorage.setItem("store_game_api_url", url);
+                    localStorage.setItem("store_game_api_key", key);
+                    localStorage.setItem("store_game_api_provider", provider);
+                    localStorage.setItem("store_game_api_enabled", String(enabled));
+                    try {
+                      set(ref(db, "settings/gameApiUrl"), { Key: "gameApiUrl", Value: url });
+                      set(ref(db, "settings/gameApiKey"), { Key: "gameApiKey", Value: key });
+                      set(ref(db, "settings/gameApiProvider"), { Key: "gameApiProvider", Value: provider });
+                      set(ref(db, "settings/gameApiEnabled"), { Key: "gameApiEnabled", Value: String(enabled) });
+                      addToast("✨ تم تحديث وحفظ ربط بوابة الفواتير التلقائية بنجاح!", "success");
+                    } catch (err) {
+                      console.error("Failed to write game api settings to firebase:", err);
+                    }
+                  }}
+                  payApiEnabled={payApiEnabled}
+                  payApiProvider={payApiProvider}
+                  payApiMerchantId={payApiMerchantId}
+                  payApiToken={payApiToken}
+                  payApiUrl={payApiUrl}
+                  onUpdatePayApiSettings={(url, token, provider, merchantId, enabled) => {
+                    setPayApiUrl(url);
+                    setPayApiToken(token);
+                    setPayApiProvider(provider);
+                    setPayApiMerchantId(merchantId);
+                    setPayApiEnabled(enabled);
+                    localStorage.setItem("store_pay_api_url", url);
+                    localStorage.setItem("store_pay_api_token", token);
+                    localStorage.setItem("store_pay_api_provider", provider);
+                    localStorage.setItem("store_pay_api_merchant_id", merchantId);
+                    localStorage.setItem("store_pay_api_enabled", String(enabled));
+                    try {
+                      set(ref(db, "settings/payApiUrl"), { Key: "payApiUrl", Value: url });
+                      set(ref(db, "settings/payApiToken"), { Key: "payApiToken", Value: token });
+                      set(ref(db, "settings/payApiProvider"), { Key: "payApiProvider", Value: provider });
+                      set(ref(db, "settings/payApiMerchantId"), { Key: "payApiMerchantId", Value: merchantId });
+                      set(ref(db, "settings/payApiEnabled"), { Key: "payApiEnabled", Value: String(enabled) });
+                      addToast("💳 تم تحديث وحفظ إعدادات بوابات الدفع الإلكترونية بنجاح!", "success");
+                    } catch (err) {
+                      console.error("Failed to write pay api settings to firebase:", err);
+                    }
+                  }}
                   onLogoutAdmin={() => {
                     setIsAdminLoggedIn(false);
                     sessionStorage.removeItem("is_admin_vip_logged");
@@ -2150,7 +2415,9 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
                             const isSelected = paymentMethod === method;
 
                             let iconEmoji = "💵";
-                            if (method.includes("كريمي") || method.includes("الكريمي") || method.includes("بنك")) {
+                            if (method.includes("بوابة") || method.includes("الدفع الإلكتروني") || method.includes("فيزا") || method.includes("مدى")) {
+                              iconEmoji = "💳";
+                            } else if (method.includes("كريمي") || method.includes("الكريمي") || method.includes("بنك")) {
                               iconEmoji = "🏦";
                             } else if (method.includes("النجم") || method.includes("حوالة") || method.includes("ارسال")) {
                               iconEmoji = "💸";
@@ -2271,6 +2538,288 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
                 </button>
               </div>
             )}
+
+          </div>
+        </div>
+      )}
+
+      {/* DIRECT ONLINE PAYMENT INTERACTIVE SECURE GATEWAY (3D SECURE VERIFIER) */}
+      {isPayingOnlineCheckout && (
+        <div className="fixed inset-0 bg-[#02050c]/90 backdrop-blur-md z-[100] flex items-center justify-center p-4 overflow-y-auto" id="online-payment-gateway-modal" dir="rtl">
+          <div className="bg-[#0b1329] rounded-3xl border border-emerald-500/30 max-w-md w-full overflow-hidden shadow-2xl shadow-emerald-500/5 flex flex-col h-fit text-right">
+            
+            {/* Redirection / Custom Brand header */}
+            <div className="bg-gradient-to-r from-emerald-950 via-[#0a1b15] to-emerald-950 p-5 border-b border-emerald-800/20 text-white flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></div>
+                <h4 className="text-sm font-black text-white flex items-center gap-1.5 font-sans">
+                  <CreditCard className="w-4 h-4 text-emerald-400" />
+                  <span>بوابة السداد الإلكتروني المستقلة 💳</span>
+                </h4>
+              </div>
+              <div className="bg-emerald-950/80 px-2.5 py-1 rounded-lg border border-emerald-500/20 text-[9px] font-sans font-bold text-emerald-400">
+                اتصال مشفر 3D SECURE
+              </div>
+            </div>
+
+            {/* Main Interactive content depends on current transaction state */}
+            <div className="p-6 space-y-5">
+              
+              {/* Payment Summary */}
+              <div className="bg-[#060b18] p-4 rounded-2xl border border-blue-900/30 space-y-2">
+                <div className="flex justify-between items-center text-[11px] text-slate-400">
+                  <span>طلب الدفع رقم:</span>
+                  <span className="font-mono text-white font-bold select-all">{onlinePaymentCreatedTx}</span>
+                </div>
+                <div className="flex justify-between items-center text-[11px] text-slate-400">
+                  <span>المستفيد:</span>
+                  <span className="text-white font-bold">مستودع ومتجر الذيباني VIP 🐺</span>
+                </div>
+                <div className="pt-2 border-t border-blue-900/20 flex justify-between items-center">
+                  <span className="text-xs font-black text-slate-300">مبلغ الفاتورة المطلوب دفعها:</span>
+                  <span className="text-emerald-400 text-base font-black">{formatPrice(finalBillAmount)}</span>
+                </div>
+              </div>
+
+              {/* IDLE STATE: Card Input Form */}
+              {onlinePaymentProcessingState === "idle" && (
+                <form 
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (onlineCardNumber.replace(/\s/g, '').length < 15) {
+                      addToast("⚠️ يرجى إدخال رقم بطاقة السداد صحيحاً ومكتمل التفاصيل", "warning");
+                      return;
+                    }
+                    if (onlineCardExpiry.replace(/\s/g, '').length < 4) {
+                      addToast("⚠️ يرجى إدخال تاريخ انتهاء الصلاحية بشكل صحيح", "warning");
+                      return;
+                    }
+                    if (onlineCardCvv.length < 3) {
+                      addToast("⚠️ يرجى تعبئة رمز التحقق (CVV) المكتوب خلف البطاقة", "warning");
+                      return;
+                    }
+                    setOnlinePaymentProcessingState("submitting");
+                    setTimeout(() => {
+                      setOnlinePaymentProcessingState("otp_verification");
+                      addToast("🔒 تم التحقق المبدئي! جارِ إرسال رقم التأكيد الرقمي OTP...", "info");
+                    }, 2200);
+                  }}
+                  className="space-y-4"
+                >
+                  <p className="text-[10px] text-slate-400 leading-relaxed font-semibold">
+                    🔑 يرجى كتابة تفاصيل فيزا أو مدى أو ماستر كارد لإرسال الطلب لغرفة المقاصة والخصم التلقائي:
+                  </p>
+
+                  {/* Simulated Cards Branding List Icons */}
+                  <div className="flex items-center gap-2 justify-center py-1 border-y border-blue-900/10">
+                    <div className="bg-[#060b18] px-2.5 py-1 rounded-md border border-slate-700/35 text-[9px] font-extrabold text-white">مدى (mada)</div>
+                    <div className="bg-[#060b18] px-2.5 py-1 rounded-md border border-slate-705/35 text-[9px] font-extrabold text-blue-400">VISA</div>
+                    <div className="bg-[#060b18] px-2.5 py-1 rounded-md border border-slate-705/35 text-[9px] font-extrabold text-amber-500">MasterCard</div>
+                    <div className="bg-[#060b18] px-2.5 py-1 rounded-md border border-slate-705/35 text-[9px] font-extrabold text-emerald-400">KNET</div>
+                  </div>
+
+                  {/* Card number input */}
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-350 mb-1 flex items-center justify-between">
+                      <span>رقم بطاقة الدفع (Credit Card Number)</span>
+                      <span className="text-[9px] text-slate-500 font-semibold">مدى / فيزا</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="4000 1234 5678 9010"
+                      value={onlineCardNumber}
+                      onChange={(e) => {
+                        let value = e.target.value.replace(/\D/g, "");
+                        if (value.length > 16) value = value.slice(0, 16);
+                        // Add spaces every 4 digits
+                        const formatted = value.replace(/(\d{4})(?=\d)/g, "$1 ");
+                        setOnlineCardNumber(formatted);
+                      }}
+                      className="w-full px-3.5 py-2.5 bg-[#060b18] border border-blue-900/60 rounded-xl text-sm text-white outline-none focus:border-emerald-500/50 font-mono text-left"
+                      dir="ltr"
+                    />
+                  </div>
+
+                  {/* Expiry and CVV */}
+                  <div className="grid grid-cols-2 gap-3.5">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-350 mb-1">الانتهاء (Expiry/Month-Year)</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="MM / YY"
+                        value={onlineCardExpiry}
+                        onChange={(e) => {
+                          let value = e.target.value.replace(/\D/g, "");
+                          if (value.length > 4) value = value.slice(0, 4);
+                          if (value.length > 2) {
+                            value = value.slice(0, 2) + " / " + value.slice(2);
+                          }
+                          setOnlineCardExpiry(value);
+                        }}
+                        className="w-full px-3.5 py-2.5 bg-[#060b18] border border-blue-900/60 rounded-xl text-sm text-white outline-none focus:border-emerald-500/50 font-mono text-left"
+                        dir="ltr"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-350 mb-1 flex items-center justify-between">
+                        <span>الرمز السري (CVV)</span>
+                        <span className="text-[8px] text-slate-500 font-bold">3 أرقام خلفها</span>
+                      </label>
+                      <input
+                        type="password"
+                        required
+                        placeholder="•••"
+                        value={onlineCardCvv}
+                        onChange={(e) => {
+                          const value = e.target.value.replace(/\D/g, "").slice(0, 3);
+                          setOnlineCardCvv(value);
+                        }}
+                        className="w-full px-3.5 py-2.5 bg-[#060b18] border border-blue-900/60 rounded-xl text-sm text-white outline-none focus:border-emerald-500/50 font-mono text-left"
+                        dir="ltr"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Holder Name */}
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-350 mb-1">اسم حامل البطاقة (Cardholder Full Name)</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="تفادياً للمشاكل، يرجى كتابة الاسم كما هو على البطاقة"
+                      value={onlineCardHolder}
+                      onChange={(e) => setOnlineCardHolder(e.target.value)}
+                      className="w-full px-3.5 py-2.5 bg-[#060b18] border border-blue-900/60 rounded-xl text-xs text-white outline-none focus:border-emerald-500/50 text-right"
+                    />
+                  </div>
+
+                  {/* Buttons */}
+                  <div className="grid grid-cols-3 gap-2.5 pt-3.5 border-t border-blue-900/20">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsPayingOnlineCheckout(false);
+                        addToast("تم إلغاء عملية الدفع وبوابة الربط بنجاح.", "info");
+                      }}
+                      className="col-span-1 bg-slate-800 hover:bg-slate-750 text-slate-300 font-bold py-2.5 rounded-xl text-[10px] cursor-pointer text-center"
+                    >
+                      خروج وإلغاء
+                    </button>
+                    <button
+                      type="submit"
+                      className="col-span-2 bg-gradient-to-r from-emerald-500 to-teal-500 text-blue-950 font-black py-2.5 rounded-xl text-[11px] cursor-pointer text-center shadow-lg shadow-emerald-500/10 flex items-center justify-center gap-1.5"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5 text-blue-950" />
+                      <span>دفع وتأكيد السداد الآمن 💳</span>
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {/* SUBMITTING STATE: Transaction Loader */}
+              {onlinePaymentProcessingState === "submitting" && (
+                <div className="py-8 text-center space-y-4 animate-pulse">
+                  <div className="w-12 h-12 border-4 border-t-transparent border-emerald-500 rounded-full animate-spin mx-auto"></div>
+                  <div className="space-y-1.5">
+                    <p className="text-xs font-black text-white">جاري توجيه طلب الخصم لشبكة المصرف والتحقق...</p>
+                    <p className="text-[9px] text-slate-400 max-w-xs mx-auto leading-normal">
+                      يرجى عدم إغلاق هذه الصفحة أو الرجوع للخلف لتفادي خصم القيمة وتجهيز الطلب مرتين. حمايتك في صدارة أولوياتنا.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* OTP VERIFICATION STATE: Redirection Redirection SMS Simulated */}
+              {onlinePaymentProcessingState === "otp_verification" && (
+                <div className="space-y-4 text-center animate-fade-in">
+                  <div className="w-10 h-10 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-full flex items-center justify-center mx-auto text-sm">
+                    🔒
+                  </div>
+                  
+                  <div className="space-y-1">
+                    <h5 className="text-[11px] font-black text-emerald-400">نظام التحقق المالي ثلاثي الأبعاد (3D-Secure Verified)</h5>
+                    <p className="text-[9px] text-slate-350 max-w-xs mx-auto leading-normal">
+                      تم إصدار رمز تأكيد OTP هاتفياً على رقمك لتأكيد موافقة الدفع المباشر لصالح مستودع الذيباني VIP.
+                    </p>
+                    <p className="text-[8px] text-amber-400 bg-amber-950/20 px-2 py-0.5 rounded border border-amber-950 inline-block mt-1 font-bold">
+                      💡 للمحاكاة: أدخل الرمز الخاص بك [ 1234 ]
+                    </p>
+                  </div>
+
+                  <div className="max-w-xs mx-auto">
+                    <input
+                      type="text"
+                      maxLength={4}
+                      placeholder="أدخل الرمز المكون من 4 أرقام"
+                      value={onlineCvvOtp}
+                      onChange={(e) => {
+                        setOnlineCvvOtpError("");
+                        setOnlineCvvOtp(e.target.value.replace(/\D/g, ""));
+                      }}
+                      className="w-full text-center tracking-[1em] px-4 py-3 bg-[#060b18] border border-blue-900/60 rounded-xl text-base text-white outline-none focus:border-emerald-500"
+                      dir="ltr"
+                    />
+                    {onlineCvvOtpError && (
+                      <p className="text-[9px] text-red-400 mt-1">{onlineCvvOtpError}</p>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2.5 pt-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setOnlinePaymentProcessingState("idle");
+                        addToast("تم العودة لتعديل معلومات البطاقة.", "info");
+                      }}
+                      className="bg-slate-800 hover:bg-slate-750 text-slate-300 py-2 rounded-xl text-[10px]"
+                    >
+                      رجوع وتعديل
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (onlineCvvOtp === "1234") {
+                          setOnlinePaymentProcessingState("completed");
+                          setTimeout(() => {
+                            setIsPayingOnlineCheckout(false);
+                            handleFinalizeOnlinePayment(onlinePaymentCreatedTx);
+                          }, 2500);
+                        } else {
+                          setOnlineCvvOtpError("رمز التحقق OTP الذي أدخلته غير دقيق، يرجى المحاولة من جديد!");
+                          addToast("رمز الأمان غير مطابق، المحاكاة تتطلب الكود 1234", "warning");
+                        }
+                      }}
+                      className="bg-emerald-500 hover:bg-emerald-600 text-blue-950 font-black py-2 rounded-xl text-[10px]"
+                    >
+                      تأكيد والمصادقة للشبكة 🔒
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* COMPLETED SUCCESS STATE */}
+              {onlinePaymentProcessingState === "completed" && (
+                <div className="py-8 text-center space-y-4 animate-fade-in">
+                  <div className="w-14 h-14 bg-emerald-500/10 border-2 border-emerald-500 text-emerald-400 rounded-full flex items-center justify-center mx-auto text-xl animate-bounce">
+                    ✓
+                  </div>
+                  <div className="space-y-1.5">
+                    <p className="text-xs font-black text-emerald-400">اكتملت التسوية الماليّة وتم سداد الفاتورة بنجاح! 🎉</p>
+                    <p className="text-[9px] text-slate-400 max-w-xs mx-auto leading-normal">
+                      نشكرك جزيل الشكر، جاري قفل المعاملة، وتجهيز الكودات وتسليم منتجك فورياً بالربط التقدمي التلقائي. يرجى الانتظار لحين تحميل شاشة النهاية...
+                    </p>
+                  </div>
+                </div>
+              )}
+
+            </div>
+
+            {/* Footer indicators */}
+            <div className="p-4 bg-[#060b18] text-center border-t border-slate-900/60 text-[8px] text-slate-500 font-sans leading-normal">
+              بوابة متصلة مباشرة مع أنظمة PCI-DSS ودرع الذيباني المالي المستقر للشرق الأوسط واليمن
+            </div>
 
           </div>
         </div>

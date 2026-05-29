@@ -25,7 +25,13 @@ import {
   User,
   MapPin,
   Calendar,
-  AlertCircle
+  AlertCircle,
+  Wallet,
+  FileText,
+  Award,
+  Lightbulb,
+  BarChart3,
+  CreditCard
 } from 'lucide-react';
 
 interface AdminDashboardProps {
@@ -89,6 +95,19 @@ interface AdminDashboardProps {
   onUpdateDeliveryInTotal?: (inTotal: boolean) => void;
   deliveryVisible?: boolean;
   onUpdateDeliveryVisible?: (visible: boolean) => void;
+  // Game charging gateway details
+  gameApiUrl?: string;
+  gameApiKey?: string;
+  gameApiProvider?: string;
+  gameApiEnabled?: boolean;
+  onUpdateGameApiSettings?: (url: string, key: string, provider: string, enabled: boolean) => void;
+  // Payment Gateway API details
+  payApiUrl?: string;
+  payApiToken?: string;
+  payApiProvider?: string;
+  payApiMerchantId?: string;
+  payApiEnabled?: boolean;
+  onUpdatePayApiSettings?: (url: string, token: string, provider: string, merchantId: string, enabled: boolean) => void;
 }
 
 export default function AdminDashboard({
@@ -138,10 +157,30 @@ export default function AdminDashboard({
   deliveryInTotal = true,
   onUpdateDeliveryInTotal,
   deliveryVisible = true,
-  onUpdateDeliveryVisible
+  onUpdateDeliveryVisible,
+  gameApiUrl = '',
+  gameApiKey = '',
+  gameApiProvider = 'default',
+  gameApiEnabled = false,
+  onUpdateGameApiSettings,
+  payApiUrl = '',
+  payApiToken = '',
+  payApiProvider = 'simulated',
+  payApiMerchantId = '',
+  payApiEnabled = false,
+  onUpdatePayApiSettings
 }: AdminDashboardProps) {
   // Main admin control panel navigation tabs
   const [activeTab, setActiveTab] = useState<'products' | 'categories' | 'orders' | 'slides' | 'configuration' | 'stats'>('products');
+  
+  // Advanced reporting & reconciliation states
+  const [reportsSubTab, setReportsSubTab] = useState<'reconciliation' | 'analytics'>('reconciliation');
+  const [selectedFund, setSelectedFund] = useState<string>('all');
+  const [reconciliationStatusFilter, setReconciliationStatusFilter] = useState<'all' | 'ready' | 'pending'>('all');
+  const [excludePastOrders, setExcludePastOrders] = useState<boolean>(true);
+  const [reconciliationPeriod, setReconciliationPeriod] = useState<'all' | 'recent' | 'today'>('recent');
+  const [locallyReconciledOrderIds, setLocallyReconciledOrderIds] = useState<string[]>([]);
+  const [isPrintModalOpen, setIsPrintModalOpen] = useState<boolean>(false);
   
   const displayPrice = (val: number) => {
     if (formatPrice) return formatPrice(val);
@@ -165,6 +204,23 @@ export default function AdminDashboard({
   const [inputTaxVisible, setInputTaxVisible] = useState(taxVisible);
   const [inputDeliveryInTotal, setInputDeliveryInTotal] = useState(deliveryInTotal);
   const [inputDeliveryVisible, setInputDeliveryVisible] = useState(deliveryVisible);
+
+  // local game charging states
+  const [inputGameApiEnabled, setInputGameApiEnabled] = useState(gameApiEnabled);
+  const [inputGameApiUrl, setInputGameApiUrl] = useState(gameApiUrl);
+  const [inputGameApiKey, setInputGameApiKey] = useState(gameApiKey);
+  const [inputGameApiProvider, setInputGameApiProvider] = useState(gameApiProvider);
+  const [checkingBalance, setCheckingBalance] = useState(false);
+  const [apiBalanceResult, setApiBalanceResult] = useState<{ success: boolean; msg: string; balance?: number; currency?: string } | null>(null);
+
+  // local payment gateway charging/APIs states
+  const [inputPayApiEnabled, setInputPayApiEnabled] = useState(payApiEnabled);
+  const [inputPayApiUrl, setInputPayApiUrl] = useState(payApiUrl);
+  const [inputPayApiToken, setInputPayApiToken] = useState(payApiToken);
+  const [inputPayApiProvider, setInputPayApiProvider] = useState(payApiProvider);
+  const [inputPayApiMerchantId, setInputPayApiMerchantId] = useState(payApiMerchantId);
+  const [checkingPayStatus, setCheckingPayStatus] = useState(false);
+  const [payStatusResult, setPayStatusResult] = useState<{ success: boolean; msg: string; balance?: number; currency?: string } | null>(null);
 
   // Settle local states in sync when props loaded
   React.useEffect(() => {
@@ -222,6 +278,42 @@ export default function AdminDashboard({
   React.useEffect(() => {
     setInputDeliveryVisible(deliveryVisible);
   }, [deliveryVisible]);
+
+  React.useEffect(() => {
+    setInputGameApiEnabled(gameApiEnabled);
+  }, [gameApiEnabled]);
+
+  React.useEffect(() => {
+    setInputGameApiUrl(gameApiUrl);
+  }, [gameApiUrl]);
+
+  React.useEffect(() => {
+    setInputGameApiKey(gameApiKey);
+  }, [gameApiKey]);
+
+  React.useEffect(() => {
+    setInputGameApiProvider(gameApiProvider);
+  }, [gameApiProvider]);
+
+  React.useEffect(() => {
+    setInputPayApiEnabled(payApiEnabled);
+  }, [payApiEnabled]);
+
+  React.useEffect(() => {
+    setInputPayApiUrl(payApiUrl);
+  }, [payApiUrl]);
+
+  React.useEffect(() => {
+    setInputPayApiToken(payApiToken);
+  }, [payApiToken]);
+
+  React.useEffect(() => {
+    setInputPayApiProvider(payApiProvider);
+  }, [payApiProvider]);
+
+  React.useEffect(() => {
+    setInputPayApiMerchantId(payApiMerchantId);
+  }, [payApiMerchantId]);
 
   // Product CRUD inputs state
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -577,6 +669,90 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
     triggerNotification('تم إزالة الشريحة الإعلانية من واجهة المتجر!');
   };
 
+  const handleDownloadPDF = () => {
+    const reportElem = document.getElementById("printable-report-area");
+    if (!reportElem) {
+      triggerNotification("خطأ: لم يتم العثور على منطقة التقرير القابلة للطباعة.", "info");
+      return;
+    }
+
+    // Create a temporary hidden iframe
+    const iframe = document.createElement("iframe");
+    iframe.style.position = "fixed";
+    iframe.style.right = "0";
+    iframe.style.bottom = "0";
+    iframe.style.width = "0";
+    iframe.style.height = "0";
+    iframe.style.border = "0";
+    iframe.style.zIndex = "-999";
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentWindow?.document;
+    if (!doc) {
+      triggerNotification("تعذر إنشاء بيئة الطباعة المستقلة.", "info");
+      return;
+    }
+
+    // Set document properties for beautiful clean layout
+    doc.open();
+    doc.write(`
+      <html>
+        <head>
+          <title>كشف حركة أرصدة الصناديق وجرد الخزينة - متجر الذيباني VIP</title>
+          <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght=400;500;700&display=swap');
+            body { 
+              font-family: 'Inter', system-ui, -apple-system, sans-serif; 
+              direction: rtl; 
+              text-align: right;
+              background: #ffffff !important;
+              color: #0f172a !important;
+              padding: 24px;
+            }
+            @media print {
+              @page { size: A4 portrait; margin: 15mm; }
+              body { padding: 0; }
+              .no-print { display: none !important; }
+            }
+            /* Reset colors to guarantee flawless crisp contrast on standard laser print */
+            * {
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+            .bg-slate-50 { background-color: #f8fafc !important; }
+            .bg-emerald-50 { background-color: #ecfdf5 !important; }
+            .bg-emerald-900\\/20 { background-color: #ecfdf5 !important; }
+            .bg-amber-50 { background-color: #fffbeb !important; }
+            .bg-yellow-50 { background-color: #fefce8 !important; }
+            .bg-red-50 { background-color: #fef2f2 !important; }
+            .border { border-width: 1px !important; border-color: #e2e8f0 !important; }
+            .text-emerald-800 { color: #065f46 !important; }
+            .text-amber-800 { color: #92400e !important; }
+            .text-yellow-850 { color: #854d0e !important; }
+            /* Hiding standard browser print artifacts */
+            header, footer, .no-print { display: none !important; }
+          </style>
+        </head>
+        <body>
+          <div class="w-full">
+            ${reportElem.innerHTML}
+          </div>
+          <script>
+            window.onload = function() {
+              window.focus();
+              window.print();
+              setTimeout(function() {
+                window.parent.document.body.removeChild(window.frameElement);
+              }, 1500);
+            };
+          </script>
+        </body>
+      </html>
+    `);
+    doc.close();
+  };
+
   // General Config Saving
   const handleSaveConfigs = (e: React.FormEvent) => {
     e.preventDefault();
@@ -616,7 +792,112 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
     if (onUpdateDeliveryVisible) {
       onUpdateDeliveryVisible(inputDeliveryVisible);
     }
-    triggerNotification('تم حفظ جميع الضوابط الأساسية وتزامن الإعلانات والهاتف بنجاح! ⚙️📲');
+    if (onUpdateGameApiSettings) {
+      onUpdateGameApiSettings(inputGameApiUrl, inputGameApiKey, inputGameApiProvider, inputGameApiEnabled);
+    }
+    if (onUpdatePayApiSettings) {
+      onUpdatePayApiSettings(inputPayApiUrl, inputPayApiToken, inputPayApiProvider, inputPayApiMerchantId, inputPayApiEnabled);
+    }
+    triggerNotification('تم حفظ جميع الضوابط وحسابات الربط ومكتسبات التفعيل وبوابات الدفع الإلكتروني بنجاح! ⚙️💳');
+  };
+
+  const handleCheckApiBalance = async () => {
+    if (!inputGameApiKey) {
+      setApiBalanceResult({
+        success: false,
+        msg: 'الرجاء إدخال الرمز السري للربط API Key أولاً!'
+      });
+      return;
+    }
+    setCheckingBalance(true);
+    setApiBalanceResult(null);
+    try {
+      const res = await fetch('/api/topup/balance', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          provider: inputGameApiProvider,
+          apiUrl: inputGameApiUrl,
+          apiKey: inputGameApiKey
+        })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setApiBalanceResult({
+          success: true,
+          msg: data.message || 'تم الاتصال بالبوابة بنجاح!',
+          balance: data.balance,
+          currency: data.currency || 'SAR'
+        });
+        triggerNotification('تم التحقق وتحديث رصيد محفظة الموزع بنجاح 💸', 'success');
+      } else {
+        setApiBalanceResult({
+          success: false,
+          msg: data.error || data.message || 'فشل الاتصال بخادم بوابة الشحن.'
+        });
+        triggerNotification('فشل الربط، تفضل بمراجعة المفاتيح وعنوان السيرفر', 'info');
+      }
+    } catch (err: any) {
+      setApiBalanceResult({
+        success: false,
+        msg: err.message || 'خطأ غير متوقع أثناء الاتصال بالخادم.'
+      });
+      triggerNotification('خطأ بالوصول إلى بوابة الربط', 'info');
+    } finally {
+      setCheckingBalance(false);
+    }
+  };
+
+  const handleCheckPayStatus = async () => {
+    if (!inputPayApiToken) {
+      setPayStatusResult({
+        success: false,
+        msg: 'الرجاء إدخال الرمز السري لبوابة الدفع (API Key / Auth Token) أولاً!'
+      });
+      return;
+    }
+    setCheckingPayStatus(true);
+    setPayStatusResult(null);
+    try {
+      const res = await fetch('/api/payments/status', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          provider: inputPayApiProvider,
+          apiUrl: inputPayApiUrl,
+          apiToken: inputPayApiToken,
+          merchantId: inputPayApiMerchantId
+        })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setPayStatusResult({
+          success: true,
+          msg: data.message || 'تم الربط ببوابة الدفع بنجاح!',
+          balance: data.balance,
+          currency: data.currency || 'SAR'
+        });
+        triggerNotification('تم اختبار اتصال بوابة الدفع بنجاح 🟢💳', 'success');
+      } else {
+        setPayStatusResult({
+          success: false,
+          msg: data.error || data.message || 'فشل الاتصال بخادم بوابة الدفع.'
+        });
+        triggerNotification('فشل الربط ببوابة الدفع، يرجى مراجعة بيانات الاعتماد', 'info');
+      }
+    } catch (err: any) {
+      setPayStatusResult({
+        success: false,
+        msg: err.message || 'خطأ غير متوقع أثناء الاتصال بالخادم لمصادقة بوابة الدفع.'
+      });
+      triggerNotification('خطأ بالوصول إلى مزود بوابات الدفع', 'info');
+    } finally {
+      setCheckingPayStatus(false);
+    }
   };
 
   // Payment configuration helpers
@@ -1131,11 +1412,29 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
                   </div>
 
                   <div className="flex items-center gap-3">
-                    <div className="text-left" dir="rtl">
-                      <span className="text-yellow-400 font-black text-xs block font-mono">{(p.price || 0).toFixed(1)} ر.س</span>
-                      {exchangeRate && (
-                        <span className="text-emerald-400 font-bold text-[10px] block font-mono">{Math.round((p.price || 0) * exchangeRate).toLocaleString('ar-YE')} ر.ي</span>
-                      )}
+                    <div className="text-left animate-fade-in" dir="rtl">
+                      {(() => {
+                        const isYemeni = p.currency === 'YER';
+                        const nativePrice = p.price || 0;
+                        const convertedPrice = isYemeni 
+                          ? nativePrice / (exchangeRate || 400) 
+                          : nativePrice * (exchangeRate || 400);
+                        
+                        return (
+                          <>
+                            <span className="text-yellow-400 font-extrabold text-xs block font-mono">
+                              {isYemeni 
+                                ? `${Math.round(nativePrice).toLocaleString('ar-YE')} ر.ي`
+                                : `${nativePrice.toFixed(1)} ر.س`}
+                            </span>
+                            <span className="text-emerald-400 font-medium text-[9px] block font-mono mt-0.5">
+                              يعادل: {isYemeni 
+                                ? `${convertedPrice.toFixed(1)} ر.س`
+                                : `${Math.round(convertedPrice).toLocaleString('ar-YE')} ر.ي`}
+                            </span>
+                          </>
+                        );
+                      })()}
                     </div>
                     <div className="flex items-center bg-[#0b1329] border border-blue-900/50 rounded-xl p-0.5">
                       <button
@@ -2063,60 +2362,1075 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
                 يتم مزامنة الشعار وطرق الدفع والرسائل تلقائياً في قاعدة البيانات وتحديثها فورياً للعملاء للتجربة الكاملة.
               </p>
             </div>
+
+            {/* Game Charging API Integrations Card */}
+            <div className="bg-[#0b1329] p-5 rounded-2xl border border-yellow-500/20 shadow-md space-y-4 w-full">
+              <div className="flex items-center justify-between border-b border-blue-900/30 pb-3">
+                <div className="flex items-center gap-1.5">
+                  <Sparkles className="w-4 h-4 text-yellow-500 animate-pulse" />
+                  <h4 className="text-xs font-black text-white">بوابة شحن الألعاب التلقائي (APIs)</h4>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[9px] font-bold text-slate-400">تفعيل تلقائي</span>
+                  <input
+                    type="checkbox"
+                    id="gameApiEnabledToggle"
+                    checked={inputGameApiEnabled}
+                    onChange={(e) => setInputGameApiEnabled(e.target.checked)}
+                    className="w-3.5 h-3.5 rounded text-yellow-550 border-blue-900 bg-[#060b18] focus:ring-yellow-500 cursor-pointer"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-3.5">
+                {/* Provider select */}
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-300 mb-1">مزود الخدمة والشحن (APIs Provider)</label>
+                  <select
+                    value={inputGameApiProvider}
+                    onChange={(e) => setInputGameApiProvider(e.target.value)}
+                    className="w-full px-2.5 py-2 bg-[#060b18] border border-blue-900/60 rounded-xl text-xs text-white outline-none focus:border-yellow-500/50"
+                  >
+                    <option value="default">سيليكن /LikeCard الشحن الافتراضي التجريبي (Default Simulated)</option>
+                    <option value="likecard">لايك كارد (LikeCard Cards API)</option>
+                    <option value="smm">لوحات SMM القياسية (SMM Panels Standard API)</option>
+                  </select>
+                </div>
+
+                {/* API Request Url */}
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-300 mb-1">رابط بوابة المزود (API Base URL)</label>
+                  <input
+                    type="url"
+                    placeholder="https://api.like4card.com/ or https://smm-panel.com/api/v2"
+                    value={inputGameApiUrl}
+                    onChange={(e) => setInputGameApiUrl(e.target.value)}
+                    className="w-full px-3 py-2 bg-[#060b18] border border-blue-900/60 rounded-xl text-xs text-white outline-none focus:border-yellow-500/50 font-mono text-left"
+                    dir="ltr"
+                  />
+                </div>
+
+                {/* API Token / Key */}
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-300 mb-1">مفتاح الاتصال السري (API Key / Auth Token)</label>
+                  <input
+                    type="password"
+                    placeholder="ضع كود التوكن أو الـ API Key السري هنا..."
+                    value={inputGameApiKey}
+                    onChange={(e) => setInputGameApiKey(e.target.value)}
+                    className="w-full px-3 py-2 bg-[#060b18] border border-blue-900/60 rounded-xl text-xs text-white outline-none focus:border-yellow-500/50 font-mono text-left"
+                    dir="ltr"
+                  />
+                </div>
+
+                {/* Check balance button */}
+                <button
+                  type="button"
+                  disabled={checkingBalance}
+                  onClick={handleCheckApiBalance}
+                  className="w-full bg-[#1e293b]/60 hover:bg-[#334155]/60 border border-blue-900/60 text-slate-200 font-bold py-2 px-3 rounded-xl text-[10px] transition-all cursor-pointer text-center flex items-center justify-center gap-1.5 active:scale-95 disabled:opacity-50"
+                >
+                  {checkingBalance ? (
+                    <>
+                      <div className="w-3.5 h-3.5 border-2 border-t-transparent border-yellow-500 rounded-full animate-spin"></div>
+                      <span>جاري فحص رصيد المفاتيح...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Coins className="w-3.5 h-3.5 text-yellow-500 animate-pulse" />
+                      <span>💳 فحص رصيد البوابة (Check Balance)</span>
+                    </>
+                  )}
+                </button>
+
+                {/* Balance results display */}
+                {apiBalanceResult && (
+                  <div className={`p-3 rounded-xl border text-[11px] leading-relaxed animate-fade-in ${
+                    apiBalanceResult.success 
+                      ? 'bg-emerald-900/20 border-emerald-500/30 text-emerald-400' 
+                      : 'bg-red-900/20 border-red-500/30 text-red-400'
+                  }`}>
+                    <div className="font-bold flex items-center gap-1 mb-0.5">
+                      <span>{apiBalanceResult.success ? '✓ تم الربط والتحقق بنجاح!' : '⚠ فشل الاتصال:'}</span>
+                    </div>
+                    <p className="text-[10px] font-medium opacity-90">{apiBalanceResult.msg}</p>
+                    {apiBalanceResult.success && apiBalanceResult.balance !== undefined && (
+                      <div className="mt-1 pt-1 border-t border-emerald-500/10 font-mono font-black text-xs text-white flex items-center justify-between">
+                        <span>الرصيد المتاح بالمحفظة:</span>
+                        <span>{apiBalanceResult.balance.toLocaleString()} {apiBalanceResult.currency}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <p className="text-[9px] text-slate-500 leading-normal">
+                  هذا الربط يُمكّن النظام من خصم وتجهيز المنتجات البرمجية تلقائياً فور تأكيد الطلب، مع عرض الرصيد المالي المتبقي بمزود الخدمة فورا.
+                </p>
+              </div>
+            </div>
+
+            {/* Direct Online Payment Gateways APIs Settings Card */}
+            <div className="bg-[#0b1329] p-5 rounded-2xl border border-blue-900/40 shadow-lg space-y-4 w-full text-right" dir="rtl">
+              <div className="flex items-center justify-between border-b border-blue-900/30 pb-3">
+                <div className="flex items-center gap-1.5">
+                  <CreditCard className="w-4 h-4 text-emerald-500 animate-pulse" />
+                  <h4 className="text-xs font-black text-white">بوابات الدفع الإلكترونية المباشرة (APIs)</h4>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[9px] font-bold text-slate-400">تفعيل الدفع</span>
+                  <input
+                    type="checkbox"
+                    id="payApiEnabledToggle"
+                    checked={inputPayApiEnabled}
+                    onChange={(e) => setInputPayApiEnabled(e.target.checked)}
+                    className="w-3.5 h-3.5 rounded text-emerald-550 border-blue-900 bg-[#060b18] focus:ring-emerald-500 cursor-pointer"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-3.5">
+                {/* Provider select */}
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-300 mb-1">مزود بوابة البيع الرقمي (Payment Gateway)</label>
+                  <select
+                    value={inputPayApiProvider}
+                    onChange={(e) => setInputPayApiProvider(e.target.value)}
+                    className="w-full px-2.5 py-2 bg-[#060b18] border border-blue-900/60 rounded-xl text-xs text-white outline-none focus:border-yellow-500/50"
+                  >
+                    <option value="simulated">بوابة الذيباني التجريبية (Simulated Gateway ✓)</option>
+                    <option value="myfatoorah">ماي فاتورة (MyFatoorah Global API)</option>
+                    <option value="tap">تاب بايمنتس (Tap Payments Gate)</option>
+                    <option value="moyasar">ميسر لخدمات الدفع (Moyasar KSA API)</option>
+                  </select>
+                </div>
+
+                {/* API Request Url */}
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-300 mb-1">رابط بوابة الـ API (Gateway URL / Base Endpoint)</label>
+                  <input
+                    type="url"
+                    placeholder="https://api.myfatoorah.com/v2/ or https://api.tap.company/v2/"
+                    value={inputPayApiUrl}
+                    onChange={(e) => setInputPayApiUrl(e.target.value)}
+                    className="w-full px-3 py-2 bg-[#060b18] border border-blue-900/60 rounded-xl text-xs text-white outline-none focus:border-yellow-500/50 font-mono text-left"
+                    dir="ltr"
+                  />
+                </div>
+
+                {/* Merchant Profile ID */}
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-300 mb-1">رقم التاجر / الحساب (Merchant Profile ID)</label>
+                  <input
+                    type="text"
+                    placeholder="مثال: MID-398242-VIP"
+                    value={inputPayApiMerchantId}
+                    onChange={(e) => setInputPayApiMerchantId(e.target.value)}
+                    className="w-full px-3 py-2 bg-[#060b18] border border-blue-900/60 rounded-xl text-xs text-white outline-none focus:border-yellow-500/50 font-mono text-left"
+                    dir="ltr"
+                  />
+                </div>
+
+                {/* API Token / Key */}
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-300 mb-1 font-sans">مفتاح المصادقة السري (Bearer Token / API Key)</label>
+                  <input
+                    type="password"
+                    placeholder="ضع كود التوكن أو الـ API Key السري للبوابة..."
+                    value={inputPayApiToken}
+                    onChange={(e) => setInputPayApiToken(e.target.value)}
+                    className="w-full px-3 py-2 bg-[#060b18] border border-blue-900/60 rounded-xl text-xs text-white outline-none focus:border-yellow-500/50 font-mono text-left"
+                    dir="ltr"
+                  />
+                </div>
+
+                {/* Check balance button */}
+                <button
+                  type="button"
+                  disabled={checkingPayStatus}
+                  onClick={handleCheckPayStatus}
+                  className="w-full bg-[#1e293b]/60 hover:bg-[#334155]/60 border border-blue-900/60 text-slate-200 font-bold py-2 px-3 rounded-xl text-[10px] transition-all cursor-pointer text-center flex items-center justify-center gap-1.5 active:scale-95 disabled:opacity-50"
+                >
+                  {checkingPayStatus ? (
+                    <>
+                      <div className="w-3.5 h-3.5 border-2 border-t-transparent border-emerald-500 rounded-full animate-spin"></div>
+                      <span>جاري اختبار اتصال بوابة الدفع...</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="w-3.5 h-3.5 text-emerald-550 animate-pulse" />
+                      <span>💳 اختبار اتصال بوابة الدفع (Test Connection)</span>
+                    </>
+                  )}
+                </button>
+
+                {/* Balance results display */}
+                {payStatusResult && (
+                  <div className={`p-3 rounded-xl border text-[11px] leading-relaxed animate-fade-in ${
+                    payStatusResult.success 
+                      ? 'bg-emerald-950/20 border-emerald-500/30 text-emerald-400' 
+                      : 'bg-red-950/20 border-red-500/30 text-red-400'
+                  }`}>
+                    <div className="font-bold flex items-center gap-1 mb-0.5">
+                      <span>{payStatusResult.success ? '✓ تم الربط والتحقق بنجاح!' : '⚠ فشل الاتصال بالبوابة:'}</span>
+                    </div>
+                    <p className="text-[10px] font-medium opacity-90">{payStatusResult.msg}</p>
+                    {payStatusResult.success && payStatusResult.balance !== undefined && (
+                      <div className="mt-1 pt-1 border-t border-emerald-500/10 font-mono font-black text-xs text-white flex items-center justify-between">
+                        <span>قيمة المبيعات المستلمة للبوابة اليوم:</span>
+                        <span>{payStatusResult.balance.toLocaleString()} {payStatusResult.currency}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <p className="text-[9px] text-slate-500 leading-normal">
+                  تسمح بوابات السداد للعملاء بدفع قيمة منتجاتهم فورياً بالمتجر عبر بطاقات مدى وفيزا وكي نت، ويتم المصادقة التلقائية وتحويل حالة المعاملات إلى تسليم فوري في الحال.
+                </p>
+              </div>
+            </div>
+
           </div>
 
         </div>
       )}
 
       {/* FULL DETAILED REPORTS AND METRICS */}
-      {activeTab === 'stats' && (
-        <div className="bg-[#0b1329] p-6 rounded-3xl border border-blue-900/40 shadow-sm space-y-6 animate-fade-in" id="stats-tab-section">
-          <div>
-            <h3 className="text-sm font-black text-white">البيانات المالية وتقارير التفاعلات الفنية</h3>
-            <p className="text-xs text-slate-400 mt-1">مخططات ملخصة لنسب الأداء الفعلي المستوحاة من حجوزات السلة النشطة للتجربة.</p>
-          </div>
+      {activeTab === 'stats' && (() => {
+        // 1. Calculations for reconciliation Ledger
+        const filteredReconciliationOrders = orders.filter(order => {
+          // Fund Box filter
+          if (selectedFund !== 'all' && order.paymentMethod !== selectedFund) {
+            return false;
+          }
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-[#060b18] p-5 rounded-2xl border border-blue-900/35 text-right">
-              <h4 className="text-xs font-black text-slate-300 pb-3 border-b border-blue-900/15 mb-4">قوائم الإحصاء المتراكمة</h4>
-              <div className="space-y-3 text-xs">
-                <div className="flex justify-between items-center text-slate-400">
-                  <span>إجمالي الطلبيات المسجلة:</span>
-                  <span className="font-bold text-white font-mono">{orders.length}</span>
-                </div>
-                <div className="flex justify-between items-center text-slate-400">
-                  <span>الطلبيات الناجحة (تم التسليم):</span>
-                  <span className="font-bold text-emerald-400 font-mono">{orders.filter(o => o.status === 'تم التسليم 🟢').length}</span>
-                </div>
-                <div className="flex justify-between items-center text-slate-400">
-                  <span>الطلبيات الملغية التاركة:</span>
-                  <span className="font-bold text-red-400 font-mono">{orders.filter(o => o.status === 'ملغي ❌').length}</span>
-                </div>
-                <div className="flex justify-between items-center text-slate-400">
-                  <span>طلبات قيد الشحن والتجهيز:</span>
-                  <span className="font-bold text-blue-400 font-mono">{orders.filter(o => o.status === 'تم التجهيز للشحن').length}</span>
-                </div>
-                <div className="flex justify-between items-center text-slate-400 pt-3 border-t border-blue-900/15">
-                  <span className="font-extrabold text-white">المبيعات الصافية:</span>
-                  <span className="font-black text-emerald-400 font-mono text-sm">{displayPrice(totalRevenueOfRegisteredOrders)}</span>
-                </div>
-              </div>
-            </div>
+          // Status filter
+          if (reconciliationStatusFilter === 'ready' && order.status !== 'تم التسليم 🟢') {
+            return false;
+          }
+          if (reconciliationStatusFilter === 'pending' && order.status !== 'قيد المعالجة' && order.status !== 'تم التجهيز للشحن') {
+            return false;
+          }
+          if (order.status === 'ملغي ❌') {
+            return false; // Skip cancelled
+          }
 
-            <div className="bg-[#060b18] p-5 rounded-2xl border border-blue-900/35 flex flex-col items-center justify-center text-center space-y-3">
-              <div className="w-16 h-16 bg-yellow-500/10 border border-yellow-500/20 text-yellow-405 rounded-full flex items-center justify-center">
-                <TrendingUp className="w-7 h-7" />
-              </div>
+          // Time filter "الماضي لا"
+          if (excludePastOrders) {
+            const cleanDate = (d: string) => d.replace(/[\u200B-\u200D\uFEFF]/g, '').trim();
+            const todayLocale = new Date().toLocaleDateString("ar-YE");
+            const todayStandard = new Date().toLocaleDateString();
+
+            if (reconciliationPeriod === 'today') {
+              const matchesToday = cleanDate(order.date).includes(cleanDate(todayLocale)) || order.date.includes(todayStandard);
+              if (!matchesToday) return false;
+            } else if (reconciliationPeriod === 'recent') {
+              const matchesToday = cleanDate(order.date).includes(cleanDate(todayLocale)) || order.date.includes(todayStandard);
+              const isPending = order.status === 'قيد المعالجة' || order.status === 'تم التجهيز للشحن';
+              const isNotReconciled = !locallyReconciledOrderIds.includes(order.id);
+              if (!matchesToday && !isPending && !isNotReconciled) {
+                return false;
+              }
+            }
+          }
+          return true;
+        });
+
+        // 2. Financial totals of filtered reconciliation list
+        const readyAmount = filteredReconciliationOrders
+          .filter(o => o.status === 'تم التسليم 🟢')
+          .reduce((sum, o) => sum + o.totalPrice, 0);
+
+        const pendingAmount = filteredReconciliationOrders
+          .filter(o => o.status === 'قيد المعالجة' || o.status === 'تم التجهيز للشحن')
+          .reduce((sum, o) => sum + o.totalPrice, 0);
+
+        // 3. Overall product statistics & recommendations
+        const productSales: { [id: string]: { name: string; qty: number; revenue: number; category: string } } = {};
+        orders.forEach(o => {
+          if (o.status !== 'ملغي ❌') {
+            o.items.forEach(it => {
+              if (it.product) {
+                const pid = it.product.id;
+                if (!productSales[pid]) {
+                  productSales[pid] = { name: it.product.name, qty: 0, revenue: 0, category: it.product.category };
+                }
+                productSales[pid].qty += it.quantity;
+                productSales[pid].revenue += (it.product.price * it.quantity);
+              }
+            });
+          }
+        });
+
+        const sortedSales = Object.entries(productSales).map(([id, val]) => ({ id, ...val })).sort((a,b) => b.qty - a.qty);
+        const topProducts = sortedSales.slice(0, 5);
+
+        const lowStockProds = products.filter(p => p.stock !== undefined && p.stock <= 4);
+
+        const successfulOrders = orders.filter(o => o.status !== 'ملغي ❌');
+        const totalRev = successfulOrders.reduce((sum, o) => sum + o.totalPrice, 0);
+        const avgOrder = successfulOrders.length > 0 ? (totalRev / successfulOrders.length) : 0;
+
+        return (
+          <div className="bg-[#0b1329] p-5 sm:p-7 rounded-3xl border border-blue-900/40 shadow-sm space-y-6 animate-fade-in" id="advanced-reports-tab">
+            {/* Tab Header with general instructions */}
+            <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 border-b border-blue-900/15 pb-5">
               <div className="space-y-1">
-                <p className="text-xs font-black text-white">نسبة تحويل المبيعات للموقع</p>
-                <p className="text-[10px] text-slate-450 leading-relaxed max-w-xs mx-auto">
-                  جميع العمليات الفورية شفرت مسبقاً وتعتمد سياسة تشغيل واتساب المباشرة دون وسيط لضمان أقل عمولات بالدفع الداعم.
+                <h3 className="text-sm font-black text-white flex items-center gap-2">
+                  <BarChart3 className="w-5 h-5 text-yellow-450 animate-pulse" />
+                  <span>منظومة الجرد المالي والتقارير الاستراتيجية VIP</span>
+                </h3>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  قم بمطابقة ومقارنة أرصدة الحصالات، جرد صناديق الدفع (الماضي لا)، واطلع على مقترحات التطوير التشغيلية المدعومة ببيانات المخزون.
                 </p>
               </div>
+
+              {/* Sub-tab Switchers */}
+              <div className="flex bg-[#060b18] p-1 rounded-xl border border-blue-900/40 w-full xl:w-auto" id="reports-subtab-switchers">
+                <button
+                  type="button"
+                  onClick={() => setReportsSubTab('reconciliation')}
+                  className={`flex-1 xl:flex-none px-4 py-2 rounded-lg text-xs font-black transition-all cursor-pointer whitespace-nowrap gap-1.5 flex items-center justify-center ${
+                    reportsSubTab === 'reconciliation'
+                      ? 'bg-[#111a2f] text-yellow-405 shadow-md border border-yellow-500/10'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <Wallet className="w-3.5 h-3.5" />
+                  <span>جرد ومطابقة الصناديق 🏦</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setReportsSubTab('analytics')}
+                  className={`flex-1 xl:flex-none px-4 py-2 rounded-lg text-xs font-black transition-all cursor-pointer whitespace-nowrap gap-1.5 flex items-center justify-center ${
+                    reportsSubTab === 'analytics'
+                      ? 'bg-[#111a2f] text-yellow-405 shadow-md border border-yellow-500/10'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <Award className="w-3.5 h-3.5" />
+                  <span>تحليلات النمو والتطوير 📈</span>
+                </button>
+              </div>
             </div>
+
+            {/* TAB 1: FUND RECONCILIATION & BALANCE MATCHING */}
+            {reportsSubTab === 'reconciliation' && (
+              <div className="space-y-6" id="fund-reconciliation-view">
+                
+                {/* Filter Configurations Panel */}
+                <div className="bg-[#060b18]/75 p-5 rounded-2xl border border-blue-900/35 space-y-4">
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                    <span className="text-xs font-extrabold text-transparent bg-clip-text bg-gradient-to-l from-yellow-400 via-amber-300 to-yellow-400">تكوين فلاتر الجرد اليدوي لمطابقة الأرصدة ⚙️</span>
+                    
+                    {/* Quick toggle Exclude Past "الماضي لا" */}
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        id="exclude-past-checkbox"
+                        checked={excludePastOrders}
+                        onChange={(e) => setExcludePastOrders(e.target.checked)}
+                        className="w-4 h-4 text-yellow-500 bg-blue-950 border-blue-900 rounded focus:ring-yellow-500/50"
+                      />
+                      <span className="text-[11px] sm:text-xs font-black text-rose-400 flex items-center gap-1">
+                        <span>استبعاد الماضي المؤرشف (الماضي لا ⌛)</span>
+                      </span>
+                    </label>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                    
+                    {/* 1. Select Cash register / Fund / Box ("تحديد الصندوق") */}
+                    <div className="space-y-2">
+                      <label className="block text-[11px] font-bold text-slate-400">1. تحديد صندوق الدفع / المحفظة المالي (الصندوق)</label>
+                      <select
+                        value={selectedFund}
+                        onChange={(e) => setSelectedFund(e.target.value)}
+                        className="w-full px-3 py-2 bg-[#060b18] border border-blue-900/60 rounded-xl text-xs text-white outline-none focus:border-yellow-500/50 font-sans"
+                        id="select-recon-fund"
+                      >
+                        <option value="all">🏦 كافة الصناديق وحصالات المتجر (الكل)</option>
+                        {paymentMethods.map((method, idx) => (
+                          <option key={idx} value={method}>💵 صندوق: {method}</option>
+                        ))}
+                        <option value="كاش ونقد يدوي">💵 نقد كاش / دفع مباشر</option>
+                      </select>
+                    </div>
+
+                    {/* 2. Select Operation categories (العمليات الجاهزة vs المعلقة) */}
+                    <div className="space-y-2">
+                      <label className="block text-[11px] font-bold text-slate-400">2. تصنيف حالة العمليات (جاهز ومكتمل / معلق)</label>
+                      <div className="flex bg-[#060b18] p-1 border border-blue-900/40 rounded-xl">
+                        <button
+                          type="button"
+                          onClick={() => setReconciliationStatusFilter('all')}
+                          className={`flex-1 py-1.5 text-[10px] font-black rounded-lg transition-all cursor-pointer ${
+                            reconciliationStatusFilter === 'all' ? 'bg-[#111a2f] text-yellow-405 border border-yellow-500/20' : 'text-slate-400 hover:text-slate-200'
+                          }`}
+                        >
+                          الكل
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setReconciliationStatusFilter('ready')}
+                          className={`flex-1 py-1.5 text-[10px] font-black rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1 ${
+                            reconciliationStatusFilter === 'ready' ? 'bg-[#111a2f] text-emerald-400 border border-emerald-500/20 font-bold' : 'text-slate-400 hover:text-emerald-400'
+                          }`}
+                        >
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-450 animate-pulse"></span>
+                          <span>العمليات الجاهزة</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setReconciliationStatusFilter('pending')}
+                          className={`flex-1 py-1.5 text-[10px] font-black rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1 ${
+                            reconciliationStatusFilter === 'pending' ? 'bg-[#111a2f] text-amber-500 border border-amber-500/20 font-bold' : 'text-slate-400 hover:text-amber-500'
+                          }`}
+                        >
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                          <span>المعلّقة</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* 3. Reconcile period constraints (الماضي لا) */}
+                    <div className="space-y-2">
+                      <label className="block text-[11px] font-bold text-slate-400">3. تحديد فترة الجرد (الماضي لا 🚫)</label>
+                      <select
+                        value={reconciliationPeriod}
+                        onChange={(e) => setReconciliationPeriod(e.target.value as any)}
+                        disabled={!excludePastOrders}
+                        className="w-full px-3 py-2 bg-[#060b18] border border-blue-900/60 rounded-xl text-xs text-white outline-none focus:border-yellow-500/50 font-sans disabled:opacity-40"
+                        id="select-recon-period"
+                      >
+                        <option value="recent">الوردية النشطة فقط (استبعاد الماضي المسوّى) ⌛</option>
+                        <option value="today">اليوم الحالي (آخر 24 ساعة فقط)</option>
+                        <option value="all">جميع السجلات التاريخية والأرشفة الفاشلة</option>
+                      </select>
+                    </div>
+
+                  </div>
+                </div>
+
+                {/* Funds Ledger Summary Metrics (رصيد الصندوق الحالي للجرد والمطابقة) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" id="ledger-balances-grid">
+                  
+                  {/* 1. Ready Settleable Cash (الصندوق الجاهز) */}
+                  <div className="bg-[#060b18] p-4 rounded-2xl border border-emerald-950/40 relative overflow-hidden flex flex-col justify-between">
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full blur-xl"></div>
+                    <div className="flex items-center justify-between text-slate-400 text-[10px] font-bold font-sans">
+                      <span>الرصيد الجاهز المستلم (🟢)</span>
+                      <Wallet className="w-3.5 h-3.5 text-emerald-450" />
+                    </div>
+                    <div className="mt-2.5">
+                      <p className="text-base sm:text-lg font-black text-emerald-400 font-mono tracking-tight">{displayPrice(readyAmount)}</p>
+                      <p className="text-[9px] text-slate-450 mt-1">أموال جاهزة بالكامل للمطابقة والصندوق</p>
+                    </div>
+                  </div>
+
+                  {/* 2. Pending In-Transit Cash (المعلقة) */}
+                  <div className="bg-[#060b18] p-4 rounded-2xl border border-amber-950/40 relative overflow-hidden flex flex-col justify-between">
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/5 rounded-full blur-xl"></div>
+                    <div className="flex items-center justify-between text-slate-400 text-[10px] font-bold font-sans">
+                      <span>الأرصدة المعلقة بالتحويل (🟡)</span>
+                      <AlertCircle className="w-3.5 h-3.5 text-amber-500 animate-pulse" />
+                    </div>
+                    <div className="mt-2.5">
+                      <p className="text-base sm:text-lg font-black text-amber-500 font-mono tracking-tight">{displayPrice(pendingAmount)}</p>
+                      <p className="text-[9px] text-slate-450 mt-1">حوالات قيد الانتظار لم تفعل بعد للعميل</p>
+                    </div>
+                  </div>
+
+                  {/* 3. Total Cash Flow Checked (إجمالي جاري الجرد) */}
+                  <div className="bg-[#060b18] p-4 rounded-2xl border border-blue-900/35 relative overflow-hidden flex flex-col justify-between">
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 rounded-full blur-xl"></div>
+                    <div className="flex items-center justify-between text-slate-400 text-[10px] font-bold font-sans">
+                      <span>إجمالي حساب الجرد المرشح</span>
+                      <Coins className="w-3.5 h-3.5 text-yellow-405" />
+                    </div>
+                    <div className="mt-2.5">
+                      <p className="text-base sm:text-lg font-black text-white font-mono tracking-tight">{displayPrice(readyAmount + pendingAmount)}</p>
+                      <p className="text-[9px] text-slate-450 mt-1">من {filteredReconciliationOrders.length} معاملة في الفلاتر</p>
+                    </div>
+                  </div>
+
+                  {/* 4. Locally Reconciled State (سجل المطابقة المؤكد) */}
+                  <div className="bg-[#060b18] p-4 rounded-2xl border border-yellow-500/20 relative overflow-hidden flex flex-col justify-between">
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-yellow-500/5 rounded-full blur-xl"></div>
+                    <div className="flex items-center justify-between text-slate-400 text-[10px] font-bold font-sans">
+                      <span>رصيد تمت تسويته وتأكيده</span>
+                      <CheckCircle className="w-3.5 h-3.5 text-yellow-405" />
+                    </div>
+                    <div className="mt-2.5">
+                      {(() => {
+                        const matchedTotal = filteredReconciliationOrders
+                          .filter(o => locallyReconciledOrderIds.includes(o.id))
+                          .reduce((sum, o) => sum + o.totalPrice, 0);
+                        const matchedCount = filteredReconciliationOrders
+                          .filter(o => locallyReconciledOrderIds.includes(o.id)).length;
+                        return (
+                          <>
+                            <p className="text-base sm:text-lg font-black text-yellow-405 font-mono tracking-tight">{displayPrice(matchedTotal)}</p>
+                            <p className="text-[9px] text-slate-450 mt-1">جرى مطابقتها يدوياً الخزنة اليوم ({matchedCount} طلبات)</p>
+                          </>
+                        );
+                      })()}
+                    </div>
+                  </div>
+
+                </div>
+
+                {/* Detailed Audit & Ledger Verification Table */}
+                <div className="space-y-3">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                    <h4 className="text-xs font-black text-slate-250">مذكرة فحص وبطاقات المعاملات لحساب رصيد التجارة ({filteredReconciliationOrders.length} معاملة)</h4>
+                    
+                    <div className="flex gap-2">
+                      {locallyReconciledOrderIds.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setLocallyReconciledOrderIds([])}
+                          className="text-[10px] text-red-400 hover:underline cursor-pointer font-bold"
+                        >
+                          إلغاء تسوية كل الصناديق في هذه الوردية
+                        </button>
+                      )}
+                      
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsPrintModalOpen(true);
+                        }}
+                        className="px-3 py-1 bg-yellow-550/10 border border-yellow-500/25 text-yellow-500 rounded-lg text-[10px] font-bold flex items-center gap-1.5 hover:bg-yellow-500/20 transition-colors cursor-pointer"
+                        id="print-recon-report-btn"
+                      >
+                        <FileText className="w-3.5 h-3.5" />
+                        <span>تصدير وطباعة كشف الصندوق 🖨️</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {filteredReconciliationOrders.length === 0 ? (
+                    <div className="bg-[#060b18]/45 border border-dashed border-blue-900/25 rounded-2xl p-10 text-center space-y-3">
+                      <ClipboardList className="w-10 h-10 text-slate-600 mx-auto" />
+                      <p className="text-xs text-slate-400 font-bold">لا يوجد طلبيات تطابق فلاتر الجرد الحالية بالصندوق.</p>
+                      <p className="text-[10px] text-slate-505 max-w-sm mx-auto leading-relaxed">
+                        إذا كان وضع "استبعاد الماضي المؤرشف" مفعلاً، فهذا يعني أنك قد قمت بتسوية كل المعاملات الفائتة، أو لم تستلم طلبات جديدة في الوردية المفتوحة حالياً.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto rounded-xl border border-blue-900/25 bg-[#060b18]/60">
+                      <table className="w-full text-right text-xs" id="inventory-audit-table">
+                        <thead>
+                          <tr className="bg-[#060b18] text-slate-400 border-b border-blue-900/40 text-[10px] font-bold">
+                            <th className="p-3">رقم الطلب</th>
+                            <th className="p-3">صاحب الطلب والتاريخ</th>
+                            <th className="p-3">طريقة السداد / الصندوق</th>
+                            <th className="p-3 text-left">مبلغ الحساب المقابل</th>
+                            <th className="p-3 text-center">أثر الحالة</th>
+                            <th className="p-3 text-center">إجراء المطابقة الفوري</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-blue-900/20">
+                          {filteredReconciliationOrders.map((order) => {
+                            const isReconciled = locallyReconciledOrderIds.includes(order.id);
+                            return (
+                              <tr key={order.id} className={`hover:bg-blue-950/15 transition-colors ${isReconciled ? 'bg-emerald-950/10 opacity-80' : ''}`}>
+                                 
+                                <td className="p-3 font-mono font-bold text-yellow-450 text-[10px] whitespace-nowrap">
+                                  {order.id}
+                                </td>
+
+                                <td className="p-3 whitespace-nowrap">
+                                  <div className="font-extrabold text-[11px] text-white">{order.customerName}</div>
+                                  <div className="text-[9px] text-slate-500 flex items-center gap-1.5 mt-0.5">
+                                    <span>{order.date}</span>
+                                    <span>•</span>
+                                    <span>{order.phone}</span>
+                                  </div>
+                                </td>
+
+                                <td className="p-3 whitespace-nowrap">
+                                  <span className="inline-block px-2 py-0.5 rounded bg-blue-950 text-slate-350 border border-blue-900/50 font-black text-[10px]">
+                                    💵 {order.paymentMethod || 'نقد يدوي'}
+                                  </span>
+                                </td>
+
+                                <td className="p-3 font-mono font-black text-left text-white whitespace-nowrap text-[11px]">
+                                  {displayPrice(order.totalPrice)}
+                                </td>
+
+                                <td className="p-3 text-center whitespace-nowrap">
+                                  {order.status === 'تم التسليم 🟢' ? (
+                                    <span className="inline-block px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/10 text-emerald-405 border border-emerald-500/20">
+                                      جاهز ومكتمل (رصيد حقيقي)
+                                    </span>
+                                  ) : (
+                                    <span className="inline-block px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/30 animate-pulse">
+                                      معلق (رصيد بالانتظار)
+                                    </span>
+                                  )}
+                                </td>
+
+                                <td className="p-3 text-center whitespace-nowrap">
+                                  {isReconciled ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => setLocallyReconciledOrderIds(prev => prev.filter(id => id !== order.id))}
+                                      className="px-2.5 py-1 bg-emerald-500/10 hover:bg-rose-500/10 text-emerald-400 hover:text-red-400 border border-emerald-500/25 hover:border-red-500/25 rounded-lg text-[9px] font-black transition-colors cursor-pointer"
+                                    >
+                                      ✓ مطابق ومسّوى (تراجع؟)
+                                    </button>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => setLocallyReconciledOrderIds(prev => [...prev, order.id])}
+                                      className="px-3 py-1 bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-405 border border-yellow-500/25 hover:border-yellow-500/40 rounded-lg text-[9px] font-black transition-all cursor-pointer"
+                                    >
+                                      🎯 تأكيد مطابقة الرصيد بالبوابة
+                                    </button>
+                                  )}
+                                </td>
+
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+
+                {/* Re-assurance Cash Guide card */}
+                <div className="bg-yellow-500/5 p-4 rounded-2xl border border-yellow-500/15 flex items-start gap-3">
+                  <AlertTriangle className="w-5 h-5 text-yellow-450 shrink-0 mt-0.5 animate-bounce" />
+                  <div className="text-[11px] leading-relaxed text-slate-350 font-sans space-y-1">
+                    <strong className="text-yellow-405 block">💡 دليل المطابقة الحسابية وجرد الصناديق:</strong>
+                    <p>
+                      المطابقة الدقيقة تتطلب مقارنة الحصيلة في الخزائن والبريد الإلكتروني للتحويل مع الأرقام المسردة أعلاه. اضغط على زر <b>"تأكيد مطابقة الرصيد بالبوابة"</b> لتأكيد تصفية كل معاملة ومطابقتها للتأكد من خلو الوردية الحالية من الفوارق المالية.
+                    </p>
+                  </div>
+                </div>
+
+              </div>
+            )}
+
+            {/* TAB 2: PERFORMANCE ANALYTICS & DEVELOPMENT INSIGHTS */}
+            {reportsSubTab === 'analytics' && (
+              <div className="space-y-6" id="performance-insights-view">
+                
+                {/* Dynamic growth and development suggestions compiled from active store figures */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  
+                  {/* 1. Low Stock & Out of Stock lifelines */}
+                  <div className="bg-[#060b18] p-5 rounded-2xl border border-blue-900/35 space-y-3.5 text-right flex flex-col justify-between">
+                    <div>
+                      <h4 className="text-xs font-black text-slate-300 pb-2 border-b border-blue-900/15 flex justify-between items-center">
+                        <span>⚠️ منبه المخزون ونواقص المنتجات العاجلة</span>
+                        <span className="text-[9px] bg-red-500/15 text-red-400 px-2 py-0.5 rounded border border-red-500/20">تنبيه النواقص بالمتجر</span>
+                      </h4>
+
+                      {lowStockProds.length === 0 ? (
+                        <p className="text-xs text-slate-500 py-10 text-center">كل مخزون المنتجات سليم ولا توجد نواقص في مستودعنا الفولاذي 🌟</p>
+                      ) : (
+                        <div className="space-y-2 h-60 overflow-y-auto pr-1 mt-2">
+                          {lowStockProds.map((prod) => (
+                            <div key={prod.id} className="p-3 rounded-lg bg-red-950/10 border border-red-950/20 flex items-center justify-between gap-3 text-xs">
+                              <div className="space-y-1 text-right">
+                                <span className="font-extrabold text-white block">{prod.name}</span>
+                                <span className="text-[10px] text-slate-500 block">القسم: {prod.category} • الكود: {prod.code || 'مخفي'}</span>
+                              </div>
+                              <div className="text-left whitespace-nowrap">
+                                {prod.stock === 0 ? (
+                                  <span className="px-2 py-0.5 bg-red-500/15 border border-red-500/30 text-rose-450 font-black text-[9px] rounded">نفد بالكامل ❌</span>
+                                ) : (
+                                  <span className="px-2 py-0.5 bg-yellow-500/15 border border-yellow-500/30 text-yellow-455 font-black text-[9px] rounded">شبه نفد ({prod.stock} حبات) ⏳</span>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <div className="pt-3 border-t border-blue-900/15 text-[10px] text-slate-450 mt-4 leading-relaxed">
+                      💡 <b>توصية التطوير:</b> إعادة تأمين هذه النواقص تضمن استدامة الرصيد ومنع نفور العملاء المستعجلين لشحن الشدات والألعاب.
+                    </div>
+                  </div>
+
+                  {/* 2. Top Selling products & stars */}
+                  <div className="bg-[#060b18] p-5 rounded-2xl border border-blue-900/35 space-y-3.5 text-right flex flex-col justify-between">
+                    <div>
+                      <h4 className="text-xs font-black text-slate-300 pb-2 border-b border-blue-900/15 flex justify-between items-center">
+                        <span>🔥 الأصناف الأكثر مبيعاً ورواجاً (نجم المتجر الحالي)</span>
+                        <span className="text-[9px] bg-yellow-500/15 text-yellow-405 px-2 py-0.5 rounded border border-yellow-500/20">الأفضل طلباً</span>
+                      </h4>
+
+                      {topProducts.length === 0 ? (
+                        <p className="text-xs text-slate-500 py-10 text-center">لم تسجل طلبيات مبيعات ناجحة بعد لتحليل رغبات الزوار 🐺</p>
+                      ) : (
+                        <div className="space-y-2 h-60 overflow-y-auto pr-1 mt-2">
+                          {topProducts.map((prod, idx) => (
+                            <div key={prod.id} className="p-3 rounded-lg bg-[#00040a]/40 border border-blue-900/20 flex items-center justify-between gap-3 text-xs">
+                              <div className="flex items-center gap-2">
+                                <span className="w-5 h-5 rounded-full bg-gradient-to-r from-yellow-500 to-amber-500 text-blue-950 font-black text-[10px] flex items-center justify-center shrink-0">
+                                  {idx + 1}
+                                </span>
+                                <div className="space-y-0.5 text-right">
+                                  <span className="font-extrabold text-white block line-clamp-1">{prod.name}</span>
+                                  <span className="text-[10px] text-slate-450 block">مباع: {prod.qty} أصناف • الحصيلة: <span className="font-mono text-emerald-400 font-bold">{displayPrice(prod.revenue)}</span></span>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <div className="pt-3 border-t border-blue-900/15 text-[10px] text-slate-450 mt-4 leading-relaxed">
+                      💡 <b>توصية التطوير:</b> ننصح بزيادة تنويهات التسويق بوضع ويدجت "شائع الآن" لهذه الأصناف لزيادة التحويل.
+                    </div>
+                  </div>
+
+                </div>
+
+                {/* Strategic Development & Interactive Add-on Needs (تحليل الذيباني لكيف التنمية والإضافات) */}
+                <div className="bg-[#060b18] p-5 rounded-3xl border border-blue-900/30 space-y-4">
+                  <div>
+                    <h4 className="text-xs font-black text-white flex items-center gap-2">
+                      <Lightbulb className="w-4 h-4 text-yellow-450 animate-bounce" />
+                      <span>التوصيات الذكية والإضافات المقترحة لتطوير موقع الذيباني VIP 💡</span>
+                    </h4>
+                    <p className="text-[10px] text-slate-400 mt-1">مقترحات مصممة آلياً لمتجركم VIP لرفع متوسط الربحية وتطوير رحلة مستخدم الذيباني.</p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    
+                    {/* Suggestion 1: Average basket and packages */}
+                    <div className="p-4 rounded-xl bg-blue-950/15 border border-blue-900/25 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 bg-indigo-500/15 text-indigo-400 rounded-lg flex items-center justify-center font-black text-xs font-mono">AOV</div>
+                        <strong className="text-xs text-white">ترقية الـ Average Order وطرح الحزم المدمجة</strong>
+                      </div>
+                      <p className="text-[10px] text-slate-400 leading-relaxed">
+                        متوسط قيمة السلة الحالية بالمتجر هو <span className="font-bold text-yellow-405 font-mono">{displayPrice(avgOrder)}</span>. 
+                        <b> نوصي بإطلاق "باقات مدمجة"</b> (مثل: شدات ببجي VIP مع اشتراك مساند، أو بهارات كبسة مدمجة مع أرز تايلندي فاخر) لرفع رغبة الشراء الفوري بنسبة 30%.
+                      </p>
+                    </div>
+
+                    {/* Suggestion 2: Digital Loyalty coupons */}
+                    <div className="p-4 rounded-xl bg-blue-950/15 border border-blue-900/25 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Award className="w-5 h-5 text-yellow-455" />
+                        <strong className="text-xs text-white">إضافة نظام "كوبونات الولاء والخصومات الرياضية"</strong>
+                      </div>
+                      <p className="text-[10px] text-slate-400 leading-relaxed">
+                        يحتاج المتجر إلى طرح <b>منظومة كوبونات خصم ديناميكية</b>. إضافة خانة للكوبونات بالـ Checkout ستمنحكم القدرة على عمل تسويق بالعمولة وإطلاق مهرجانات خصم فوري في المناسبات لزيادة الأرصدة المستلمة بالصناديق.
+                      </p>
+                    </div>
+
+                    {/* Suggestion 3: Reduce transit pending payments */}
+                    <div className="p-4 rounded-xl bg-blue-950/15 border border-blue-900/25 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="w-5 h-5 text-emerald-450 animate-pulse" />
+                        <strong className="text-xs text-white">تقليل "التحويلات المعلقة" بدمج بوابة دفع فوري</strong>
+                      </div>
+                      <p className="text-[10px] text-slate-400 leading-relaxed">
+                        لديك عمليات معلقة بالانتظار بقيمة <span className="text-amber-500 font-bold font-mono">{displayPrice(orders.filter(o => o.status === 'قيد المعالجة').reduce((s,o)=>s+o.totalPrice,0))}</span>. 
+                        <b> الربط التلقائي عبر بوابات الكريمي وجوال بي الفورية</b> سيحول هذه الأرصدة إلى "جاهزة" تلقائياً دون تفتيش بشري!
+                      </p>
+                    </div>
+
+                    {/* Suggestion 4: Customer recommendations and additions */}
+                    <div className="p-4 rounded-xl bg-blue-950/15 border border-blue-900/25 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <TrendingUp className="w-5 h-5 text-amber-500 animate-pulse" />
+                        <strong className="text-xs text-white">إطلاق قسم تقييم المنتجات وشهادات العملاء</strong>
+                      </div>
+                      <p className="text-[10px] text-slate-400 leading-relaxed">
+                        أداء مبيعات متجركم VIP ممتاز! نقترح <b>توفير قسم "آراء الزبائن وشهادات الجودة المعززة بالصور"</b> لزرع طابع الطمأنينة الكاملة لمستخدمي متصفح الويب الجدد.
+                      </p>
+                    </div>
+
+                  </div>
+                </div>
+
+              </div>
+            )}
+
+            {/* PDF Statement Print Preview Modal */}
+            {isPrintModalOpen && (
+              <div className="fixed inset-0 z-[150] bg-slate-950/85 backdrop-blur-md overflow-y-auto p-4 sm:p-6 md:p-10 text-slate-900 flex justify-center items-start no-print">
+                <style dangerouslySetInnerHTML={{__html: `
+                  @media print {
+                    body * {
+                      visibility: hidden;
+                    }
+                    #printable-report-area, #printable-report-area * {
+                      visibility: visible !important;
+                    }
+                    #printable-report-area {
+                      position: absolute !important;
+                      left: 0 !important;
+                      top: 0 !important;
+                      right: 0 !important;
+                      width: 100% !important;
+                      max-width: 100% !important;
+                      margin: 0 !important;
+                      padding: 1.5cm !important;
+                      background: white !important;
+                      color: black !important;
+                      box-shadow: none !important;
+                      border: none !important;
+                    }
+                    * {
+                      -webkit-print-color-adjust: exact !important;
+                      print-color-adjust: exact !important;
+                    }
+                    #printable-report-area .flex {
+                      display: flex !important;
+                    }
+                    #printable-report-area .grid {
+                      display: grid !important;
+                    }
+                  }
+                `}} />
+                
+                <div className="w-full max-w-4xl bg-[#0b1329] p-4 sm:p-6 rounded-3xl border border-blue-900/30 flex flex-col gap-4 animate-fade-in no-print text-white">
+                  {/* Top Modal Controls */}
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-3 border-b border-blue-900/20 pb-4">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></div>
+                      <span className="text-xs font-black text-slate-200">معاينة مستند تقرير كشف الصندوق والمطابقة كـ PDF جاهز للطباعة</span>
+                    </div>
+                    <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                      {/* Print Trigger Button */}
+                      <button
+                        type="button"
+                        onClick={handleDownloadPDF}
+                        className="px-4 py-2 bg-gradient-to-r from-emerald-505 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-blue-950 font-black rounded-xl text-xs flex items-center gap-1.5 shadow-md active:scale-95 transition-all cursor-pointer"
+                      >
+                        <FileText className="w-4 h-4" />
+                        <span>تصدير كشف الصناديق كـ PDF 📄</span>
+                      </button>
+                      
+                      {/* Close Trigger Button */}
+                      <button
+                        type="button"
+                        onClick={() => setIsPrintModalOpen(false)}
+                        className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl text-xs active:scale-95 transition-all cursor-pointer"
+                      >
+                        إغلاق المعاينة ❌
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* A4 Document Area */}
+                  <div 
+                    id="printable-report-area" 
+                    className="bg-white text-slate-900 rounded-2xl p-6 sm:p-10 shadow-xl border border-slate-200 text-right leading-relaxed font-sans"
+                    dir="rtl"
+                  >
+                    {/* Document Header */}
+                    <div className="flex items-center justify-between border-b-2 border-slate-900 pb-5 mb-6">
+                      <div className="space-y-1">
+                        <h1 className="text-base sm:text-lg font-black text-slate-900">متجر ومستودع الذيباني VIP</h1>
+                        <p className="text-[10px] text-slate-500 font-extrabold pb-0.5">بوابة الرقابة المالية والحسابات والمطابقة الفورية</p>
+                        <p className="text-[10px] text-slate-500 font-bold">هاتف الدعم المعتمد: {whatsappNumber}</p>
+                      </div>
+                      
+                      {/* Geometric Seal Vector Emblem */}
+                      <div className="flex flex-col items-center gap-1">
+                        {logoUrl ? (
+                          <img 
+                            src={logoUrl} 
+                            alt="Logo" 
+                            className="w-14 h-14 object-contain rounded-lg border border-slate-200 p-1 bg-white"
+                            referrerPolicy="no-referrer"
+                          />
+                        ) : (
+                          <div className="w-12 h-12 rounded-full border-2 border-dashed border-slate-400 flex items-center justify-center font-black text-slate-600 text-[10px]">
+                            الذيباني VIP
+                          </div>
+                        )}
+                        <span className="text-[8px] tracking-widest text-slate-400 font-black uppercase font-mono">FINANCE SEAL</span>
+                      </div>
+
+                      <div className="text-left space-y-1 font-mono text-[10px] text-slate-600">
+                        <p className="font-bold"><span className="font-sans">مرجع كود الجرد:</span> <span className="text-slate-950 font-black">RECON-{Date.now().toString().slice(-8)}</span></p>
+                        <p><span>التاريخ:</span> <span>{new Date().toLocaleDateString('ar-YE', { year: 'numeric', month: '2-digit', day: '2-digit' })}</span></p>
+                        <p><span>الوقت:</span> <span>{new Date().toLocaleTimeString('ar-YE', { hour: '2-digit', minute: '2-digit' })}</span></p>
+                        <p className="text-[8px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 font-sans font-bold mt-1 inline-block">المحاسبة الإدارية: مطابقة تامة ✓</p>
+                      </div>
+                    </div>
+
+                    {/* Title Content */}
+                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-center mb-6 space-y-1.5">
+                      <h2 className="text-sm font-black text-slate-900">كشف حركة أرصدة الصناديق وحساب جرد الخزينة (الماضي لا 🚫)</h2>
+                      <p className="text-[10px] text-slate-500 max-w-xl mx-auto font-medium leading-relaxed">
+                        يحتوي هذا المستند الإداري على تفاصيل ومبالغ المعاملات المحجوزة بالمتجر ومطابقة الأرصدة المستلمة في المحافظ والصناديق بهدف كشف الفروقات وتصفية الوردية النشطة.
+                      </p>
+                    </div>
+
+                    {/* Info Grid of Report Parameters */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 rounded-xl border border-slate-200 bg-slate-50/50 mb-6 text-[10px] leading-relaxed">
+                      <div className="space-y-0.5">
+                        <span className="text-slate-400 font-bold block">🏦 الصندوق الخاضع للفحص:</span>
+                        <strong className="text-slate-900 block font-extrabold">{selectedFund === 'all' ? 'كافة حصالات المتجر والصناديق (الكل)' : `صندوق: ${selectedFund}`}</strong>
+                      </div>
+                      <div className="space-y-0.5">
+                        <span className="text-slate-400 font-bold block">⌛ فلترة المعاملات المؤرشفة:</span>
+                        <strong className="text-slate-900 block font-extrabold">{excludePastOrders ? 'استبعاد الماضي المؤرشف (الوردية النشطة)' : 'معاينة السجلات التاريخية كاملة'}</strong>
+                      </div>
+                      <div className="space-y-0.5">
+                        <span className="text-slate-400 font-bold block">⚙️ حالة التدقيق المعتمد:</span>
+                        <strong className="text-slate-900 block font-extrabold">
+                          {reconciliationStatusFilter === 'all' ? 'جميع الحالات والعمليات دون استثناء' : reconciliationStatusFilter === 'ready' ? 'العمليات الجاهزة والمستلمة فقط' : 'العمليات المعلقة بالانتظار'}
+                        </strong>
+                      </div>
+                      <div className="space-y-0.5">
+                        <span className="text-slate-400 font-bold block">📅 نطاق فترة تقرير الجرد:</span>
+                        <strong className="text-slate-900 block font-extrabold">
+                          {reconciliationPeriod === 'all' ? 'كامل تاريخ المتجر' : reconciliationPeriod === 'today' ? 'آخر 24 ساعة فقط' : 'الوردية المفعلة (المعلقة والجديدة)'}
+                        </strong>
+                      </div>
+                    </div>
+
+                    {/* Metrics Grid Cards */}
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                      <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-100 flex flex-col justify-between">
+                        <span className="text-emerald-700 text-[9px] font-black block">🟢 الرصيد الفعلي الجاهز</span>
+                        <strong className="text-emerald-800 text-sm font-black font-mono tracking-tight block mt-1">{displayPrice(readyAmount)}</strong>
+                        <span className="text-[8px] text-emerald-600 block mt-0.5 leading-normal">أموال مستلمة ومؤكدة بالخزنة</span>
+                      </div>
+
+                      <div className="p-3 bg-amber-50 rounded-xl border border-amber-100 flex flex-col justify-between">
+                        <span className="text-amber-700 text-[9px] font-black block">🟡 الأرصدة قيد الانتظار</span>
+                        <strong className="text-amber-800 text-sm font-black font-mono tracking-tight block mt-1">{displayPrice(pendingAmount)}</strong>
+                        <span className="text-[8px] text-amber-600 block mt-0.5 leading-normal">حوالات معلقة لم تصفى بالصناديق</span>
+                      </div>
+
+                      <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex flex-col justify-between">
+                        <span className="text-slate-700 text-[9px] font-black block">💰 مجموع حركة الحساب</span>
+                        <strong className="text-slate-900 text-sm font-black font-mono tracking-tight block mt-1">{displayPrice(readyAmount + pendingAmount)}</strong>
+                        <span className="text-[8px] text-slate-500 block mt-0.5 leading-normal">من واقع {filteredReconciliationOrders.length} معاملة بالتقرير</span>
+                      </div>
+
+                      {/* Settle status card */}
+                      <div className="p-3 bg-yellow-50 rounded-xl border border-yellow-200 flex flex-col justify-between">
+                        <span className="text-yellow-850 text-[9px] font-black block">🎯 مبالغ صُفيت ومُطابقت</span>
+                        {(() => {
+                          const matchedTotal = filteredReconciliationOrders
+                            .filter(o => locallyReconciledOrderIds.includes(o.id))
+                            .reduce((sum, o) => sum + o.totalPrice, 0);
+                          const matchedCount = filteredReconciliationOrders
+                            .filter(o => locallyReconciledOrderIds.includes(o.id)).length;
+                          return (
+                            <>
+                              <strong className="text-yellow-900 text-sm font-black font-mono tracking-tight block mt-1">{displayPrice(matchedTotal)}</strong>
+                              <span className="text-[8px] text-yellow-750 block mt-0.5 leading-normal">جرى جرد ومطابقة {matchedCount} طلبات باليدي</span>
+                            </>
+                          );
+                        })()}
+                      </div>
+                    </div>
+
+                    {/* Ledger Statement Details Table */}
+                    <div className="space-y-2 mb-8">
+                      <h3 className="text-[11px] font-black text-slate-800">تفاصيل المعاملات وحركات المبيعات الفورية المدرجة بالجرد المالي:</h3>
+                      <div className="overflow-x-auto border border-slate-200 rounded-lg">
+                        <table className="w-full text-right text-[10px] border-collapse">
+                          <thead>
+                            <tr className="bg-slate-100 text-slate-700 border-b border-slate-200 font-extrabold text-[9px]">
+                              <th className="p-2.5 border-r border-slate-200 text-center">رقم المرجع (ID)</th>
+                              <th className="p-2.5 border-r border-slate-200">العميل والهاتف</th>
+                              <th className="p-2.5 border-r border-slate-200 text-center">صندوق السداد كاش/بنكي</th>
+                              <th className="p-2.5 border-r border-slate-200 text-left">مبلغ المعاملة</th>
+                              <th className="p-2.5 border-r border-slate-200 text-center">أثر الحالة المالية</th>
+                              <th className="p-2.5 text-center">مطابقة الصندوق الخزنة</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-150 font-medium">
+                            {filteredReconciliationOrders.map((order) => {
+                              const isReconciled = locallyReconciledOrderIds.includes(order.id);
+                              return (
+                                <tr key={order.id} className="hover:bg-slate-50/50">
+                                  <td className="p-2 font-mono text-[9px] text-slate-600 text-center border-r border-slate-200">{order.id}</td>
+                                  <td className="p-2 border-r border-slate-200">
+                                    <div className="font-extrabold text-slate-900">{order.customerName}</div>
+                                    <div className="text-[8px] text-slate-500 font-mono flex items-center gap-1.5 mt-0.5" dir="ltr">
+                                      <span>{order.phone}</span>
+                                      <span>•</span>
+                                      <span>{order.date}</span>
+                                    </div>
+                                  </td>
+                                  <td className="p-2 text-center font-bold text-slate-700 border-r border-slate-200">
+                                    💵 {order.paymentMethod || 'نقد يدوي'}
+                                  </td>
+                                  <td className="p-2 font-black text-slate-900 text-left font-mono text-[10px] border-r border-slate-200">{displayPrice(order.totalPrice)}</td>
+                                  <td className="p-2 text-center border-r border-slate-200">
+                                    {order.status === 'تم التسليم 🟢' ? (
+                                      <span className="inline-block px-1.5 py-0.5 rounded text-[8px] font-black bg-emerald-50 text-emerald-700 border border-emerald-100">
+                                        جاهز ومستلم فعلآ (تأثير موجب)
+                                      </span>
+                                    ) : (
+                                      <span className="inline-block px-1.5 py-0.5 rounded text-[8px] font-black bg-amber-50 text-amber-700 border border-amber-100">
+                                        معلق بالانتظار (طلب نشط)
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td className="p-2 text-center font-bold">
+                                    {isReconciled ? (
+                                      <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 font-black text-[9px] inline-flex items-center gap-1">
+                                        ✓ تمت التسوية والمطابقة
+                                      </span>
+                                    ) : (
+                                      <span className="text-slate-500 bg-slate-50 px-2 py-0.5 rounded border border-slate-150 font-bold text-[9px] inline-flex items-center gap-1">
+                                        ⌛ غير مطابق يدوياً بالخزنة
+                                      </span>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+
+                    {/* Authorized Signatures Section */}
+                    <div className="grid grid-cols-2 gap-10 pt-10 border-t border-slate-300 text-[10px] leading-relaxed">
+                      <div className="space-y-8">
+                        <div className="text-slate-800 font-extrabold">
+                          <p className="border-b border-dashed border-slate-300 pb-1 inline-block w-40">توقيع واعتماد محاسب / أمين الصندوق:</p>
+                        </div>
+                        <div className="text-slate-400 font-bold">
+                          <span>التوقيع: ............................................</span>
+                          <p className="mt-1">التاريخ:     /    / 2026م</p>
+                        </div>
+                      </div>
+                      <div className="space-y-8 text-left">
+                        <div className="text-slate-800 font-extrabold">
+                          <p className="border-b border-dashed border-slate-300 pb-1 inline-block w-40">توقيع ومصادقة المشرف العام للموقع:</p>
+                        </div>
+                        <div className="text-slate-400 font-bold">
+                          <span>ختم واعتماد المنصة: ................................</span>
+                          <p className="mt-1">التاريخ:     /    / 2026م</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Footer info for print */}
+                    <div className="text-center text-[8px] text-slate-400 mt-12 bg-slate-50 p-2.5 rounded-lg border border-slate-150 flex items-center justify-between font-mono font-bold">
+                      <span>صادر من النظام المالي الإلكتروني لمنصة الذيباني VIP</span>
+                      <span>صفحة 1 من 1</span>
+                      <span>بإشراف قسم الحسابات العام</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
           </div>
-        </div>
-      )}
+        );
+      })()}
 
     </div>
   );
