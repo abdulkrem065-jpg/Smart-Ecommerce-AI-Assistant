@@ -1000,7 +1000,7 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
   };
 
   return (
-    <div className="min-h-screen bg-[#060b18] text-white font-sans antialiased selection:bg-yellow-500/20 selection:text-yellow-405" id="applet-main-container">
+    <div className="min-h-screen bg-[#060b18] text-white font-sans antialiased selection:bg-yellow-500/20 selection:text-yellow-405 overflow-x-hidden w-full" id="applet-main-container">
       
       {/* Dynamic Header Announcement marquee (Infinite slide feel) */}
       <div className={`bg-gradient-to-r from-blue-950 via-[#0f172a] to-blue-950 text-xs text-center py-2 px-4 shadow-sm border-b border-yellow-500/20 relative z-50 text-yellow-400 font-semibold transition-all duration-300 ${
@@ -1077,58 +1077,70 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
           </div>
 
           {/* Dynamic Navigation Selectors */}
-          <nav className="flex bg-[#060b18] p-1 rounded-2xl border border-blue-900/40 w-full md:w-auto" id="main-navigation-tabs">
+          <nav className="flex bg-[#060b18] p-1 rounded-2xl border border-blue-900/40 w-full md:w-auto overflow-x-auto sm:overflow-x-visible scrollbar-none gap-1" id="main-navigation-tabs" dir="rtl">
             <button
               onClick={() => setCurrentTab("store")}
-              className={`flex-1 md:flex-none px-4.5 py-2.5 rounded-xl text-xs sm:text-sm font-black flex items-center justify-center gap-2.5 transition-all cursor-pointer ${
+              className={`flex-1 md:flex-none px-2.5 sm:px-4 py-2 rounded-xl text-[11px] sm:text-xs md:text-sm font-black flex items-center justify-center gap-1.5 transition-all cursor-pointer whitespace-nowrap select-none ${
                 currentTab === "store"
                   ? "bg-gradient-to-r from-yellow-500 to-amber-500 text-blue-950 shadow-lg font-extrabold"
-                  : "text-slate-400 hover:text-white"
+                  : "text-slate-405 hover:text-white"
               }`}
               id="nav-store-btn"
             >
-              <Store className="w-4 h-4" />
-              <span>🐺 المعرض والمعروضات</span>
+              <Store className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+              <span>
+                <span className="inline md:hidden">المعرض</span>
+                <span className="hidden md:inline">🐺 المعرض والمعروضات</span>
+              </span>
             </button>
 
             <button
               onClick={() => setCurrentTab("ai")}
-              className={`flex-1 md:flex-none px-4.5 py-2.5 rounded-xl text-xs sm:text-sm font-black flex items-center justify-center gap-2.5 transition-all cursor-pointer ${
+              className={`flex-1 md:flex-none px-2.5 sm:px-4 py-2 rounded-xl text-[11px] sm:text-xs md:text-sm font-black flex items-center justify-center gap-1.5 transition-all cursor-pointer whitespace-nowrap select-none ${
                 currentTab === "ai"
                   ? "bg-gradient-to-r from-yellow-500 to-amber-500 text-blue-950 shadow-lg font-extrabold"
-                  : "text-slate-400 hover:text-white"
+                  : "text-slate-405 hover:text-white"
               }`}
               id="nav-ai-btn"
             >
-              <Bot className="w-4 h-4 text-emerald-500 animate-pulse" />
-              <span>💬 مستشارك الذكي AI</span>
+              <Bot className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-500 animate-pulse shrink-0" />
+              <span>
+                <span className="inline md:hidden">مستشار AI</span>
+                <span className="hidden md:inline">💬 مستشارك الذكي AI</span>
+              </span>
             </button>
 
             <button
               onClick={() => setCurrentTab("tracking")}
-              className={`flex-1 md:flex-none px-4.5 py-2.5 rounded-xl text-xs sm:text-sm font-black flex items-center justify-center gap-2.5 transition-all cursor-pointer ${
+              className={`flex-1 md:flex-none px-2.5 sm:px-4 py-2 rounded-xl text-[11px] sm:text-xs md:text-sm font-black flex items-center justify-center gap-1.5 transition-all cursor-pointer whitespace-nowrap select-none ${
                 currentTab === "tracking"
                   ? "bg-gradient-to-r from-yellow-500 to-amber-500 text-blue-950 shadow-lg font-extrabold"
-                  : "text-slate-400 hover:text-white"
+                  : "text-slate-405 hover:text-white"
               }`}
               id="nav-tracking-btn"
             >
-              <Clock className="w-4 h-4 text-amber-500 animate-pulse" />
-              <span>🚚 تتبع الطلبات</span>
+              <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-500 animate-pulse shrink-0" />
+              <span>
+                <span className="inline md:hidden">تتبع الطلب</span>
+                <span className="hidden md:inline">🚚 تتبع الطلبات</span>
+              </span>
             </button>
 
             {isAdminLoggedIn && (
               <button
                 onClick={() => setCurrentTab("admin")}
-                className={`flex-1 md:flex-none px-4.5 py-2.5 rounded-xl text-xs sm:text-sm font-black flex items-center justify-center gap-2.5 transition-all cursor-pointer ${
+                className={`flex-1 md:flex-none px-2.5 sm:px-4 py-2 rounded-xl text-[11px] sm:text-xs md:text-sm font-black flex items-center justify-center gap-1.5 transition-all cursor-pointer whitespace-nowrap select-none ${
                   currentTab === "admin"
                     ? "bg-gradient-to-r from-yellow-500 to-amber-500 text-blue-950 shadow-lg font-extrabold"
-                    : "text-slate-400 hover:text-white"
+                    : "text-slate-405 hover:text-white"
                 }`}
                 id="nav-admin-btn"
               >
-                <Settings className="w-4 h-4 text-yellow-405 animate-spin duration-[10000ms]" />
-                <span>⚙️ لوحة إدارة المخزن</span>
+                <Settings className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-yellow-405 animate-spin duration-[10000ms] shrink-0" />
+                <span>
+                  <span className="inline md:hidden">الإدارة</span>
+                  <span className="hidden md:inline">⚙️ لوحة إدارة المخزن</span>
+                </span>
               </button>
             )}
           </nav>

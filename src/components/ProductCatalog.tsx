@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Product, StoreCategory, CartSubOption } from '../types';
-import { Search, ShoppingBag, ShoppingCart } from 'lucide-react';
+import { Search, ShoppingBag, ShoppingCart, X, Sparkles } from 'lucide-react';
 
 interface ProductCatalogProps {
   products: Product[];
@@ -11,12 +11,33 @@ interface ProductCatalogProps {
   exchangeRate?: number;
 }
 
+const highlightText = (text: string, highlight: string) => {
+  if (!highlight || !highlight.trim()) return <span>{text}</span>;
+  const cleanHighlight = highlight.trim().replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+  const regex = new RegExp(`(${cleanHighlight})`, 'gi');
+  const parts = text.split(regex);
+  return (
+    <span>
+      {parts.map((part, index) => 
+        regex.test(part) ? (
+          <mark key={index} className="bg-yellow-500/30 text-yellow-350 font-black rounded px-1 py-0.5 mx-0.5 inline-block">
+            {part}
+          </mark>
+        ) : (
+          <span key={index}>{part}</span>
+        )
+      )}
+    </span>
+  );
+};
+
 function ProductCard({ 
   product, 
   onAddToCart, 
   getProductDisplay, 
   currency, 
-  exchangeRate 
+  exchangeRate,
+  searchQuery = ''
 }: { 
   product: Product; 
   onAddToCart: (product: Product, selectedColor?: string, selectedFlavor?: string, selectedSubOptions?: CartSubOption[]) => void; 
@@ -24,6 +45,7 @@ function ProductCard({
   currency?: 'SAR' | 'YER'; 
   exchangeRate?: number; 
   key?: React.Key;
+  searchQuery?: string;
 }) {
   const [selectedColor, setSelectedColor] = useState<string>('');
   const [selectedFlavor, setSelectedFlavor] = useState<string>('');
@@ -120,10 +142,10 @@ function ProductCard({
       <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
         <div className="space-y-1.5">
           <h3 className="font-extrabold text-white group-hover:text-yellow-400 transition-colors text-xs md:text-sm line-clamp-1">
-            {product.name}
+            {highlightText(product.name, searchQuery)}
           </h3>
           <p className="text-[11px] text-slate-400 line-clamp-2 leading-relaxed h-[36px]" title={product.description || product.name}>
-            {product.description || 'صنف فاخر بجودة معتمدة ومواصفات مناسبة مجهز للتحميل فوري.'}
+            {product.description ? highlightText(product.description, searchQuery) : 'صنف فاخر بجودة معتمدة ومواصفات مناسبة مجهز للتحميل فوري.'}
           </p>
         </div>
 
@@ -315,23 +337,45 @@ export default function ProductCatalog({ products, categories, onAddToCart, form
       <div className="flex flex-col xl:flex-row gap-4 items-stretch xl:items-center justify-between" id="catalog-controls">
         
         {/* Search Input bar */}
-        <div className="relative flex-1 max-w-xl">
-          <span className="absolute right-4 top-3 text-slate-400">
-            <Search className="w-4 h-4" />
-          </span>
-          <input
-            type="text"
-            placeholder="ابحث عن شدات ببجي، تفعيل ألعاب، بهارات أو إلكترونيات..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-4 pr-11 py-2.5 bg-[#0b1329] border border-blue-900/60 rounded-xl text-base md:text-xs text-white placeholder:text-slate-550 outline-none focus:border-yellow-500/50 transition-all font-sans"
-            id="catalog-search-input"
-            onFocus={(e) => {
-              setTimeout(() => {
-                e.target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-              }, 250);
-            }}
-          />
+        <div className="relative flex-1 max-w-xl flex flex-col gap-1.5">
+          <div className="relative w-full">
+            <span className="absolute right-4 top-3 text-slate-400">
+              <Search className="w-4 h-4" />
+            </span>
+            <input
+              type="text"
+              placeholder="ابحث عن شدات ببجي، تفعيل ألعاب، بهارات أو إلكترونيات..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-11 py-2.5 bg-[#0b1329] border border-blue-900/60 rounded-xl text-base md:text-xs text-white placeholder:text-slate-550 outline-none focus:border-yellow-500/50 transition-all font-sans"
+              id="catalog-search-input"
+              onFocus={(e) => {
+                setTimeout(() => {
+                  e.target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }, 250);
+              }}
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors cursor-pointer p-1"
+                id="clear-search-btn"
+                title="مسح البحث"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+          {searchQuery.trim() && (
+            <div className="flex items-center justify-between text-[10px] text-yellow-405 bg-yellow-500/5 px-3 py-1.5 rounded-lg border border-yellow-500/15 animate-fade-in font-sans">
+              <span className="flex items-center gap-1 font-extrabold text-[10px]">
+                <Sparkles className="w-3.5 h-3.5 text-yellow-500 animate-pulse" />
+                <span>تصفية فورية تلقائية نشطة</span>
+              </span>
+              <strong className="text-[10px] bg-yellow-500/10 px-2 py-0.5 rounded border border-yellow-500/10">وجدنا ({filteredProducts.length}) صنف مطابق</strong>
+            </div>
+          )}
         </div>
 
         {/* Categories Tab Pill Bar */}
@@ -382,6 +426,7 @@ export default function ProductCatalog({ products, categories, onAddToCart, form
               getProductDisplay={getProductDisplay}
               currency={currency}
               exchangeRate={exchangeRate}
+              searchQuery={searchQuery}
             />
           ))
         )}
