@@ -1,0 +1,6 @@
+{
+  "name": "Smart E-Commerce & AI Assistant",
+  "description": "متجر إلكتروني متكامل يحتوي على سلة مشتريات، إدارة المنتجات والأقسام، وطرق دفع متعددة مع مساعد ذكي AI للتواصل الفوري والإجابة على استفسارات العملاء.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
