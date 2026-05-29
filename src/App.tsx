@@ -26,7 +26,10 @@ import {
   Coins, 
   Smartphone, 
   MessageSquare,
-  AlertCircle
+  AlertCircle,
+  Package,
+  Clock,
+  Search
 } from "lucide-react";
 
 // Fallback seed categories
@@ -73,7 +76,7 @@ const DEFAULT_PRODUCTS: Product[] = [
 
 export default function App() {
   // Navigation State
-  const [currentTab, setCurrentTab] = useState<"store" | "ai" | "admin">("store");
+  const [currentTab, setCurrentTab] = useState<"store" | "ai" | "admin" | "tracking">("store");
 
   // Currency & Exchange Rate State
   const [currency, setCurrency] = useState<'SAR' | 'YER'>(() => {
@@ -431,6 +434,43 @@ export default function App() {
       console.error(e);
     }
   }, []);
+
+  // Listen and notify if the active tracked order changes status live!
+  const [lastTrackedStatus, setLastTrackedStatus] = useState<string>(() => {
+    return localStorage.getItem("last_tracked_status") || "";
+  });
+  const [trackedOrderId, setTrackedOrderId] = useState<string>(() => {
+    return localStorage.getItem("last_placed_order_id") || "";
+  });
+
+  useEffect(() => {
+    if (!trackedOrderId) return;
+    const matchedOrder = orders.find(o => o.id === trackedOrderId);
+    if (matchedOrder) {
+      if (lastTrackedStatus && matchedOrder.status !== lastTrackedStatus) {
+        // Status updated! Notify the user!
+        addToast(`🔔 تحديث عاجل: لقد تم تغيير حالة طلبك [${trackedOrderId}] إلى "${matchedOrder.status}"!`, "success");
+        localStorage.setItem("last_tracked_status", matchedOrder.status);
+        
+        // Play polite sound or speak voice
+        try {
+          if ('speechSynthesis' in window) {
+            // Cancel current speech to prevent overlapping
+            window.speechSynthesis.cancel();
+            const textToSpeak = `تنبيه من متجر الذيباني: تم تحديث حالة طلبك إلى ${matchedOrder.status}`;
+            const speech = new SpeechSynthesisUtterance(textToSpeak);
+            speech.lang = 'ar';
+            speech.rate = 0.9;
+            window.speechSynthesis.speak(speech);
+          }
+        } catch (e) {
+          console.error("Speech synthesis failed:", e);
+        }
+      }
+      setLastTrackedStatus(matchedOrder.status);
+      localStorage.setItem("last_tracked_status", matchedOrder.status);
+    }
+  }, [orders, trackedOrderId, lastTrackedStatus]);
 
   useEffect(() => {
     try {
@@ -901,6 +941,23 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
       totalOrders: prev.totalOrders + 1
     }));
 
+    // Helper to recursively remove undefined properties for Firebase compatibility
+    const cleanUndefined = (obj: any): any => {
+      if (Array.isArray(obj)) {
+        return obj.map(cleanUndefined);
+      } else if (obj !== null && typeof obj === 'object') {
+        const cleaned: any = {};
+        for (const key of Object.keys(obj)) {
+          const val = obj[key];
+          if (val !== undefined) {
+            cleaned[key] = cleanUndefined(val);
+          }
+        }
+        return cleaned;
+      }
+      return obj;
+    };
+
     // Record order in state list and Firebase Realtime Database
     const orderId = `DHB-ORD-${Date.now().toString().slice(-6)}`;
     const newOrder: Order = {
@@ -916,9 +973,14 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
     };
 
     setOrders((prev) => [newOrder, ...prev]);
+    localStorage.setItem("last_placed_order_id", orderId);
+    localStorage.setItem("last_tracked_status", "قيد المعالجة");
+    setTrackedOrderId(orderId);
+    setLastTrackedStatus("قيد المعالجة");
 
     try {
-      set(ref(db, `orders/${orderId}`), newOrder);
+      const firebaseFriendlyOrder = cleanUndefined(newOrder);
+      set(ref(db, `orders/${orderId}`), firebaseFriendlyOrder);
     } catch (err) {
       console.error("Failed to commit order: ", err);
     }
@@ -1040,6 +1102,19 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
             >
               <Bot className="w-4 h-4 text-emerald-500 animate-pulse" />
               <span>💬 مستشارك الذكي AI</span>
+            </button>
+
+            <button
+              onClick={() => setCurrentTab("tracking")}
+              className={`flex-1 md:flex-none px-4.5 py-2.5 rounded-xl text-xs sm:text-sm font-black flex items-center justify-center gap-2.5 transition-all cursor-pointer ${
+                currentTab === "tracking"
+                  ? "bg-gradient-to-r from-yellow-500 to-amber-500 text-blue-950 shadow-lg font-extrabold"
+                  : "text-slate-400 hover:text-white"
+              }`}
+              id="nav-tracking-btn"
+            >
+              <Clock className="w-4 h-4 text-amber-500 animate-pulse" />
+              <span>🚚 تتبع الطلبات</span>
             </button>
 
             {isAdminLoggedIn && (
@@ -1267,6 +1342,278 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
             </div>
 
           </div>
+          </div>
+        )}
+
+        {/* Tab 1.5: Customer Order Tracking Tab */}
+        {currentTab === "tracking" && (
+          <div className="space-y-6 max-w-4xl mx-auto animate-fade-in" id="tracking-tab-wrapper" dir="rtl">
+            <div className="bg-[#0b1329] p-6 rounded-3xl border border-blue-900/40 shadow-xl space-y-6">
+              
+              <div className="text-center space-y-2">
+                <h2 className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-l from-yellow-400 via-amber-300 to-yellow-400 flex items-center justify-center gap-2">
+                  <Package className="w-7 h-7 text-yellow-400 animate-bounce" />
+                  <span>تتبع حالة وتجهيز طلبك الفوري 🚚</span>
+                </h2>
+                <p className="text-xs text-slate-400 max-w-lg mx-auto leading-normal">
+                  أدخل رمز الفاتورة (الطلب) أو رقم الجوال الذي استخدمته أثناء حجز الطلب، لتتبع عملية المعالجة والتجهيز والتوصيل مباشرة من مستودع الذيباني VIP.
+                </p>
+              </div>
+
+              {/* Search Bar Block */}
+              <div className="flex flex-col sm:flex-row gap-3 bg-[#060b18]/60 p-4 rounded-2xl border border-blue-950">
+                <div className="flex-1 relative">
+                  <Search className="w-5 h-5 text-slate-500 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <input
+                    type="text"
+                    value={trackedOrderId}
+                    onChange={(e) => setTrackedOrderId(e.target.value)}
+                    placeholder="أدخل رمز طلبك (مثلاً: DHB-ORD-5231) أو رقم جوالك..."
+                    className="w-full bg-[#0b1329]/90 border border-blue-900/30 rounded-xl py-3 pr-11 pl-4 text-xs font-bold text-white focus:outline-none focus:border-yellow-500 placeholder-slate-500"
+                  />
+                </div>
+                {/* Clear query button if there is any */}
+                {trackedOrderId && (
+                  <button
+                    onClick={() => setTrackedOrderId("")}
+                    className="bg-red-950/20 text-red-400 border border-red-900/30 px-4 py-2.5 rounded-xl text-xs font-bold hover:bg-red-900/20 transition-all cursor-pointer"
+                  >
+                    مسح البحث
+                  </button>
+                )}
+              </div>
+
+              {/* Quick suggestions block if they have a saved local order */}
+              {localStorage.getItem("last_placed_order_id") && (
+                <div className="flex items-center gap-2 text-[11px] text-slate-400 bg-blue-950/20 p-3 rounded-xl border border-blue-900/10">
+                  <Sparkles className="w-4 h-4 text-yellow-400 flex-shrink-0 animate-pulse" />
+                  <span>طلبك الأخير المتاح في متمتصفحك:</span>
+                  <button
+                    onClick={() => {
+                      const savedId = localStorage.getItem("last_placed_order_id") || "";
+                      setTrackedOrderId(savedId);
+                      addToast(`تم عرض الطلب الحالي: ${savedId}`, "info");
+                    }}
+                    className="text-yellow-400 font-bold underline hover:text-yellow-350 cursor-pointer"
+                  >
+                    {localStorage.getItem("last_placed_order_id")}
+                  </button>
+                </div>
+              )}
+
+              {/* Render Search Results */}
+              <div className="space-y-6">
+                {(() => {
+                  if (!trackedOrderId.trim()) {
+                    return (
+                      <div className="text-center py-10 space-y-3 bg-[#060b18]/30 rounded-2xl border border-blue-950">
+                        <Clock className="w-12 h-12 text-slate-600 mx-auto animate-pulse" />
+                        <p className="text-xs text-slate-405 font-bold">بانتظار إدخال رمز الطلب أو رقم الهاتف لبث حالة التحضير...</p>
+                      </div>
+                    );
+                  }
+
+                  // Find orders matching order ID OR phone number (stripped or partial matching)
+                  const queryStripped = trackedOrderId.replace(/[^\d\w-]/g, '').toLowerCase();
+                  const found = orders.filter(o => {
+                    const idMatch = o.id.toLowerCase().includes(queryStripped);
+                    const phoneMatch = o.phone.replace(/[^\d]/g, '').includes(queryStripped) && queryStripped.length >= 6;
+                    return idMatch || phoneMatch;
+                  });
+
+                  if (found.length === 0) {
+                    return (
+                      <div className="bg-[#1f1015]/40 border border-red-900/30 p-5 rounded-2xl text-center space-y-2">
+                        <AlertCircle className="w-8 h-8 text-red-500 mx-auto" />
+                        <h4 className="text-xs font-bold text-red-400">عذراً، لم نجد أي طلب مطابق للبيانات المدخلة!</h4>
+                        <p className="text-[11px] text-slate-405 leading-normal max-w-md mx-auto">
+                          يرجى التأكد من كتابة رمز الفاتورة بشكل صحيح (مثلاً <span className="font-mono text-yellow-400">DHB-ORD-123456</span>) أو كتابة رقم الجوال الصحيح الذي تم تأكيده مع المتجر.
+                        </p>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="space-y-6">
+                      <div className="text-xs font-black text-yellow-400 border-b border-blue-900/20 pb-2 flex items-center gap-1.5">
+                        <CheckCircle2 className="w-4 h-4 text-yellow-400" />
+                        <span>تم العثور على ({found.length}) طلبات مطابقة:</span>
+                      </div>
+
+                      {found.map((order) => {
+                        // Helper to estimate stepper status step
+                        const isAtLeastProcessing = ['قيد المعالجة', 'تم التجهيز للشحن', 'تم التسليم 🟢'].includes(order.status);
+                        const isAtLeastShipped = ['تم التجهيز للشحن', 'تم التسليم 🟢'].includes(order.status);
+                        const isDelivered = order.status === 'تم التسليم 🟢';
+                        const isCancelled = order.status === 'ملغي ❌';
+
+                        return (
+                          <div key={order.id} className="bg-[#060b18]/80 p-5 sm:p-6 rounded-2xl border border-blue-900/40 space-y-5 hover:border-yellow-500/20 transition-all">
+                            
+                            {/* Order mini-header */}
+                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-blue-900/20 pb-3">
+                              <div className="space-y-0.5">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="text-xs font-black text-yellow-400 bg-yellow-400/5 px-2.5 py-1 rounded-lg border border-yellow-500/10 font-mono">{order.id}</span>
+                                  <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
+                                    isCancelled ? 'bg-red-500/10 text-red-400 border border-red-500/20' :
+                                    isDelivered ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
+                                    isAtLeastShipped ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' : 'bg-amber-500/10 text-amber-550 border border-amber-500/20'
+                                  }`}>
+                                    {order.status}
+                                  </span>
+                                </div>
+                                <div className="text-[10px] text-slate-500">
+                                  تاريخ الحجز والوقت: {order.date}
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <span className="text-[10px] text-slate-400 block">الإجمالي الكلي المطلوب:</span>
+                                <span className="text-xs font-black text-yellow-455 font-mono">{formatPrice(order.totalPrice)}</span>
+                              </div>
+                            </div>
+
+                            {/* visual progress stepper progress bar */}
+                            {!isCancelled ? (
+                              <div className="space-y-4">
+                                <span className="block text-[10px] font-black text-slate-400 mb-2">مراحل وخطوات التجهيز الفوري:</span>
+                                
+                                {/* Stepper Layout */}
+                                <div className="grid grid-cols-4 gap-2 relative pt-2">
+                                  {/* Step 1: Received */}
+                                  <div className="text-center flex flex-col items-center gap-1.5 min-w-0">
+                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-extrabold border shadow-md transition-all ${
+                                      isAtLeastProcessing 
+                                        ? 'bg-amber-500 text-blue-950 border-amber-400 scale-105' 
+                                        : 'bg-slate-900 text-slate-550 border-blue-950'
+                                    }`}>
+                                      {isAtLeastProcessing ? '✓' : '1'}
+                                    </div>
+                                    <span className="text-[9px] font-bold text-white truncate w-full">استلام الطلب</span>
+                                    <span className="text-[8px] text-slate-500">تم تسجيله بنجاح</span>
+                                  </div>
+
+                                  {/* Step 2: Preparing */}
+                                  <div className="text-center flex flex-col items-center gap-1.5 min-w-0">
+                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-extrabold border shadow-md transition-all ${
+                                      order.status === 'قيد المعالجة'
+                                        ? 'bg-amber-400 text-blue-950 border-yellow-300 animate-pulse scale-110'
+                                        : isAtLeastShipped
+                                          ? 'bg-amber-500 text-blue-950 border-amber-400'
+                                          : 'bg-slate-900 text-slate-550 border-blue-950'
+                                    }`}>
+                                      {isAtLeastShipped ? '✓' : '2'}
+                                    </div>
+                                    <span className="text-[9px] font-bold text-white truncate w-full">تحت التجهيز ⏳</span>
+                                    <span className="text-[8px] text-slate-500">تجميع البضائع</span>
+                                  </div>
+
+                                  {/* Step 3: Packed / Ready */}
+                                  <div className="text-center flex flex-col items-center gap-1.5 min-w-0">
+                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-extrabold border shadow-md transition-all ${
+                                      order.status === 'تم التجهيز للشحن'
+                                        ? 'bg-blue-500 text-white border-blue-400 animate-pulse scale-110'
+                                        : isDelivered
+                                          ? 'bg-amber-500 text-blue-950 border-amber-400'
+                                          : 'bg-slate-900 text-slate-550 border-blue-950'
+                                    }`}>
+                                      {isDelivered ? '✓' : '3'}
+                                    </div>
+                                    <span className="text-[9px] font-bold text-white truncate w-full">للشحن والتسليم</span>
+                                    <span className="text-[8px] text-slate-500">جاهز للتوصيل 🚚</span>
+                                  </div>
+
+                                  {/* Step 4: Delivered */}
+                                  <div className="text-center flex flex-col items-center gap-1.5 min-w-0">
+                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-extrabold border shadow-md transition-all ${
+                                      isDelivered
+                                        ? 'bg-emerald-500 text-white border-emerald-400 scale-105'
+                                        : 'bg-slate-900 text-slate-550 border-blue-950'
+                                    }`}>
+                                      {isDelivered ? '✓' : '4'}
+                                    </div>
+                                    <span className="text-[9px] font-bold text-white truncate w-full">تم التسليم 🟢</span>
+                                    <span className="text-[8px] text-slate-500">بنجاح تام</span>
+                                  </div>
+                                </div>
+
+                                {/* Tracking Empathetic Reassuring Status Description Card */}
+                                <div className="bg-[#0b1329]/95 p-4 rounded-xl border border-blue-900/40 mt-3 space-y-1">
+                                  <p className="text-[11px] font-black text-yellow-400 flex items-center gap-1">
+                                    <span>🛡️ معلومات حالة الشحنة:</span>
+                                    {order.status === 'قيد المعالجة' && <span className="animate-pulse text-amber-400">(الطلب قيد المراجعة الفورية وتعبئة الصناديق والتجهيز)</span>}
+                                    {order.status === 'تم التجهيز للشحن' && <span className="animate-pulse text-blue-400">(تم الانتهاء من التجهيز بالكامل وهو جاهز للانطلاق مع مندوب التوصيل)</span>}
+                                    {order.status === 'تم التسليم 🟢' && <span className="text-emerald-400">(تم تسليم الطلب للعميل، شكراً لتعاملك الموثوق!)</span>}
+                                  </p>
+                                  <p className="text-[10px] text-slate-400 leading-normal font-sans">
+                                    {order.status === 'قيد المعالجة' && "الطلب الآن يخضع للتدقيق اليدوي لضمان صحة البيانات والخيارات المختارة من قبلك، وسيتم إكمال التجهيز للشحن فوراً. يرجى إبقاء هاتفك متاحاً للتواصل المباشر."}
+                                    {order.status === 'تم التجهيز للشحن' && "لقد قام موظفو المخزن بإنهاء تحضير وفرز جميع الأصناف المطلوبة وتعبئتها في العبوة المعتمدة للذيباني VIP، ويتم تحضير المندوب حالياً لبدء مسار الرحلة لتسليم شحنتك الموقرة."}
+                                    {order.status === 'تم التسليم 🟢' && "لقد تم إنهاء وتسليم هذه الصفقة بالكامل وتأكيد السداد المباشر لها بنجاح. إذا كان لديك أي استفسار آخر، لا تتردد بالتواصل مع دعم مستودع الذيباني."}
+                                  </p>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="bg-red-950/10 border border-red-900/20 p-4 rounded-xl text-right animate-pulse">
+                                <p className="text-red-400 text-xs font-black">❌ حالة هذا الطلب: ملغي ومستبعد</p>
+                                <p className="text-[10px] text-slate-400 mt-1 leading-normal font-sans">
+                                  تم إلغاء هذا الطلب من قبل الإدارة الفنية للمتجر. قد يكون ذلك بسبب عدم تأكيد البيانات أو تعديل الطلب بطلب جديد، يرجى التواصل مع الدعم للتفاصيل المباشرة.
+                                </p>
+                              </div>
+                            )}
+
+                            {/* Order Details Accordion summary layout */}
+                            <div className="bg-[#0b1329]/40 p-3 sm:p-4 rounded-xl space-y-2 border border-blue-900/10">
+                              <span className="block text-[10px] font-black text-slate-400 pb-1">ملخص البضائع والأصناف المحجوزة:</span>
+                              <div className="space-y-1.5" dir="rtl">
+                                {order.items?.map((item, i) => (
+                                  <div key={i} className="flex justify-between items-center text-[10px] text-slate-350 bg-[#060b18]/45 px-2.5 py-1.5 rounded-lg border border-blue-950">
+                                    <div className="flex flex-col text-right">
+                                      <span className="font-extrabold text-white">{item.product.name}</span>
+                                      {(item.selectedColor || item.selectedFlavor || (item.selectedSubOptions && item.selectedSubOptions.length > 0)) && (
+                                        <div className="flex flex-wrap gap-1 mt-0.5 text-[8px] font-bold">
+                                          {item.selectedSubOptions && item.selectedSubOptions.map((sub, sIdx) => (
+                                            <span key={sIdx} className="px-1 py-0.5 bg-rose-500/10 border border-rose-500/20 text-rose-350 rounded">
+                                              {sub.name} (x{sub.quantity})
+                                            </span>
+                                          ))}
+                                          {item.selectedColor && <span className="px-1 py-0.5 bg-yellow-500/10 border border-yellow-500/20 text-yellow-450 rounded">اللون: {item.selectedColor}</span>}
+                                          {item.selectedFlavor && <span className="px-1 py-0.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-450 rounded">النكهة: {item.selectedFlavor}</span>}
+                                        </div>
+                                      )}
+                                    </div>
+                                    <span className="font-mono flex-shrink-0">({item.quantity} حبة) x {formatPrice(item.product.price)}</span>
+                                  </div>
+                                ))}
+                              </div>
+                              
+                              <div className="pt-2 border-t border-blue-900/10 flex justify-between items-center text-[10px] text-slate-405">
+                                <span>العميل: <strong className="text-white">{order.customerName}</strong></span>
+                                <span>عنوان التوصيل: <strong className="text-white font-sans">{order.address}</strong></span>
+                              </div>
+                            </div>
+
+                            {/* Quick direct Whatsapp contact update request link button */}
+                            <div className="flex justify-end pt-1">
+                              <a
+                                href={`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(`السلام عليكم، أود الاستفسار عن حالة طلبي المعتمد رقم (${order.id}) مسجل باسم العميل المحترم (${order.customerName}).`)}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="px-4 py-2 bg-gradient-to-r from-emerald-600/10 to-emerald-500/15 text-emerald-400 hover:from-emerald-600/20 hover:to-emerald-500/25 text-[10px] font-black rounded-xl border border-emerald-500/25 transition-all flex items-center gap-1.5 cursor-pointer decoration-none"
+                              >
+                                <MessageSquare className="w-3.5 h-3.5" />
+                                <span>تواصل واتساب مباشر للاستفسار عن هذا الطلب 📲</span>
+                              </a>
+                            </div>
+
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
+              </div>
+
+            </div>
           </div>
         )}
 

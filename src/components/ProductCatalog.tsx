@@ -28,10 +28,15 @@ function ProductCard({
   const [selectedColor, setSelectedColor] = useState<string>('');
   const [selectedFlavor, setSelectedFlavor] = useState<string>('');
   const [selectedSubOptions, setSelectedSubOptions] = useState<{ [name: string]: number }>({});
+  const [activeImage, setActiveImage] = useState<string>('');
 
   const stockVal = product.stock !== undefined ? product.stock : 99;
   const isOutOfStock = stockVal === 0;
   const isLowStock = stockVal > 0 && stockVal <= 3;
+
+  React.useEffect(() => {
+    setActiveImage(product.image);
+  }, [product.image]);
 
   React.useEffect(() => {
     if (product.colors && product.colors.length > 0) {
@@ -57,7 +62,7 @@ function ProductCard({
       {/* Product Image Component */}
       <div className="relative aspect-video w-full bg-[#060b18] overflow-hidden border-b border-blue-900/25">
         <img
-          src={product.image}
+          src={activeImage || product.image}
           alt={product.name}
           className="w-full h-full object-cover group-hover:scale-105 group-hover:opacity-100 transition-all duration-500 opacity-90"
           onError={(e) => {
@@ -89,6 +94,27 @@ function ProductCard({
           </div>
         )}
       </div>
+
+      {/* Optional Gallery Slider under main photo */}
+      {product.images && product.images.filter(Boolean).length > 0 && (
+        <div className="flex items-center gap-2 overflow-x-auto p-2.5 bg-[#060b18]/60 border-b border-blue-900/15 scrollbar-thin scrollbar-thumb-blue-900/30" dir="rtl">
+          {[product.image, ...product.images.filter(Boolean)].map((imgUrl, idx) => (
+            <button
+              type="button"
+              key={idx}
+              onClick={(e) => {
+                e.stopPropagation();
+                setActiveImage(imgUrl);
+              }}
+              className={`w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 transition-all border cursor-pointer ${
+                (activeImage || product.image) === imgUrl ? 'border-yellow-450 scale-105 ring-2 ring-yellow-450/20' : 'border-blue-900/35 opacity-70 hover:opacity-100'
+              }`}
+            >
+              <img src={imgUrl} className="w-full h-full object-cover" alt="" referrerPolicy="no-referrer" />
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Card Details */}
       <div className="p-5 flex-1 flex flex-col justify-between space-y-4">

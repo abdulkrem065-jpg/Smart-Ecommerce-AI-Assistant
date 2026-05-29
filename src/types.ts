@@ -11,6 +11,7 @@ export interface Product {
   colors?: string[];
   flavors?: string[];
   subOptions?: string[];
+  images?: string[];
 }
 
 export interface StoreSettings {

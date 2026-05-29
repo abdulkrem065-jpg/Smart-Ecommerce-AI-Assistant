@@ -236,6 +236,7 @@ export default function AdminDashboard({
   const [productStock, setProductStock] = useState<number>(99);
   const [productImage, setProductImage] = useState('');
   const [productCode, setProductCode] = useState('');
+  const [productImages, setProductImages] = useState(''); // Comma-separated or multi-uploaded raw image urls
 
   // Category CRUD inputs state
   const [newCatArabic, setNewCatArabic] = useState('');
@@ -294,6 +295,50 @@ export default function AdminDashboard({
         }
       };
       reader.readAsDataURL(file);
+    }
+  };
+
+  const updateGalleryState = (newUrls: string[]) => {
+    if (newUrls.length > 0) {
+      setProductImages(prev => {
+        const existing = prev.trim() ? prev.split(',').map(s => s.trim()).filter(Boolean) : [];
+        const combined = [...existing, ...newUrls];
+        return combined.join(', ');
+      });
+      triggerNotification(`تم رفع وإضافة (${newUrls.length}) صور إضافية للمعرض بنجاح 📸`);
+    }
+  };
+
+  const handleGalleryImagesUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      const fileList = Array.from(files);
+      let loadedCount = 0;
+      const uploadedUrls: string[] = [];
+
+      fileList.forEach((file: any) => {
+        if (file.size > 1.2 * 1024 * 1024) {
+          triggerNotification(`الملف ${file.name} كبير جداً! تم تجاوزه حماية للذاكرة.`, 'info');
+          loadedCount++;
+          if (loadedCount === fileList.length) {
+            updateGalleryState(uploadedUrls);
+          }
+          return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const base64 = event.target?.result as string;
+          if (base64) {
+            uploadedUrls.push(base64);
+          }
+          loadedCount++;
+          if (loadedCount === fileList.length) {
+            updateGalleryState(uploadedUrls);
+          }
+        };
+        reader.readAsDataURL(file);
+      });
     }
   };
 
@@ -400,7 +445,8 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
         code: productCode.trim() || `PROD-${Date.now().toString().slice(-4)}`,
         currency: productCurrency,
         colors: productColors ? productColors.split(',').map(s => s.trim()).filter(Boolean) : [],
-        flavors: productFlavors ? productFlavors.split(',').map(s => s.trim()).filter(Boolean) : []
+        flavors: productFlavors ? productFlavors.split(',').map(s => s.trim()).filter(Boolean) : [],
+        images: productImages ? productImages.split(',').map(s => s.trim()).filter(Boolean) : []
       });
       triggerNotification('تم تحديث الصنف ومزامنته مع المخازن ✨');
       setEditingId(null);
@@ -415,7 +461,8 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
         code: productCode.trim() || `PROD-${Date.now().toString().slice(-4)}`,
         currency: productCurrency,
         colors: productColors ? productColors.split(',').map(s => s.trim()).filter(Boolean) : [],
-        flavors: productFlavors ? productFlavors.split(',').map(s => s.trim()).filter(Boolean) : []
+        flavors: productFlavors ? productFlavors.split(',').map(s => s.trim()).filter(Boolean) : [],
+        images: productImages ? productImages.split(',').map(s => s.trim()).filter(Boolean) : []
       });
       triggerNotification('تم تفويض الصنف بنجاح وإضافته للمخزن 🌱');
     }
@@ -432,6 +479,7 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
     setProductStock(99);
     setProductImage('');
     setProductCode('');
+    setProductImages('');
   };
 
   const startEditProduct = (p: Product) => {
@@ -447,6 +495,7 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
     setProductStock(p.stock !== undefined ? p.stock : 99);
     setProductImage(p.image);
     setProductCode(p.code || '');
+    setProductImages(p.images ? p.images.join(', ') : '');
     setActiveTab('products');
     triggerNotification('تم نسخ بيانات الصنف للتعديل الفوري', 'info');
   };
@@ -949,6 +998,71 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
                 </div>
               )}
 
+              {/* Product Gallery Options: Optional CSV or multi file uploads */}
+              <div className="space-y-2 pt-2 bg-blue-950/20 p-3 rounded-2xl border border-blue-900/10">
+                <label className="block text-[11px] font-bold text-slate-400">معرض الصور الإضافي - Gallery (اختياري)</label>
+                <input
+                  type="text"
+                  placeholder="روابط الصور مفصولة بفاصلة , أو ارفع صوراً وسنقوم بتضمينها بالأسفل"
+                  value={productImages}
+                  onChange={(e) => setProductImages(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-[#060b18] border border-blue-900/60 rounded-xl text-[10px] text-white focus:border-yellow-500/50 outline-none transition-colors font-mono text-left placeholder:text-right placeholder:font-sans"
+                />
+                <div className="relative border border-dashed border-blue-905/60 rounded-xl p-3 flex flex-col items-center justify-center hover:border-yellow-500/40 transition-colors h-16 cursor-pointer">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handleGalleryImagesUpload}
+                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                  />
+                  <span className="text-[10px] text-slate-400 font-bold flex items-center gap-1">
+                    <UploadCloud className="w-3.5 h-3.5 text-slate-500" />
+                    <span>ارفع ملف أو عدة ملفات لضمها للمعرض مباشرة 📸</span>
+                  </span>
+                </div>
+
+                {productImages.trim() ? (
+                  <div className="space-y-1.5 pt-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[9px] text-slate-450 font-bold font-sans">معاينة صور المعرض المضافة ({productImages.split(',').filter(Boolean).length}):</span>
+                      <button
+                        type="button"
+                        onClick={() => setProductImages('')}
+                        className="text-[9px] text-red-400 hover:underline cursor-pointer font-sans"
+                      >
+                        مسح كافة المعرض
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap gap-2 max-h-24 overflow-y-auto p-1 bg-[#060b18] rounded-xl border border-blue-900/25">
+                      {productImages.split(',').map((imgUrl, idx) => {
+                        const trimmed = imgUrl.trim();
+                        if (!trimmed) return null;
+                        return (
+                          <div key={idx} className="relative group w-10 h-10 rounded border border-blue-900/40 overflow-hidden bg-slate-950 flex-shrink-0">
+                            <img src={trimmed} className="w-full h-full object-cover" alt="" referrerPolicy="no-referrer" />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const activeList = productImages.split(',').map(s => s.trim()).filter(Boolean);
+                                activeList.splice(idx, 1);
+                                setProductImages(activeList.join(', '));
+                              }}
+                              className="absolute inset-0 bg-red-955/90 text-white font-bold text-[9px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer font-sans"
+                              title="حذف هذه الصورة"
+                            >
+                              حذف
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-[9px] text-slate-500 font-sans">لا توجد صور معرض إضافية مضافة (سيتم الاكتفاء بالصورة الأساسية للكتالوج).</p>
+                )}
+              </div>
+
               <div className="pt-2 flex gap-2">
                 <button
                   type="submit"
@@ -967,6 +1081,7 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
                       setProductStock(99);
                       setProductImage('');
                       setProductCode('');
+                      setProductImages('');
                     }}
                     className="px-3 py-2.5 bg-red-950/40 border border-red-900/30 text-red-450 rounded-xl text-xs font-bold cursor-pointer"
                   >
@@ -1223,6 +1338,56 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
                             className="px-2 py-0.5 rounded hover:bg-red-605/10 text-red-400 font-bold"
                           >
                             إلغاء ❌
+                          </button>
+                        </div>
+
+                        {/* Quick WhatsApp Notification controls */}
+                        <div className="flex items-center gap-1 bg-[#0b1329] border border-blue-900/45 rounded-xl p-1 text-[10px]" dir="rtl">
+                          <span className="px-1.5 text-slate-405 font-bold">📲 إشعار الواتساب:</span>
+                          <button
+                            onClick={() => {
+                              let cleanPhone = order.phone.replace(/[^\d]/g, '');
+                              if (cleanPhone.startsWith('7') && cleanPhone.length === 9) cleanPhone = '967' + cleanPhone;
+                              else if (cleanPhone.startsWith('05') && cleanPhone.length === 10) cleanPhone = '966' + cleanPhone.slice(1);
+                              else if (cleanPhone.startsWith('5') && cleanPhone.length === 9) cleanPhone = '966' + cleanPhone;
+                              
+                              const msg = `*📥 تحديث من متجر ومستودع الذيباني VIP* 🐺💎\n\nأهلاً بك عزيزنا العميل المحترم *${order.customerName}*،\nنسعد بإبلاغك بأن طلبك رقم *${order.id}* جاري تجهيزه وتحضيره الآن في المستودع بكل حب وعناية ⏳📦\n\nوسيقوم موظف التوصيل لدينا بالتواصل معك فور انطلاقه للتسليم.\n\nنشكرك على ثقتك الكبيرة بنا! 🌸✨`;
+                              window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, '_blank');
+                            }}
+                            className="px-2 py-0.5 rounded bg-amber-500/10 text-amber-500 font-bold hover:bg-amber-500/20 cursor-pointer"
+                            title="إرسال إشعار قيد التجهيز عبر الواتساب"
+                          >
+                            تجهيز ⏳
+                          </button>
+                          <button
+                            onClick={() => {
+                              let cleanPhone = order.phone.replace(/[^\d]/g, '');
+                              if (cleanPhone.startsWith('7') && cleanPhone.length === 9) cleanPhone = '967' + cleanPhone;
+                              else if (cleanPhone.startsWith('05') && cleanPhone.length === 10) cleanPhone = '966' + cleanPhone.slice(1);
+                              else if (cleanPhone.startsWith('5') && cleanPhone.length === 9) cleanPhone = '966' + cleanPhone;
+                              
+                              const msg = `*📥 تحديث من متجر ومستودع الذيباني VIP* 🐺💎\n\nعزيزنا العميل المحترم *${order.customerName}*،\n\nيسرنا إخطارك بأن طلبك رقم *${order.id}* قد تم تجهيزه بالكامل وتغليفه 🎁 وهو الآن في طريقه إليك مع مندوب الشحن والتوصيل 🚚💨\n\nالرجاء إبقاء هاتفك متاحاً لتسهيل عملية الاستلام والسداد المالي.\n\nطاب يومك بكل خير! 🌟`;
+                              window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, '_blank');
+                            }}
+                            className="px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 font-bold hover:bg-blue-500/20 cursor-pointer"
+                            title="إرسال إشعار للشحن عبر الواتساب"
+                          >
+                            للشحن 🚚
+                          </button>
+                          <button
+                            onClick={() => {
+                              let cleanPhone = order.phone.replace(/[^\d]/g, '');
+                              if (cleanPhone.startsWith('7') && cleanPhone.length === 9) cleanPhone = '967' + cleanPhone;
+                              else if (cleanPhone.startsWith('05') && cleanPhone.length === 10) cleanPhone = '966' + cleanPhone.slice(1);
+                              else if (cleanPhone.startsWith('5') && cleanPhone.length === 9) cleanPhone = '966' + cleanPhone;
+                              
+                              const msg = `*📥 تحديث من متجر ومستودع الذيباني VIP* 🐺💎\n\nعزيزنا العميل المحترم *${order.customerName}*،\n\nالحمد لله، تم تسليم طلبك رقم *${order.id}* بنجاح تام 🟢\n\nسعدنا جداً بخدمتك ونتمنى أن تكون تجربتك معنا رائعة ومميزة. ننتظر تعاملكم القادم بإذن الله! 🥰🌹`;
+                              window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, '_blank');
+                            }}
+                            className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-bold hover:bg-emerald-500/20 cursor-pointer"
+                            title="إرسال إشعار تم التسليم عبر الواتساب"
+                          >
+                            تسليم 🟢
                           </button>
                         </div>
 
