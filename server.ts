@@ -33,10 +33,82 @@ async function startServer() {
 
   app.use(express.json());
 
-  // API Route: AI Customer Support Chat
+  // Helper to dynamically compile guidelines based on active Niche for AI System Instructions
+  function getSystemInstructionForNiche(niche: string, productsContext: string) {
+    const baseHeader = `أنت المساعد الذكي التفاعلي لـ 'منصة ومنشأة الذيباني VIP السحابية المتكاملة'. مهمتك الأولى والأهم هي مساعدة المستخدمين والإجابة على استفساراتهم بذكاء وصبر، بلغة عربية فصحى أو لهجة محلية مبسطة وودية للغاية ومحترمة.
+إليك قائمة بجميع المنتجات/الخدمات الحالية في لوحة التحكم لمساعدتك على الإجابة بدقة عن الأسعار والمواصفات:
+${productsContext}
+
+ملاحظة هامة: يجب أن تتبع قالب النشاط المختار تماماً:`;
+
+    switch (niche) {
+      case 'pharmacy':
+        return `${baseHeader}
+- قالب النشاط الحالي: صيدلية رعاية منزلية واستشارة صحية.
+- دورك: خبير ومستشار طبي وتجميلي وتوجيه تسويقي للأدوية والمكملات.
+- إرشادات تفصيلية:
+  1. أجب عن التساؤلات الطبية الشائعة ومكونات المكملات الغذائية بوعي ورعاية (مع التوصية الصريحة باستشارة الطبيب العام دائماً للأمان التام).
+  2. شجع المستخدم على إضافة الفيتامينات أو المكملات أو أدوية الرعاية المتوفرة بكتلوجنا وسهّل الشحن الفوري لباب المنزل.
+  3. اقترح روتينات صحية وعادات غذائية وقائية لتعزيز المناعة ونمط الحياة اليومي.`;
+
+      case 'school':
+        return `${baseHeader}
+- قالب النشاط الحالي: أكاديمية تعليمية وتربوية ومنصة تقوية مدرسية.
+- دورك: مستشار ومدرس أكاديمي ذكي وموجه لتوليد المراجعات والتحديات.
+- إرشادات تفصيلية:
+  1. يمكنك وضع خطط مراجعة دراسية وجداول تحضير للمواد المختلفة (الرياضيات، الفيزياء، الكيمياء، الإنكليزي) لمساعدة الطلاب.
+  2. إذا طلب الطالب اختبارًا أو تحدياً، ولد له فوراً سؤالين أو ثلاثة من نوع الخيارات المتعددة (MCQ)، واطلب منه اختيار الإجابة، ثم صحح له بشكل مشجع واشرح له العلة.
+  3. قدم طرق تبسيط للمصطلحات الرياضية والفيزيائية المعقدة برسومات تخيلية ونبرة محفزة.`;
+
+      case 'tailor':
+        return `${baseHeader}
+- قالب النشاط الحالي: دار خياطة وتصميم أزياء رجالية وأقمشة فاخرة.
+- دورك: خبير تصميم ومقاسات ومساعد استنتاج الموديلات الأنيقة للعملاء.
+- إرشادات تفصيلية:
+  1. بادر بطرح أسئلة المقاسات بالتوالي على العميل لتخزينها (طول الثوب، عرض الكتف، طول الأكمام، الرقبة، قياس الصدر بالتيسير).
+  2. اقترح موديلات وتفاصيل معاصرة تناسب شكل وهيئة العميل (تفصيل رسمي، قلاب أزرار مخفية، جيوب كويتية دقيقة، حاشية ملكية).
+  3. رتب مقاسات العميل المكتوبة في جدول منسق واطلب منه الحفظ لتسليمها للخياط المباشر بدار الخياطة.`;
+
+      case 'legal':
+        return `${baseHeader}
+- قالب النشاط الحالي: مكتب المحامي والذيباني للاستشارات القانونية والشرعية ومراجعة الشركات.
+- دورك: خبير ومساعد قانوني وإداري يشرح الأنظمة والتراخيص ويساعد في صياغة البنود.
+- إرشادات تفصيلية:
+  1. اشرح للمستثمرين وأصحاب المشاريع خطوات المعاملات الحكومية بوضوح (رخص البلدية، رخصة الاستثمار الأجنبي، توثيق الشراكة الرقمي بوزارة التجارة).
+  2. ساعد في كتابة مسودة بنود قانونية مبسطة (مثال: بند التزامات الدفع، بند التحكيم وفض النزاعات، بنود الشروط والخصوصية) بشكل متماسك ورصين.
+  3. حافظ على رصانة مهنية ممتازة وتفادَ الفتاوى الدينية المباشرة، مع التوجيه للمرجعية النظامية للبلاد.`;
+
+      case 'consulting':
+        return `${baseHeader}
+- قالب النشاط الحالي: مجموعة الذيباني للاستشارات وإدارة وتطوير المشاريع والأعمال.
+- دورك: خبير إداري ومخطط إستراتيجي يبحث في رفع المبيعات، تقليل التكاليف التشغيلية، ومساعدة المدراء.
+- إرشادات تفصيلية:
+  1. اقترح لوحات عمل (Frameworks) ونماذج دراسات جدوى وخطط مبيعات متقدمة لرواد الأعمال والمشاريع الناشئة.
+  2. قدم حلول فاعلة لتقليص الهدر المالي والمصاريف غير الضرورية (رقع فجوات المصروفات، دمج إدارات، أتمتة الأنظمة).
+  3. ساعد المدراء في اقتراح مؤشرات قياس أداء (KPIs) لتقييم المبيعات وإنتاجية الموظفين.`;
+
+      case 'supermarket':
+        return `${baseHeader}
+- قالب النشاط الحالي: سوبرماركت وتموين الأسرة والمنزل الفوري.
+- دورك: مساعد منزلي ذكي يقترح أفكار مشتريات موفرة وطبخات لذيذة.
+- إرشادات تفصيلية:
+  1. اقترح قوائم تموينية متوازنة واقتصادية للأسر حسب الميزانية وعدد الأفراد.
+  2. ولد وصفات طبخ عربية أو يمنية أو سعودية شهيرة (كبسة، حنيذ، مقلقل، فحسة) تتطابق ومحتويات عربتنا واقترح إضافة النواقص بلمسة واحدة.`;
+
+      default: // game/toyshop
+        return `${baseHeader}
+- قالب النشاط الحالي: متجر شحن ألعاب وبطاقات ترفيه رقمية فوري.
+- دورك: مساعد دعم فوري للألعاب والتموين الفاخر.
+- إرشادات تفصيلية:
+  1. حث العملاء بلطف على كتابة معرفات كروت الشحن (الأيدي ID) لتسريع الشحن المباشر آلياً.
+  2. أجب عن أي سؤال في البرمجة أو الحياة أو العلوم بدقة وذكاء، مع نبرة راقية VIP ترحيبية.`;
+    }
+  }
+
+  // API Route: Advanced Multi-Niche AI Assistant Chat
   app.post("/api/chat", async (req, res) => {
     try {
-      const { message, chatHistory, products } = req.body;
+      const { message, chatHistory, products, niche = "game" } = req.body;
 
       if (!message) {
         return res.status(400).json({ error: "Message is required" });
@@ -44,48 +116,35 @@ async function startServer() {
 
       const client = getGeminiClient();
       if (!client) {
-        // Fallback simulated model response when API key is missing
+        // High-Quality Simulated Niche Advisor Fallback when API key is missing
         const lowerMsg = message.toLowerCase();
-        let fallbackText = "مرحباً بك! أنا المساعد الذكي للمتجر. (ملاحظة: مفتاح API غير متوفر حالياً، أعمل بوضع المحاكاة). ";
+        let fallbackText = `مرحباً بك في منصة الذيباني الاستشارية VIP! (ملاحظة: مفتاح API غير متوفر حالياً، نعمل بالوضع الاستشاري الذكي المحاكي لقالب النخبة المختار: "${niche}"). `;
         
-        if (products && products.length > 0) {
-          const matched = products.find((p: any) => 
-            p.name.toLowerCase().includes(lowerMsg) || 
-            p.description.toLowerCase().includes(lowerMsg) ||
-            p.category.toLowerCase().includes(lowerMsg)
-          );
-          if (matched) {
-            fallbackText += `نعم، لدينا المنتج "${matched.name}" في قسم ${matched.category}. سعره هو ${matched.price} ريال سعودي ومتوفر في المخزون (${matched.stock} قطع). هل تريد مساعدتك في شرائه؟`;
-          } else {
-            fallbackText += `لقد بحثت في متجرنا عن استفسارك، لدينا منتجات رائعة في أقسام مثل ${Array.from(new Set(products.map((p: any) => p.category))).join(', ')}. كيف يمكنني مساعدتك اليوم؟`;
-          }
+        if (niche === 'pharmacy') {
+          fallbackText += `بصفتي مستشارك الدوائي، أود تذكيرك بضرورة شرب كميات كافية من المياه مع المكملات فيتامين سي. هل تود أن أرشح لك أفضل الأجهزة الطبية المتوفرة بمستودعنا والجرعة المقترحة؟`;
+        } else if (niche === 'school') {
+          fallbackText += `بصفتي موجهك الأكاديمي، لقد قمت بتجهيز كويز سريع لك:\nس1: ما هو ناتج ضرب 12 في 12؟\nأ) 144\nب) 124\nج) 148\n\nيرجى كتابة رمز الإجابة لأقوم بتصحيحها وفحص درجاتك ومعدلك الدراسي فوراً!`;
+        } else if (niche === 'tailor') {
+          fallbackText += `أهلاً بك بدار الأزياء الراقية. لتفصيل ثوبك الياباني اللوكس يرجى تزويدي بالآتي:\n- الطول الكلي:\n- الكتف:\n- طول الكم والرقبة:\nوسأقوم بجدولتها لك بالملخص لإحالتها للخياط المباشر!`;
+        } else if (niche === 'legal') {
+          fallbackText += `طاب يومك رائد الأعمال. لتأسيس شركتك واستخراج رخص البلدية أو الاستثمار الأجنبي، سأرشدك للخطوات الثلاث الذهبية: 1. توقيع عقد شراكة تجاري رقمي بوزارة التجارة. 2. ربط رخصة الاستثمار والبلدية. 3. سداد الرسوم. هل تريد مني صياغة بند سرية المعلومات أو بند التحكيم وصياغة مسودة لحماية شراكتك؟`;
+        } else if (niche === 'consulting') {
+          fallbackText += `بصفتي خبيراً إدارياً، أنصحك لتقليل التكاليف التشغيلية باعتماد "الأتمتة والرقمنة السحابية للأنظمة" والاعتماد على باقات الدفع بالاستخدام. دراسات الجدوى تدل على فرصة نمو تبلغ 25% بمبيعات الويب. هل ترغب بصياغة مؤشرات أداء (KPIs) لمندوبينك؟`;
         } else {
-          fallbackText += "متجرنا فارغ حالياً، يرجى إضافة بعض المنتجات من لوحة التحكم لتجربة ميزاتنا الكاملة!";
+          fallbackText += `لدينا باقة ممتازة من المنتجات والحلول لخدمتك الفورية. لمعرفتك، الأسعار ومستويات المخزون تحت المراجعة الفورية المباشرة. كيف يمكنني مساندتك اليوم في هذا القسم؟`;
         }
         return res.json({ text: fallbackText });
       }
 
-      // Compile current product catalog summarized for Gemini context
+      // Format products summary in memory
       const productsContext = products && products.length > 0 
-        ? products.map((p: any) => `- الاسم: ${p.name}\n  الوصف: ${p.description || 'متوفر بجودة ممتازة'}\n  القسم: ${p.category || 'عام'}\n  السعر: ${p.price || 0} ريال\n  المخزون المتوفر: ${p.stock ?? 'متوفر في المستودع'} قطع`).join("\n")
+        ? products.map((p: any) => `- الاسم: ${p.name}\n  الوصف: ${p.description || 'متوفر بجودة ممتازة'}\n  القسم: ${p.category || 'عام'}\n  السعر بالريال السعودي: ${p.price_sar ?? p.price ?? 0} ر.س\n  السعر بالريال اليمني: ${p.price_yer ?? (Math.round((p.price_sar ?? p.price ?? 0) * 400))} ر.ي\n  المخزون المتوفر: ${p.stock ?? 'متوفر في المستودع'} قطع`).join("\n")
         : "لا توجد منتجات مضافة في المتجر حالياً.";
 
-      const systemInstruction = 
-        `أنت المساعد المساعد الذكي التفاعلي لـ 'متجر ومستودع الذيباني VIP'. مهمتك الأولى والأهم هي مساعدة العملاء والإجابة على جميع استفساراتهم بذكاء وصبر، بلغة عربية فصحى مبسطة وودية للغاية ومحترمة.
+      const systemInstruction = getSystemInstructionForNiche(niche, productsContext);
 
-إليك قائمة بجميع المنتجات المتوفرة حالياً في متجرنا لمساعدتك على الإجابة بدقة تامة عن الأسعار والتوفر والمواصفات:
-${productsContext}
-
-ملاحظات توجيهية لخدمة العملاء:
-1. أنت تمثل متجر الذيباني الفاخر ببهاراته وإلكترونياته وخدماته الرقمية وشحنه الفوري.
-2. إذا سأل العميل عن منتج متوفر، شجعه بلطف على إضافته للسلة وإرسال الطلب عبر واتساب.
-3. إذا سأل عن منتج غير موجود، اعتذر بلطف وأخبره أنه غير متوفر حالياً، واقترح عليه بديلاً مشابهاً من الأجناس المتوفرة لدينا حالياً.
-4. يمكنك الإجابة بذكاء عميق وتفصيل واسع عن أي سؤال آخر يجول بخاطر العميل حول الحياة، العلم، الجغرافيا، الطبخ، التاريخ، البرمجة، أو أي مجال في العالم، وبأحسن طريقة ممكنة وكأنك موسوعة ذكية شاملة.
-5. حافظ على نبرة مبهجة وراقية كعلامة VIP، واجعل العميل يشعر بالترحيب دائماً. استخدم تعابير ودودة وتجنب الجمود.`;
-
-      // Structure contents array with previous chat history
+      // Map chat history conforming to Gemini API standard
       const formattedContents: any[] = [];
-      
       if (chatHistory && Array.isArray(chatHistory)) {
         for (const turn of chatHistory) {
           formattedContents.push({
@@ -94,14 +153,8 @@ ${productsContext}
           });
         }
       }
-      
-      // Append current user turn
-      formattedContents.push({
-        role: 'user',
-        parts: [{ text: message }]
-      });
+      formattedContents.push({ role: 'user', parts: [{ text: message }] });
 
-      // Call Google GenAI SDK
       const response = await client.models.generateContent({
         model: "gemini-3.5-flash",
         contents: formattedContents,
@@ -119,6 +172,293 @@ ${productsContext}
       return res.status(500).json({ error: "فشل الاتصال بالمساعد الذكي: " + error.message });
     }
   });
+
+  // API Route: AI Product Smart Ad Generation ("توليد إعلان ذكي")
+  app.post("/api/gemini/marketing", async (req, res) => {
+    try {
+      const { productName, productDescription, productCategory, priceSar, priceYer } = req.body;
+
+      if (!productName) {
+        return res.status(400).json({ error: "Product Name is required" });
+      }
+
+      const client = getGeminiClient();
+      if (!client) {
+        // High quality fallback simulated smart ad copy
+        const fallbackAd = `📣 *إعلان مبيعات VIP لمنتجنا الرائد: ${productName}* 📣
+
+💡 ${productDescription || "جودة ممتازة وسعر لا يهزم مع باقات التوصيل الآمن الدقيق!"}
+🏷️ *القسم الفخم:* ${productCategory || "عام"}
+🇸🇦 *السعر بالسعودي:* ${priceSar || 'تواصل معنا'} ر.س
+🇾🇪 *السعر باليمني:* ${priceYer || 'تواصل معنا'} ر.ي
+
+✨ نوفر لكم أفضل تجربة تسوق سحابية واستشارة ذكية فورية مع دقة التجهيز. اطلب الآن مباشرة عبر كابينة الواتساب وسنقوم بشحنه وتجهيزه فوراً! 📞🚀`;
+        return res.json({ adText: fallbackAd });
+      }
+
+      const prompt = `اكتب إعلاناً تسويقياً جذاباً ومبتكراً ومثيراً للاهتمام لمنتج باسم "${productName}" باللغة العربية.
+تفاصيل المنتج:
+- اسم الصنف: ${productName}
+- الوصف: ${productDescription || "نخب VIP عالي الاستحقاق والضمان"}
+- القسم: ${productCategory || "عام"}
+- السعر بالريال السعودي: ${priceSar || "تواصل معنا"} ر.س
+- السعر بالريال اليمني: ${priceYer || "تواصل معنا"} ر.ي
+
+يرجى تزيين الإعلان بإيموجيهات تسويقية متناسقة، ودعوة صريحة للعميل للنقر على زر الشراء والإرسال عبر واتساب للتوصيل الفوري. حافظ على نبرة راقية ومقنعة للغاية تزيد الرغبة وتقلل مبررات التردد.`;
+
+      const response = await client.models.generateContent({
+        model: "gemini-3.5-flash",
+        contents: prompt,
+        config: {
+          systemInstruction: "أنت خبير صياغة الإعلانات التسويقية ووكيل تسويق رقمي فذ ومحترف في كتابة المنشورات الجذابة لبيع السلع والخدمات السحابية والاستشارية.",
+          temperature: 0.8
+        }
+      });
+
+      return res.json({ adText: response.text || "فشل توليد الإعلان الاستراتيجي حالياً." });
+
+    } catch (err: any) {
+      console.error("Marketing generation error:", err);
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  // API Route: AI Bargaining System Counter-Offer calculator ("محرك المكاسرة")
+  app.post("/api/gemini/bargain", async (req, res) => {
+    try {
+      const { productName, originalPrice, proposedPrice, rentMargin = 15 } = req.body;
+
+      if (!productName || !originalPrice || !proposedPrice) {
+        return res.status(400).json({ error: "Missing required bargain parameters" });
+      }
+
+      const pPrice = parseFloat(proposedPrice);
+      const oPrice = parseFloat(originalPrice);
+
+      if (isNaN(pPrice) || isNaN(oPrice) || oPrice <= 0) {
+        return res.status(400).json({ error: "Invalid numbers for pricing" });
+      }
+
+      // Check the discount margin
+      const discountPercentage = ((oPrice - pPrice) / oPrice) * 100;
+      const marginMax = parseFloat(rentMargin) || 15; // default max 15% discount allowed for bargaining
+
+      let isSuccess = false;
+      let finalPrice = oPrice;
+      let message = "";
+
+      if (discountPercentage <= 0) {
+        isSuccess = true;
+        finalPrice = pPrice; // If proposed is higher, accept it!
+        message = `أهلاً بك يا بطل! لقد اقترحت سعراً كريماً (${pPrice})، تم قبول عرضك بفخر وفرحة وصدر رحب! سأضيف الكود الخاص بالخصم لطلبك فوراً! 🎁`;
+      } else if (discountPercentage <= marginMax) {
+        isSuccess = true;
+        finalPrice = pPrice;
+        message = `يا لك من مفاوض ماهر وحكيم! السعر ${pPrice} يقع ضمن هوامش الأمان المقبولة للدار بخصم يبلغ ${discountPercentage.toFixed(0)}%. تمت الموافقة عليه فوراً! يمكنك إرسال الطلب بهذا السعر الحصري لك! 🎉🤝`;
+      } else {
+        // AI Counter offering
+        isSuccess = false;
+        // propose a middle counter offer (e.g., counter at exactly the allowed margin limit)
+        const allowedDiscountValue = oPrice * (marginMax / 100);
+        const counterPropose = Math.round(oPrice - allowedDiscountValue);
+        finalPrice = counterPropose;
+        message = `عرضك (${pPrice}) كريم ولطيف، لكن الخصم كبير جداً ويقع تحت سقف التكلفة لدارنا (أكثر من ${marginMax}%). ما رأيك أن نلتقي بالمنتصف عند سعر (${counterPropose})؟ هذا أفضل سعر خاص يمكنني منحه لك كتقديراً لوفائك! هل يناسبك؟ 🤝🌟`;
+      }
+
+      return res.json({
+        success: isSuccess,
+        finalPrice,
+        message,
+        proposedPrice: pPrice,
+        originalPrice: oPrice,
+        discountPercentage
+      });
+
+    } catch (err: any) {
+      console.error("Bargain system error:", err);
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  // API Route: AI Voice Commerce & Local Slang text parsing ("الطلب الصوتي الذكي")
+  app.post("/api/gemini/voice-order", async (req, res) => {
+    try {
+      const { spokenText, products } = req.body;
+
+      if (!spokenText) {
+        return res.status(400).json({ error: "Voice transcription/text is required" });
+      }
+
+      const client = getGeminiClient();
+      const productListSummary = products && products.length > 0 
+        ? products.map((p: any) => `- ID: [${p.id}] الاسم: [${p.name}] القسم: [${p.category}]`).join("\n")
+        : "لا توجد منتجات.";
+
+      if (!client) {
+        // Simulated responsive fallback matching for spoken Arabic slang
+        const lowerSpoken = spokenText.toLowerCase();
+        let matchedId = '';
+        let matchedName = '';
+        let matchedQty = 1;
+
+        if (products && products.length > 0) {
+          const match = products.find((p: any) => 
+            lowerSpoken.includes(p.name.toLowerCase()) || 
+            (p.code && lowerSpoken.includes(p.code.toLowerCase()))
+          );
+          if (match) {
+            matchedId = match.id;
+            matchedName = match.name;
+          }
+        }
+
+        // Try to capture quantity
+        const numbersMatch = spokenText.match(/(\d+)/);
+        if (numbersMatch) {
+          matchedQty = parseInt(numbersMatch[1]) || 1;
+        } else if (spokenText.includes("ثلاثة") || spokenText.includes("ثلاث")) {
+          matchedQty = 3;
+        } else if (spokenText.includes("اثنين") || spokenText.includes("حبتين")) {
+          matchedQty = 2;
+        }
+
+        return res.json({
+          success: true,
+          parsedText: spokenText,
+          matchedId,
+          matchedName,
+          quantity: matchedQty,
+          comment: matchedId 
+            ? `لقد سمعت استفسارك الصوتي بذكاء وفهمت من لهجتك أنك تريد إضافة (${matchedQty} حبة) من المنتج "${matchedName}" إلى عربتك، تم تفعيل طلبك بنجاح!`
+            : `لقد سمعت طلبك الصوتي التلقائي: "${spokenText}"، لكن لم أعثر على تطابق تام مع أسماء منتجاتنا المسجلة في السلة حالياً. هل يمكنك تنقيح الاسم أو ذكره بوضوح؟`
+        });
+      }
+
+      const systemInstruction = `أنت العقل المدبر لنظام التجارة الصوتية (Voice Commerce Engine). مهمتك هي تحليل الكلمات المنطوقة المسجلة باللهجة المحلية (العربية، اليمنية، السعودية) واستخلاص المنتج والكمية المطلوبة وإضافتها لعربة المستخدم.
+إليك قائمة المنتجات في المتجر:
+${productListSummary}
+
+يرجى الرد بصيغة JSON نظيفة ومباشرة تحتوي القاموس التالي:
+{
+  "matchedId": "معرف المنتج المطابق تماماً أو المرجح بقوة من القائمة، اترك فارغًا لو لم يُذكر شيء منه",
+  "matchedName": "اسم المنتج المطابق",
+  "quantity": "العدد/الكمية المستخرجة كرقم صحيح، افتراضياً 1",
+  "comment": "رسالة عربية مبسطة وودودة باللهجة تظهر فيها ذكاءك في فهم طلب العميل الصوتي وترحيبك بإضافته للسلة"
+}`;
+
+      const response = await client.models.generateContent({
+        model: "gemini-3.5-flash",
+        contents: `الطلب الصوتي للمستخدم: "${spokenText}"`,
+        config: {
+          systemInstruction: systemInstruction,
+          responseMimeType: "application/json",
+          temperature: 0.1
+        }
+      });
+
+      try {
+        const result = JSON.parse(response.text.trim());
+        return res.json({
+          success: true,
+          parsedText: spokenText,
+          ...result
+        });
+      } catch (err) {
+        return res.json({
+          success: true,
+          parsedText: spokenText,
+          comment: `لقد سمعتك تطلب: "${spokenText}". تم الإدراج المبدئي. استعن برفع تفاصيل الطلب لإكمال الفحص.`
+        });
+      }
+
+    } catch (err: any) {
+      console.error("Voice order error:", err);
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  // API Route: AIvision transfer verification ("فحص الحوالات الذكي")
+  app.post("/api/gemini/verify-receipt", async (req, res) => {
+    try {
+      const { imageBase64, expectedAmount } = req.body;
+
+      if (!imageBase64) {
+        return res.status(400).json({ error: "Receipt image in base64 is required" });
+      }
+
+      const client = getGeminiClient();
+      if (!client) {
+        // High quality simulated transfer receipt verifier when API key is missing
+        const mockTxNumber = "TXN-MOCK-" + Math.floor(Math.random() * 90000000 + 10000000);
+        const doubleAmt = parseFloat(expectedAmount) || 250;
+        return res.json({
+          success: true,
+          details: {
+            txNumber: mockTxNumber,
+            senderName: "عبدالرحمن الذيباني",
+            amount: doubleAmt,
+            date: new Date().toLocaleDateString("ar-YE"),
+            currency: "SAR / YER",
+            authenticityScore: 98,
+            status: "سند صحيح ومعتمد ✅",
+            summary: `[محاكاة فحص السند بالـ Vision AI] لقد قمنا بمسح سند التحويل بنجاح واستخرجنا رقم الحوالة (${mockTxNumber}) بإسم المرسل (عبدالرحمن الذيباني)، بمبلغ مطابق يعادل (${doubleAmt}) والعملة آمنة بنسبة تطابق وثوقية 98%!`
+          }
+        });
+      }
+
+      const cleanBase64 = imageBase64.replace(/^data:image\/\w+;base64,/, "");
+
+      const imagePart = {
+        inlineData: {
+          mimeType: "image/png",
+          data: cleanBase64,
+        },
+      };
+
+      const promptPart = {
+        text: `قم بفحص صورة سند تحويل أو كشف الدفع هذه واستخلص منها التفاصيل التالية ورجعها بتنسيق JSON نظيف:
+1. رقم المعاملة أو رقم العملية أو رقم الحوالة (txNumber)
+2. اسم المرسل الصريح في السند (senderName)
+3. المبلغ المحول بالأرقام (amount)
+4. تاريخ ووقت التحويل المكتوب (date)
+5. عملة السند بحسب النص (currency)
+6. درجة مطابقة وثوقية السند لمنع التزوير كنسبة من 0 إلى 100 (authenticityScore)
+7. حالة السند: معتمد ومقبول أم مشكوك فيه أو ممسوح جزئياً (status)
+8. ملخص عربي بليغ وموجز جداً لنتائج الفحص الذكي (summary)
+
+علماً بأن المبلغ المتوقع سداده هو: ${expectedAmount || "غير محدد"}.`
+      };
+
+      const response = await client.models.generateContent({
+        model: "gemini-3.5-flash",
+        contents: { parts: [imagePart, promptPart] },
+        config: {
+          systemInstruction: "أنت الحارس المالي والمدقق الذكي المعتمد (AI Vision Auditor) لمنصة الذيباني. مهمتك هي فحص لقطات الشاشة أو كشوفات سداد الحوالات المالية واستيراد محتواها الرقمي بدقة شديدة لكشف التلاعب والحوالات المزورة.",
+          responseMimeType: "application/json"
+        }
+      });
+
+      try {
+        const details = JSON.parse(response.text.trim());
+        return res.json({
+          success: true,
+          details
+        });
+      } catch (e: any) {
+        return res.json({
+          success: false,
+          error: "فشل في توبير هيكلية البيانات من الصورة: " + e.message,
+          rawText: response.text
+        });
+      }
+
+    } catch (err: any) {
+      console.error("Receipt verification error:", err);
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+
 
   // API Route: Check Game Charging API Reseller Balance
   app.post("/api/topup/balance", async (req, res) => {

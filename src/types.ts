@@ -3,7 +3,9 @@ export interface Product {
   name: string;
   description?: string;
   category: string;
-  price: number;
+  price: number; // legacy fallback field
+  price_sar?: number; // separated SAR price
+  price_yer?: number; // separated YER price
   image: string;
   stock?: number;
   code?: string;
@@ -54,6 +56,7 @@ export interface Order {
   paymentMethod: string;
   items: CartItem[];
   totalPrice: number;
+  currency: 'SAR' | 'YER'; // Native transaction currency to avoid on-the-fly rounding issues
   date: string;
   status: 'قيد المعالجة' | 'تم التجهيز للشحن' | 'تم التسليم 🟢' | 'ملغي ❌';
 }
@@ -73,6 +76,9 @@ export interface Message {
   sender: 'user' | 'ai';
   text: string;
   timestamp: Date;
+  isBargain?: boolean;
+  bargainStatus?: 'idle' | 'accepted' | 'declined';
+  bargainedPrice?: number;
 }
 
 export interface StoreCategory {
@@ -81,3 +87,16 @@ export interface StoreCategory {
   englishName: string;
 }
 
+export interface Staff {
+  id: string;
+  username: string;
+  password?: string;
+  fullName: string;
+  role: 'admin' | 'teacher' | 'tailor' | 'lawyer' | 'cashier';
+  permissions: {
+    canViewFinance: boolean;
+    canEditInventory: boolean;
+    canManageOrders: boolean;
+    canUseAI: boolean;
+  };
+}

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Product, StoreCategory, CartSubOption } from '../types';
-import { Search, ShoppingBag, ShoppingCart, X, Sparkles } from 'lucide-react';
+import { Search, ShoppingBag, ShoppingCart, X, Sparkles, Check as CheckIcon, Plus as PlusIcon } from 'lucide-react';
 
 interface ProductCatalogProps {
   products: Product[];
@@ -53,6 +53,7 @@ function ProductCard({
   const [activeImage, setActiveImage] = useState<string>('');
   const [playerId, setPlayerId] = useState<string>('');
   const [inputError, setInputError] = useState<string>('');
+  const [isAdded, setIsAdded] = useState<boolean>(false);
 
   const stockVal = product.stock !== undefined ? product.stock : 99;
   const isOutOfStock = stockVal === 0;
@@ -293,17 +294,27 @@ function ProductCard({
               );
               // Clean ID on success
               setPlayerId('');
+              
+              // Animated checkmark transition
+              setIsAdded(true);
+              setTimeout(() => setIsAdded(false), 1500);
             }}
             disabled={isOutOfStock}
-            className={`p-2.5 rounded-xl cursor-pointer shadow-md transition-all flex items-center justify-center ${
+            className={`p-2.5 rounded-xl cursor-pointer shadow-md flex items-center justify-center btn-add-pulse ${
               isOutOfStock 
                 ? 'bg-[#121c33] text-slate-500 cursor-not-allowed' 
-                : 'bg-gradient-to-r from-yellow-500 to-amber-500 hover:from-yellow-450 hover:to-amber-450 text-blue-950 hover:shadow-yellow-500/15 hover:shadow-lg'
+                : isAdded
+                  ? 'bg-emerald-500 text-white select-none ring-2 ring-emerald-400/55 animate-bounce'
+                  : 'bg-gradient-to-r from-yellow-500 to-amber-500 hover:from-yellow-450 hover:to-amber-450 text-blue-950 hover:shadow-yellow-500/15 hover:shadow-lg'
             }`}
             title={isOutOfStock ? "عذراً انتهت الكمية" : "إضافة إلى سلتك"}
             id={`add-to-cart-btn-${product.id}`}
           >
-            <ShoppingCart className="w-4 h-4 text-blue-950 font-bold" />
+            {isAdded ? (
+              <CheckIcon className="w-4 h-4 text-white font-black animate-scaleIn" />
+            ) : (
+              <PlusIcon className="w-4 h-4 text-blue-950 font-black" />
+            )}
           </button>
         </div>
       </div>
@@ -322,43 +333,26 @@ export default function ProductCatalog({ products, categories, onAddToCart, form
 
   const getProductDisplay = (p: Product) => {
     const rate = exchangeRate || 400;
-    const prodCurr = p.currency || 'SAR';
     
-    let mainPrice = p.price;
-    let mainUnit = 'ر.س';
-    let subPrice = p.price * rate;
-    let subUnit = 'ر.ي';
-
-    if (prodCurr === 'YER') {
-      if (currency === 'SAR') {
-        mainPrice = p.price / rate;
-        mainUnit = 'ر.س';
-        subPrice = p.price;
-        subUnit = 'ر.ي';
-      } else {
-        mainPrice = p.price;
-        mainUnit = 'ر.ي';
-        subPrice = p.price / rate;
-        subUnit = 'ر.س';
-      }
+    if (currency === 'YER') {
+      // YER Direct/Manual pricing mode to absolutely terminate discrepancy and overflow
+      const mainPrice = p.price_yer !== undefined && p.price_yer !== null ? p.price_yer : (p.price_sar ?? p.price ?? 0) * rate;
+      const subPrice = p.price_sar !== undefined && p.price_sar !== null ? p.price_sar : (p.price_yer ?? p.price ?? 0) / rate;
+      
+      return {
+        mainText: `${Math.round(mainPrice).toLocaleString('ar-YE')} ر.ي`,
+        subText: `تعادل بالتقريب: ${subPrice.toLocaleString('ar-YE', { minimumFractionDigits: 0, maximumFractionDigits: 1 })} ر.س`
+      };
     } else {
-      if (currency === 'YER') {
-        mainPrice = p.price * rate;
-        mainUnit = 'ر.ي';
-        subPrice = p.price;
-        subUnit = 'ر.س';
-      } else {
-        mainPrice = p.price;
-        mainUnit = 'ر.س';
-        subPrice = p.price * rate;
-        subUnit = 'ر.ي';
-      }
+      // SAR Direct/Manual pricing mode
+      const mainPrice = p.price_sar !== undefined && p.price_sar !== null ? p.price_sar : (p.price_yer !== undefined && p.price_yer !== null ? p.price_yer / rate : p.price ?? 0);
+      const subPrice = p.price_yer !== undefined && p.price_yer !== null ? p.price_yer : mainPrice * rate;
+      
+      return {
+        mainText: `${mainPrice.toLocaleString('ar-YE', { minimumFractionDigits: 0, maximumFractionDigits: 1 })} ر.س`,
+        subText: `تعادل بالتقريب: ${Math.round(subPrice).toLocaleString('ar-YE')} ر.ي`
+      };
     }
-
-    return {
-      mainText: `${mainPrice.toLocaleString('ar-YE', { minimumFractionDigits: 0, maximumFractionDigits: 1 })} ${mainUnit}`,
-      subText: `يعادل: ${subPrice.toLocaleString('ar-YE', { minimumFractionDigits: 0, maximumFractionDigits: 1 })} ${subUnit}`
-    };
   };
 
   // Filter products safely for optionals

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Product, StoreCategory, CartItem, OrderDetails, Order, CarouselSlide } from "./types";
+import { NICHES } from "./data";
 import ProductCatalog from "./components/ProductCatalog";
 import AIChatSection from "./components/AIChatSection";
 import AdminDashboard from "./components/AdminDashboard";
@@ -74,6 +75,20 @@ const DEFAULT_PRODUCTS: Product[] = [
   }
 ];
 
+const getProjectTypeNiche = (): 'game' | 'pharmacy' | 'supermarket' | 'school' | 'tailor' | 'legal' | 'consulting' | 'hyper' | null => {
+  const envVal = (((import.meta as any).env?.VITE_PROJECT_TYPE) || "").toLowerCase().trim();
+  if (!envVal) return null;
+  if (envVal.includes("game") || envVal.includes("charge")) return "game";
+  if (envVal.includes("pharmacy") || envVal.includes("medicine")) return "pharmacy";
+  if (envVal.includes("supermarket") || envVal.includes("grocery")) return "supermarket";
+  if (envVal.includes("school") || envVal.includes("education")) return "school";
+  if (envVal.includes("tailor")) return "tailor";
+  if (envVal.includes("legal") || envVal.includes("law")) return "legal";
+  if (envVal.includes("consulting") || envVal.includes("corporate")) return "consulting";
+  if (envVal.includes("hyper") || envVal.includes("multiproject")) return "hyper";
+  return null;
+};
+
 export default function App() {
   // Navigation State
   const [currentTab, setCurrentTab] = useState<"store" | "ai" | "admin" | "tracking">("store");
@@ -86,6 +101,58 @@ export default function App() {
     const saved = localStorage.getItem("store_exchange_rate");
     return saved ? Number(saved) : 400; // default 1 SAR = 400 YER
   });
+
+  const [activeNicheId, setActiveNicheId] = useState<'game' | 'pharmacy' | 'supermarket' | 'school' | 'tailor' | 'legal' | 'consulting' | 'hyper'>(() => {
+    const lockedNiche = getProjectTypeNiche();
+    if (lockedNiche) return lockedNiche;
+    return (localStorage.getItem("store_active_niche") as any) || 'game';
+  });
+
+  const handleApplyNicheTemplate = (nicheId: 'game' | 'pharmacy' | 'supermarket' | 'school' | 'tailor' | 'legal' | 'consulting' | 'hyper') => {
+    setActiveNicheId(nicheId);
+    localStorage.setItem("store_active_niche", nicheId);
+    
+    // Find niche config details
+    const targetNiche = NICHES.find(n => n.id === nicheId);
+    if (targetNiche) {
+      // 1. Set dynamic template categories & products
+      setCategories(targetNiche.categories);
+      localStorage.setItem("store_categories", JSON.stringify(targetNiche.categories));
+      
+      setProducts(targetNiche.products);
+      localStorage.setItem("store_products", JSON.stringify(targetNiche.products));
+
+      // 2. Clear any current cart to avoid cross-niche overlaps
+      setCart([]);
+      localStorage.setItem("store_cart", "[]");
+
+      // 3. Customize welcome ticker message for this niche
+      const freshTicker = `🔥 مرحباً بكم في ${targetNiche.name}! ${targetNiche.subtitle}. اسألوا مساعدنا الذكي AI عن أي شيء! ✨`;
+      setTickerMessage(freshTicker);
+      localStorage.setItem("store_ticker_message", freshTicker);
+
+      // 4. Update the DB if firebase is live
+      try {
+        set(ref(db, "settings/tickerMessage"), freshTicker);
+        set(ref(db, "categories"), targetNiche.categories);
+        set(ref(db, "products"), targetNiche.products);
+      } catch (err) {
+        console.warn("Could not sync niche switches to firebase:", err);
+      }
+
+      addToast(`🚀 تم تعميم وتعميد القالب السحابي لـ [${targetNiche.name}] بنجاح وتصفير السلة!`, "success");
+    }
+  };
+
+  useEffect(() => {
+    const locked = getProjectTypeNiche();
+    if (locked) {
+      const activeNiche = localStorage.getItem("store_active_niche");
+      if (activeNiche !== locked) {
+        handleApplyNicheTemplate(locked);
+      }
+    }
+  }, []);
 
   const [deliveryFeeEnabled, setDeliveryFeeEnabled] = useState<boolean>(() => {
     const saved = localStorage.getItem("store_delivery_fee_enabled");
@@ -380,6 +447,7 @@ export default function App() {
                 paymentMethod: ord.paymentMethod || "كاش",
                 items: ord.items || [],
                 totalPrice: Number(ord.totalPrice) || 0,
+                currency: ord.currency || "SAR",
                 date: ord.date || "",
                 status: ord.status || "قيد المعالجة"
               });
@@ -910,6 +978,12 @@ export default function App() {
   };
 
   const getProductPriceInSAR = (p: Product) => {
+    if (p.price_sar !== undefined && p.price_sar !== null && p.price_sar !== 0) {
+      return p.price_sar;
+    }
+    if (p.price_yer !== undefined && p.price_yer !== null && p.price_yer !== 0) {
+      return p.price_yer / (exchangeRate || 400);
+    }
     if (p.currency === 'YER') {
       return p.price / (exchangeRate || 400);
     }
@@ -991,6 +1065,7 @@ export default function App() {
         paymentMethod: "بوابة دفع إلكترونية آمنة 💳",
         items: [...cart],
         totalPrice: finalBillAmount,
+        currency: currency,
         date: new Date().toLocaleString("ar-YE", { hour12: true }),
         status: "قيد المعالجة"
       };
@@ -1078,6 +1153,7 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
       paymentMethod: paymentMethod,
       items: [...cart],
       totalPrice: finalBillAmount,
+      currency: currency,
       date: new Date().toLocaleString("ar-YE", { hour12: true }),
       status: "قيد المعالجة"
     };
@@ -2245,6 +2321,8 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
                     setCurrentTab("store");
                     addToast("🔒 تم خروج المشرف وإغلاق الجلسة الآمنة بنجاح.", "warning");
                   }}
+                  activeNicheId={activeNicheId}
+                  onApplyNicheTemplate={handleApplyNicheTemplate}
                 />
               </div>
             )}

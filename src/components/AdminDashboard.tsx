@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Product, StoreCategory, Order, CarouselSlide } from '../types';
+import { Product, StoreCategory, Order, CarouselSlide, Staff } from '../types';
+import { NICHES } from '../data';
 import { 
   Plus, 
   Edit2, 
@@ -31,8 +32,25 @@ import {
   Award,
   Lightbulb,
   BarChart3,
-  CreditCard
+  CreditCard,
+  Users,
+  ShieldCheck,
+  Zap
 } from 'lucide-react';
+
+const getProjectTypeNiche = (): 'game' | 'pharmacy' | 'supermarket' | 'school' | 'tailor' | 'legal' | 'consulting' | 'hyper' | null => {
+  const envVal = (((import.meta as any).env?.VITE_PROJECT_TYPE) || "").toLowerCase().trim();
+  if (!envVal) return null;
+  if (envVal.includes("game") || envVal.includes("charge")) return "game";
+  if (envVal.includes("pharmacy") || envVal.includes("medicine")) return "pharmacy";
+  if (envVal.includes("supermarket") || envVal.includes("grocery")) return "supermarket";
+  if (envVal.includes("school") || envVal.includes("education")) return "school";
+  if (envVal.includes("tailor")) return "tailor";
+  if (envVal.includes("legal") || envVal.includes("law")) return "legal";
+  if (envVal.includes("consulting") || envVal.includes("corporate")) return "consulting";
+  if (envVal.includes("hyper") || envVal.includes("multiproject")) return "hyper";
+  return null;
+};
 
 interface AdminDashboardProps {
   products: Product[];
@@ -108,6 +126,8 @@ interface AdminDashboardProps {
   payApiMerchantId?: string;
   payApiEnabled?: boolean;
   onUpdatePayApiSettings?: (url: string, token: string, provider: string, merchantId: string, enabled: boolean) => void;
+  activeNicheId?: 'game' | 'pharmacy' | 'supermarket' | 'school' | 'tailor' | 'legal' | 'consulting' | 'hyper';
+  onApplyNicheTemplate?: (nicheId: 'game' | 'pharmacy' | 'supermarket' | 'school' | 'tailor' | 'legal' | 'consulting' | 'hyper') => void;
 }
 
 export default function AdminDashboard({
@@ -168,10 +188,12 @@ export default function AdminDashboard({
   payApiProvider = 'simulated',
   payApiMerchantId = '',
   payApiEnabled = false,
-  onUpdatePayApiSettings
+  onUpdatePayApiSettings,
+  activeNicheId = 'game',
+  onApplyNicheTemplate
 }: AdminDashboardProps) {
   // Main admin control panel navigation tabs
-  const [activeTab, setActiveTab] = useState<'products' | 'categories' | 'orders' | 'slides' | 'configuration' | 'stats'>('products');
+  const [activeTab, setActiveTab] = useState<'products' | 'categories' | 'orders' | 'slides' | 'configuration' | 'stats' | 'staff'>('products');
   
   // Advanced reporting & reconciliation states
   const [reportsSubTab, setReportsSubTab] = useState<'reconciliation' | 'analytics'>('reconciliation');
@@ -321,6 +343,8 @@ export default function AdminDashboard({
   const [productDesc, setProductDesc] = useState('');
   const [productCat, setProductCat] = useState('');
   const [productPrice, setProductPrice] = useState<number>(0);
+  const [productPriceSar, setProductPriceSar] = useState<number | ''>('');
+  const [productPriceYer, setProductPriceYer] = useState<number | ''>('');
   const [productCurrency, setProductCurrency] = useState<'SAR' | 'YER'>('SAR');
   const [applyCurrencyToAll, setApplyCurrencyToAll] = useState<boolean>(false);
   const [productColors, setProductColors] = useState('');
@@ -333,6 +357,120 @@ export default function AdminDashboard({
   // Category CRUD inputs state
   const [newCatArabic, setNewCatArabic] = useState('');
   const [newCatEnglish, setNewCatEnglish] = useState('');
+
+  // Staff CRUD and RBAC states
+  const [staffList, setStaffList] = useState<Staff[]>(() => {
+    const saved = localStorage.getItem("store_staff");
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        // Fallback below
+      }
+    }
+    // Deeply integrated, authentic default staff for the multi-niche platform
+    return [
+      {
+        id: 'staff-1',
+        username: 'admin',
+        fullName: 'المدير العام عبدالرحمن الذيباني',
+        role: 'admin',
+        permissions: { canViewFinance: true, canEditInventory: true, canManageOrders: true, canUseAI: true }
+      },
+      {
+        id: 'staff-2',
+        username: 'tailor_vip',
+        fullName: 'الخياط والمصمم الملكي رفيق',
+        role: 'tailor',
+        permissions: { canViewFinance: false, canEditInventory: true, canManageOrders: true, canUseAI: true }
+      },
+      {
+        id: 'staff-3',
+        username: 'legal_advisor',
+        fullName: 'المستشار القانوني أ. صالح العنسي',
+        role: 'lawyer',
+        permissions: { canViewFinance: true, canEditInventory: false, canManageOrders: false, canUseAI: true }
+      }
+    ];
+  });
+
+  const [newStaffName, setNewStaffName] = useState('');
+  const [newStaffUser, setNewStaffUser] = useState('');
+  const [newStaffPass, setNewStaffPass] = useState('');
+  const [newStaffRole, setNewStaffRole] = useState<'admin' | 'teacher' | 'tailor' | 'lawyer' | 'cashier'>('cashier');
+  const [permFinance, setPermFinance] = useState(false);
+  const [permInventory, setPermInventory] = useState(true);
+  const [permOrders, setPermOrders] = useState(true);
+  const [permAI, setPermAI] = useState(true);
+
+  const saveStaffList = (list: Staff[]) => {
+    setStaffList(list);
+    localStorage.setItem("store_staff", JSON.stringify(list));
+  };
+
+  const handleAddStaffSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newStaffName.trim() || !newStaffUser.trim()) {
+      triggerNotification('الرجاء تعبئة اسم المستخدم والاسم الصريح للموظف لتجنب الأخطاء!', 'info');
+      return;
+    }
+    const isDup = staffList.some(s => s.username.toLowerCase() === newStaffUser.trim().toLowerCase());
+    if (isDup) {
+      triggerNotification('⚠️ خطأ: اسم المستخدم هذا محجوز لموظف آخر بالفعل!', 'info');
+      return;
+    }
+    const fresh: Staff = {
+      id: `staff-${Date.now()}`,
+      username: newStaffUser.trim().toLowerCase(),
+      fullName: newStaffName.trim(),
+      role: newStaffRole,
+      permissions: {
+        canViewFinance: permFinance,
+        canEditInventory: permInventory,
+        canManageOrders: permOrders,
+        canUseAI: permAI
+      }
+    };
+    const updated = [fresh, ...staffList];
+    saveStaffList(updated);
+    triggerNotification('تم تسجيل الموظف الجديد وتعميد تراخيصه السحابية 👥✨');
+    
+    // Reset Form
+    setNewStaffName('');
+    setNewStaffUser('');
+    setNewStaffPass('');
+  };
+
+  const handleDeleteStaff = (id: string) => {
+    if (id === 'staff-1') {
+      triggerNotification('🚫 لا يمكنك إقصاء أو إلغاء تراخيص المدير التنفيذي الرئيسي!', 'info');
+      return;
+    }
+    const updated = staffList.filter(s => s.id !== id);
+    saveStaffList(updated);
+    triggerNotification('تم شطب الموظف وسحب كافة تفويضاته السحابية 🔒');
+  };
+
+  const handleTogglePermission = (id: string, field: 'canViewFinance' | 'canEditInventory' | 'canManageOrders' | 'canUseAI') => {
+    if (id === 'staff-1') {
+      triggerNotification('🚫 غير نقدي أو مسموح بتعديل تراخيص صلاحيات المدير التنفيذي!', 'info');
+      return;
+    }
+    const updated = staffList.map(s => {
+      if (s.id === id) {
+        return {
+          ...s,
+          permissions: {
+            ...s.permissions,
+            [field]: !s.permissions[field]
+          }
+        };
+      }
+      return s;
+    });
+    saveStaffList(updated);
+    triggerNotification('تم تحديث وتعميد الصلاحية المنفصلة بنجاح 🔒✅');
+  };
 
   // Slides CRUD inputs state
   const [editingSlideId, setEditingSlideId] = useState<string | null>(null);
@@ -531,7 +669,9 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
         name: productName,
         description: productDesc,
         category: productCat,
-        price: Number(productPrice),
+        price: productPriceSar !== '' ? Number(productPriceSar) : Number(productPrice),
+        price_sar: productPriceSar !== '' ? Number(productPriceSar) : Number(productPrice),
+        price_yer: productPriceYer !== '' ? Number(productPriceYer) : Math.round(Number(productPrice) * (exchangeRate || 400)),
         stock: Number(productStock),
         image: defaultImg,
         code: productCode.trim() || `PROD-${Date.now().toString().slice(-4)}`,
@@ -547,7 +687,9 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
         name: productName,
         description: productDesc,
         category: productCat,
-        price: Number(productPrice),
+        price: productPriceSar !== '' ? Number(productPriceSar) : Number(productPrice),
+        price_sar: productPriceSar !== '' ? Number(productPriceSar) : Number(productPrice),
+        price_yer: productPriceYer !== '' ? Number(productPriceYer) : Math.round(Number(productPrice) * (exchangeRate || 400)),
         stock: Number(productStock),
         image: defaultImg,
         code: productCode.trim() || `PROD-${Date.now().toString().slice(-4)}`,
@@ -564,6 +706,8 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
     setProductDesc('');
     setProductCat(categories[0]?.name || '');
     setProductPrice(0);
+    setProductPriceSar('');
+    setProductPriceYer('');
     setProductCurrency('SAR');
     setApplyCurrencyToAll(false);
     setProductColors('');
@@ -580,6 +724,8 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
     setProductDesc(p.description || '');
     setProductCat(p.category);
     setProductPrice(p.price);
+    setProductPriceSar(p.price_sar !== undefined && p.price_sar !== null ? p.price_sar : p.price);
+    setProductPriceYer(p.price_yer !== undefined && p.price_yer !== null ? p.price_yer : Math.round(p.price * (exchangeRate || 400)));
     setProductCurrency(p.currency || 'SAR');
     setApplyCurrencyToAll(false);
     setProductColors(p.colors ? p.colors.join(', ') : '');
@@ -1010,6 +1156,15 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
           >
             البيانات والتقارير 📊
           </button>
+
+          <button
+            onClick={() => setActiveTab('staff')}
+            className={`flex-1 xl:flex-none px-3.5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+              activeTab === 'staff' ? 'bg-[#111a2f] text-yellow-500 shadow-lg font-black border border-yellow-500/10' : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            إدارة الموظفين والامتيازات 👥🔑
+          </button>
         </div>
       </div>
 
@@ -1146,42 +1301,61 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
                   </button>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3 pt-1">
+                <div className="grid grid-cols-3 gap-2.5 pt-1">
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-400 mb-1">القيمة المسعرة *</label>
+                    <label className="block text-[10px] font-bold text-amber-400 mb-1">🇸🇦 سعر سعودي (SAR) *</label>
                     <input
                       type="number"
                       required
                       min="0"
                       step="any"
-                      value={productPrice}
-                      onChange={(e) => setProductPrice(Number(e.target.value))}
-                      className="w-full px-3 py-2 bg-[#060b18] border border-blue-900/60 rounded-xl text-xs text-white focus:border-yellow-500/50 outline-none transition-colors font-mono"
-                      placeholder="السعر..."
+                      value={productPriceSar}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setProductPriceSar(val === '' ? '' : Number(val));
+                        // Auto-fill YER if empty
+                        if (val !== '' && !productPriceYer) {
+                          setProductPriceYer(Math.round(Number(val) * (exchangeRate || 400)));
+                        }
+                      }}
+                      className="w-full px-2.5 py-2 bg-[#060b18] border border-blue-900/60 rounded-xl text-xs text-white focus:border-amber-500/50 outline-none transition-colors font-mono"
+                      placeholder="ر.س..."
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-400 mb-1">رمز الكود (الفلترة)</label>
+                    <label className="block text-[10px] font-bold text-emerald-400 mb-1">🇾🇪 سعر يمني (YER) *</label>
+                    <input
+                      type="number"
+                      required
+                      min="0"
+                      step="any"
+                      value={productPriceYer}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setProductPriceYer(val === '' ? '' : Number(val));
+                        // Auto-fill SAR if empty
+                        if (val !== '' && !productPriceSar) {
+                          setProductPriceSar(Number((Number(val) / (exchangeRate || 400)).toFixed(1)));
+                        }
+                      }}
+                      className="w-full px-2.5 py-2 bg-[#060b18] border border-blue-900/60 rounded-xl text-xs text-white focus:border-emerald-500/50 outline-none transition-colors font-mono"
+                      placeholder="ر.ي..."
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 mb-1">كود/معرف الصنف</label>
                     <input
                       type="text"
-                      placeholder="مثال: PUBG660"
+                      placeholder="PUBG660"
                       value={productCode}
                       onChange={(e) => setProductCode(e.target.value)}
-                      className="w-full px-3 py-2 bg-[#060b18] border border-blue-900/60 rounded-xl text-xs text-white focus:border-yellow-500/50 outline-none transition-colors font-mono"
+                      className="w-full px-2.5 py-2 bg-[#060b18] border border-blue-900/60 rounded-xl text-xs text-white focus:border-yellow-500/50 outline-none transition-colors font-mono"
                     />
                   </div>
                 </div>
 
                 <span className="text-[10px] text-yellow-550 font-bold block mt-1 leading-normal" dir="rtl">
-                  {productCurrency === 'SAR' ? (
-                    <>
-                      💸 المالي: <span className="underline font-mono">{(productPrice || 0).toFixed(1)} ر.س</span> يعادل باليمني: <span className="underline font-mono text-emerald-400 font-extrabold">{Math.round((productPrice || 0) * exchangeRate).toLocaleString('ar-YE')} ر.ي</span> (صرف: {exchangeRate})
-                    </>
-                  ) : (
-                    <>
-                      💸 المالي: <span className="underline font-mono">{Math.round(productPrice || 0).toLocaleString('ar-YE')} ر.ي</span> يعادل بالسعودي: <span className="underline font-mono text-emerald-400 font-extrabold">{((productPrice || 0) / exchangeRate).toFixed(1)} ر.س</span> (صرف: {exchangeRate})
-                    </>
-                  )}
+                  💸 تم الفصل الكامل لتجنب أي تداخل في العملات. القيمة الأساسية هي الثابتة للطلب في السلة بحسب عملة العميل النشطة. (معدل الصرف الافتراضي: {exchangeRate})
                 </span>
 
                 {/* Apply choice to all previous products choice! */}
@@ -1964,12 +2138,320 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
         </div>
       )}
 
+      {/* STAFF & ROLE-BASED ACCESS CONTROL TAB (RBAC) */}
+      {activeTab === 'staff' && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-fade-in" id="staff-tab-section">
+          
+          {/* Creator Form Panel */}
+          <div className="bg-[#0b1329] p-6 rounded-3xl border border-blue-900/40 lg:col-span-1 shadow-md h-fit">
+            <div className="flex items-center gap-2 mb-4 border-b border-blue-900/25 pb-4">
+              <Users className="w-5 h-5 text-yellow-500 animate-pulse" />
+              <h3 className="text-sm font-black text-white">إضافة موظف جديد وتخصيص صلاحيات 👤</h3>
+            </div>
+
+            <form onSubmit={handleAddStaffSubmit} className="space-y-4">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-400 mb-1.5">الاسم الكامل للموظف *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="مثال: المهندس وائل الذيباني"
+                  value={newStaffName}
+                  onChange={(e) => setNewStaffName(e.target.value)}
+                  className="w-full px-3 py-2.5 bg-[#060b18] border border-blue-900/60 rounded-xl text-xs text-white focus:border-yellow-500/50 outline-none transition-colors"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 mb-1">اسم المستخدم (الدخول) *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="wael_dhb"
+                    value={newStaffUser}
+                    onChange={(e) => setNewStaffUser(e.target.value)}
+                    className="w-full px-2.5 py-2 bg-[#060b18] border border-blue-900/60 rounded-xl text-xs text-white focus:border-yellow-500/50 outline-none transition-colors font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 mb-1">كلمة المرور المؤقتة</label>
+                  <input
+                    type="password"
+                    placeholder="••••••"
+                    value={newStaffPass}
+                    onChange={(e) => setNewStaffPass(e.target.value)}
+                    className="w-full px-2.5 py-2 bg-[#060b18] border border-blue-900/60 rounded-xl text-xs text-white focus:border-yellow-500/50 outline-none transition-colors font-mono"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-400 mb-1.5">المسمى الوظيفي / الدور</label>
+                <select
+                  value={newStaffRole}
+                  onChange={(e) => {
+                    const r = e.target.value as any;
+                    setNewStaffRole(r);
+                    // Smart auto defaults
+                    if (r === 'cashier') {
+                      setPermFinance(false); setPermInventory(false); setPermOrders(true); setPermAI(false);
+                    } else if (r === 'admin') {
+                      setPermFinance(true); setPermInventory(true); setPermOrders(true); setPermAI(true);
+                    } else {
+                      setPermFinance(false); setPermInventory(true); setPermOrders(true); setPermAI(true);
+                    }
+                  }}
+                  className="w-full px-3 py-2.5 bg-[#060b18] border border-blue-900/60 rounded-xl text-xs text-white focus:border-yellow-500/50 outline-none transition-colors"
+                >
+                  <option value="cashier">أمين صندوق / كاشير مبيعات (Cashier)</option>
+                  {(!getProjectTypeNiche() || getProjectTypeNiche() === 'tailor' || getProjectTypeNiche() === 'hyper') && (
+                    <option value="tailor">خياط ومدير أقمشة (Tailor Designer)</option>
+                  )}
+                  {(!getProjectTypeNiche() || getProjectTypeNiche() === 'legal' || getProjectTypeNiche() === 'hyper') && (
+                    <option value="lawyer">مستشار قانوني ومراجع شركات (Legal Advisor)</option>
+                  )}
+                  {(!getProjectTypeNiche() || getProjectTypeNiche() === 'school' || getProjectTypeNiche() === 'hyper') && (
+                    <option value="teacher">مدرس وموجه أكاديمي (Educational Coach)</option>
+                  )}
+                  <option value="admin">مشرف فرعي عام (Sub-Admin)</option>
+                </select>
+              </div>
+
+              {/* Checkboxes layout */}
+              <div className="bg-[#060b18]/50 p-4 border border-blue-900/20 rounded-2xl space-y-3.5" dir="rtl">
+                <span className="text-[10px] text-slate-400 block font-bold border-b border-blue-900/20 pb-1.5">تحديد الصلاحيات والامتيازات المعينة لمنع وتفعيل الميزات:</span>
+                
+                <div className="flex items-center justify-between cursor-pointer" onClick={() => setPermFinance(!permFinance)}>
+                  <span className="text-xs text-slate-300 font-medium select-none">💰 عرض المبيعات والبيانات المالية والتقارير</span>
+                  <input
+                    type="checkbox"
+                    checked={permFinance}
+                    onChange={() => {}} // handled by div click
+                    className="w-4 h-4 rounded text-yellow-500 bg-[#060b18] border-blue-900 focus:ring-yellow-500 cursor-pointer"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between cursor-pointer" onClick={() => setPermInventory(!permInventory)}>
+                  <span className="text-xs text-slate-300 font-medium select-none">📦 التحكم بالمستودع وإضافة/تعديل المنتجات</span>
+                  <input
+                    type="checkbox"
+                    checked={permInventory}
+                    onChange={() => {}}
+                    className="w-4 h-4 rounded text-yellow-500 bg-[#060b18] border-blue-900 focus:ring-yellow-500 cursor-pointer"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between cursor-pointer" onClick={() => setPermOrders(!permOrders)}>
+                  <span className="text-xs text-slate-300 font-medium select-none">📥 إدارة وتجهيز طلبات العملاء وتعديل حالتها</span>
+                  <input
+                    type="checkbox"
+                    checked={permOrders}
+                    onChange={() => {}}
+                    className="w-4 h-4 rounded text-yellow-500 bg-[#060b18] border-blue-900 focus:ring-yellow-500 cursor-pointer"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between cursor-pointer" onClick={() => setPermAI(!permAI)}>
+                  <span className="text-xs text-slate-300 font-medium select-none">🤖 استخدام خوارزميات الذكاء الاصطناعي والتوليد</span>
+                  <input
+                    type="checkbox"
+                    checked={permAI}
+                    onChange={() => {}}
+                    className="w-4 h-4 rounded text-yellow-500 bg-[#060b18] border-blue-900 focus:ring-yellow-500 cursor-pointer"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                className="w-full bg-gradient-to-r from-yellow-500 to-amber-500 hover:from-yellow-450 hover:to-amber-450 text-blue-950 font-black py-2.5 px-4 rounded-xl text-xs hover:shadow-yellow-500/15 hover:shadow-lg transition-all duration-200 cursor-pointer"
+              >
+                حفظ وإضافة الموظف مع تفويض الصلاحيات 👤🔒
+              </button>
+            </form>
+          </div>
+
+          {/* List of Staff with permissions toggle */}
+          <div className="lg:col-span-2 bg-[#0b1329] p-6 rounded-3xl border border-blue-900/40 shadow-md">
+            <div className="flex items-center justify-between border-b border-blue-900/25 pb-4 mb-5" dir="rtl">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-5 h-5 text-emerald-400 animate-pulse" />
+                <h3 className="text-sm font-black text-white">جدول الموظفين النشطين والتحكم السحابي بالامتيازات 👥</h3>
+              </div>
+              <span className="text-[10px] px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-400 font-bold border border-emerald-500/10">نشط {staffList.length} موظفين فرعيين</span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {staffList.map((st) => (
+                <div 
+                  key={st.id} 
+                  className="p-4 bg-[#060b18]/60 border border-blue-900/30 rounded-2xl flex flex-col justify-between hover:border-yellow-505/20 transition-all duration-150"
+                  dir="rtl"
+                >
+                  <div>
+                    {/* Header: avatar + title */}
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-yellow-500 to-amber-500 text-blue-950 flex items-center justify-center font-black text-xs shadow-md">
+                          {st.fullName.slice(0, 2)}
+                        </div>
+                        <div>
+                          <h4 className="text-xs font-black text-white">{st.fullName}</h4>
+                          <span className="text-[10px] text-slate-500 font-mono">@{st.username}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[9px] px-2 py-0.5 rounded bg-yellow-500/10 text-yellow-400 font-bold border border-yellow-500/15 uppercase">
+                          {st.role === 'admin' ? 'مشرف عام' : st.role === 'tailor' ? 'مصمم أزياء' : st.role === 'lawyer' ? 'مستشار' : st.role === 'teacher' ? 'مدرس' : 'كاشير مبيعات'}
+                        </span>
+                        {st.id !== 'staff-1' && (
+                          <button
+                            onClick={() => handleDeleteStaff(st.id)}
+                            className="p-1 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer"
+                            title="إلغاء وفصل الموظف"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Permissions list toggle indicators */}
+                    <div className="mt-4 space-y-2.5 border-t border-blue-900/15 pt-3">
+                      <span className="text-[9px] text-slate-400 block font-bold leading-none">تخصيص الصلاحيات الفردية (انقر للتبديل الفوري لمنع أو سماح):</span>
+                      
+                      <div className="grid grid-cols-2 gap-2 mt-2">
+                        <button
+                          type="button"
+                          onClick={() => handleTogglePermission(st.id, 'canViewFinance')}
+                          className={`flex items-center justify-between text-[10px] p-2 rounded-lg border text-right font-black transition-all cursor-pointer ${
+                            st.permissions.canViewFinance
+                              ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
+                              : 'border-blue-900/20 bg-slate-900/20 text-slate-500'
+                          }`}
+                        >
+                          <span>💰 تقارير مبيعات</span>
+                          <span className="font-extrabold">{st.permissions.canViewFinance ? 'نعم' : 'لا'}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleTogglePermission(st.id, 'canEditInventory')}
+                          className={`flex items-center justify-between text-[10px] p-2 rounded-lg border text-right font-black transition-all cursor-pointer ${
+                            st.permissions.canEditInventory
+                              ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
+                              : 'border-blue-900/20 bg-slate-900/20 text-slate-500'
+                          }`}
+                        >
+                          <span>📦 تحرير مخزن</span>
+                          <span className="font-extrabold">{st.permissions.canEditInventory ? 'نعم' : 'لا'}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleTogglePermission(st.id, 'canManageOrders')}
+                          className={`flex items-center justify-between text-[10px] p-2 rounded-lg border text-right font-black transition-all cursor-pointer ${
+                            st.permissions.canManageOrders
+                              ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
+                              : 'border-blue-900/20 bg-slate-900/20 text-slate-500'
+                          }`}
+                        >
+                          <span>📥 معالجة طلبات</span>
+                          <span className="font-extrabold">{st.permissions.canManageOrders ? 'نعم' : 'لا'}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleTogglePermission(st.id, 'canUseAI')}
+                          className={`flex items-center justify-between text-[10px] p-2 rounded-lg border text-right font-black transition-all cursor-pointer ${
+                            st.permissions.canUseAI
+                              ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
+                              : 'border-blue-900/20 bg-slate-900/20 text-slate-500'
+                          }`}
+                        >
+                          <span>🤖 ذكاء إصطناعي</span>
+                          <span className="font-extrabold">{st.permissions.canUseAI ? 'نعم' : 'لا'}</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Warning label for admin */}
+                  {st.id === 'staff-1' && (
+                    <p className="text-[9px] text-yellow-500/80 font-bold mt-2.5 text-center bg-yellow-500/5 p-1 rounded-lg border border-yellow-500/13" dir="rtl">
+                      👑 يمتلك هذا الحساب كافة تراخيص المسؤولية القانونية والمحاسبة والتشغيل السحابي بشكل كامل.
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+        </div>
+      )}
+
       {/* RE-ARCHITECTED CONFIGURATOR & IDENTITY PROFILE */}
       {activeTab === 'configuration' && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 animate-fade-in" id="configs-tab-section">
           
           {/* Main system controls */}
           <div className="bg-[#0b1329] p-6 rounded-2xl border border-blue-900/40 shadow-sm md:col-span-2 space-y-6">
+            
+            {/* SaaS Multi-Niche Active Template Selector */}
+            {getProjectTypeNiche() ? (
+              <div className="p-5 bg-gradient-to-r from-blue-950/70 to-blue-900/40 border border-blue-500/30 rounded-2xl" id="locked-project-niche-panel">
+                <div className="flex items-center gap-2 mb-2">
+                  <Zap className="w-5 h-5 text-yellow-400 animate-bounce" />
+                  <h4 className="text-xs font-black text-white">منصة سحابية مستقلة ومخصصة 🔒 (Independent Dedicated Platform)</h4>
+                </div>
+                <p className="text-[11px] text-slate-300 leading-normal" dir="rtl">
+                  تم قفل وترخيص لوحة العميل وتخصيص البوابات والمنتجات تلقائياً لهذا المشروع بالكامل لصالح نشاط: <strong className="text-yellow-400">[{NICHES.find(n => n.id === activeNicheId)?.name || 'النشاط المخصص'}]</strong>. تم إخفاء أي لوحات أو بوابات غير متطابقة من لوحة التحكم بنجاح لمظهر مستقل 100%.
+                </p>
+              </div>
+            ) : (
+              <div className="p-5 bg-gradient-to-br from-amber-500/10 to-yellow-500/5 border border-yellow-500/20 rounded-2xl">
+                <div className="flex items-center gap-2 mb-2">
+                  <Sparkles className="w-5 h-5 text-yellow-400 animate-bounce" />
+                  <h4 className="text-xs font-black text-white">نظام القوالب والأنشطة الشاملة (Universal SaaS Templates) 🚀</h4>
+                </div>
+                <p className="text-[11px] text-slate-300 leading-normal" dir="rtl">
+                  هذه الميزة الجوهرية تتيح تفعيل قالب النشاط كاملاً مع الألوان المنسقة، والتصنيفات الجاهزة، وأصناف المنتجات الافتراضية المناسبة لكل نوع مشروع.
+                </p>
+
+                <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3" dir="rtl">
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 mb-1.5">اختر قالب النشاط السحابي النشط حالياً:</label>
+                    <select
+                      value={activeNicheId}
+                      onChange={(e) => {
+                        const sel = e.target.value as any;
+                        if (onApplyNicheTemplate) {
+                          onApplyNicheTemplate(sel);
+                        }
+                      }}
+                      className="w-full px-3 py-2 bg-[#060b18] border border-blue-900/60 rounded-xl text-xs text-white focus:border-yellow-500/50 outline-none transition-colors"
+                    >
+                      <option value="game">🎮 متجر شحن الألعاب والترفيه (Game Charge)</option>
+                      <option value="pharmacy">🧪 صيدلية ومستلزمات رعاية صحية (Pharmacy)</option>
+                      <option value="supermarket">🛒 سوبر ماركت ومبيعات بقالة (Supermarket)</option>
+                      <option value="school">🏫 مدارس ومؤسسات تعليمية (Educational)</option>
+                      <option value="tailor">🪡 محلات خياطة وتصميم أزياء (Tailoring)</option>
+                      <option value="legal">⚖️ مكتب استشارات قانونية ومحاماة (Legal Office)</option>
+                      <option value="consulting">💼 شركة استشارات إدارية (Corporate Consulting)</option>
+                      <option value="hyper">✨ الهايبر ماركت الشامل (مواد غذائية + ألعاب + خدمات رقمية)</option>
+                    </select>
+                  </div>
+                  <div className="flex flex-col justify-end">
+                    <div className="text-[10px] text-yellow-500 font-bold bg-yellow-500/5 border border-yellow-500/15 p-2 rounded-xl">
+                       💡 القالب النشط حالياً: <span className="underline">{NICHES.find(n => n.id === activeNicheId)?.name || 'غير محدد'}</span>. نقرة واحدة في القائمة لتفعيل الهوية والمحتوى مباشرة.
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div>
               <h3 className="text-sm font-black text-white">إعدادات هوية متجر ومستودع الذيباني VIP</h3>
               <p className="text-xs text-slate-400 mt-1">تحديث رقم هاتف إلاملاء، لوحة تحرك شريط الأخبار العلوي، وتخصيص طرق تحصيل السداد.</p>
@@ -2284,7 +2766,7 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
                   <Coins className="w-4 h-4 text-yellow-500" />
                   <span>تعديل وحذف خيارات السداد ووسائل الدفع بموقع الشراء</span>
                 </h4>
-                <p className="text-[10px] text-slate-400 mt-0.5">تتحكم بما يشاهده العميل في خطوة الدفع عند إنشاء السجل.</p>
+                <p className="text-[10px] text-slate-450 mt-0.5">تتحكم بما يشاهده العميل في خطوة الدفع عند إنشاء السجل.</p>
               </div>
 
               <form onSubmit={handleAddPayment} className="flex gap-2.5">
