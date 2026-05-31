@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Product, StoreCategory, CartSubOption } from '../types';
 import { Search, ShoppingBag, ShoppingCart, X, Sparkles, Check as CheckIcon, Plus as PlusIcon } from 'lucide-react';
+import { isModuleEnabled } from '../core/moduleLoader';
+import { GameIdFeature } from '../modules/games_hyper/GameIdFeature';
 
 interface ProductCatalogProps {
   products: Product[];
@@ -236,30 +238,15 @@ function ProductCard({
           </div>
         )}
 
-        {/* Game ID Player Charge API inputs if it is an API product */}
-        {product.isApiProduct && (
-          <div className="space-y-1.5 bg-gradient-to-br from-yellow-500/5 to-amber-500/5 p-3 rounded-2xl border border-yellow-500/15">
-            <label className="block text-[10px] font-bold text-yellow-405 flex items-center gap-1.5 justify-between">
-              <span>🎮 {product.apiRequiredField || "معرف اللاعب (Player ID):"}</span>
-              <span className="text-red-500 font-bold">*</span>
-            </label>
-            <input
-              type="text"
-              required
-              placeholder="أدخل المعرّف هنا (مثال: 54682012)..."
-              value={playerId}
-              onChange={(e) => {
-                setPlayerId(e.target.value);
-                if (e.target.value.trim()) setInputError('');
-              }}
-              className="w-full px-3 py-2 bg-[#060b18] border border-yellow-500/30 rounded-xl text-xs text-white focus:border-yellow-550 focus:ring-1 focus:ring-yellow-500/20 outline-none font-mono text-center tracking-wider transition-all"
-            />
-            {inputError && (
-              <span className="block text-[9px] text-red-400 font-bold animate-pulse text-right">
-                ⚠️ {inputError}
-              </span>
-            )}
-          </div>
+        {/* Game ID Player Charge API inputs (Isolated modular feature) */}
+        {isModuleEnabled('games_hyper') && (
+          <GameIdFeature
+            product={product}
+            playerId={playerId}
+            setPlayerId={setPlayerId}
+            inputError={inputError}
+            setInputError={setInputError}
+          />
         )}
 
         {/* Price & Add Section */}

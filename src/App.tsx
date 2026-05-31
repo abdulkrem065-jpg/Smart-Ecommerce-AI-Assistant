@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from "react";
-import { Product, StoreCategory, CartItem, OrderDetails, Order, CarouselSlide } from "./types";
+import { Product, StoreCategory, CartItem, OrderDetails, Order, CarouselSlide, UserSession } from "./types";
 import { NICHES } from "./data";
+import { isModuleEnabled } from "./core/moduleLoader";
+import { ManualRemittance } from "./modules/games_hyper/ManualRemittance";
 import ProductCatalog from "./components/ProductCatalog";
 import AIChatSection from "./components/AIChatSection";
 import AdminDashboard from "./components/AdminDashboard";
 import AdminLoginGate from "./components/AdminLoginGate";
 import { PromoCarousel } from "./components/PromoCarousel";
-import { ref, onValue, set } from "firebase/database";
+import { ref as firebaseRef, onValue, set as firebaseSet } from "firebase/database";
 import { db } from "./firebase";
+import { MasterDeveloperControl } from "./components/MasterDeveloperControl";
 import { 
   ShoppingBag, 
   Bot, 
@@ -32,6 +35,30 @@ import {
   Clock,
   Search
 } from "lucide-react";
+
+function cleanUndefined(obj: any): any {
+  if (obj === null || obj === undefined) {
+    return null;
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(item => cleanUndefined(item));
+  }
+  if (typeof obj === 'object') {
+    const cleaned: any = {};
+    for (const key of Object.keys(obj)) {
+      const val = obj[key];
+      if (val !== undefined) {
+        cleaned[key] = cleanUndefined(val);
+      }
+    }
+    return cleaned;
+  }
+  return obj;
+}
+
+function set(ref: any, value: any) {
+  return firebaseSet(ref, cleanUndefined(value));
+}
 
 // Fallback seed categories
 const DEFAULT_CATEGORIES: StoreCategory[] = [
@@ -103,10 +130,27 @@ export default function App() {
   });
 
   const [activeNicheId, setActiveNicheId] = useState<'game' | 'pharmacy' | 'supermarket' | 'school' | 'tailor' | 'legal' | 'consulting' | 'hyper'>(() => {
+    // Check if developer session is present in sessionStorage
+    let isDeveloper = false;
+    const sessionSaved = sessionStorage.getItem("store_admin_session");
+    if (sessionSaved) {
+      try {
+        const s = JSON.parse(sessionSaved);
+        if (s?.role === 'developer') {
+          isDeveloper = true;
+        }
+      } catch (e) {}
+    }
+
     const lockedNiche = getProjectTypeNiche();
-    if (lockedNiche) return lockedNiche;
+    if (lockedNiche && !isDeveloper) return lockedNiche;
     return (localStorage.getItem("store_active_niche") as any) || 'game';
   });
+
+  // Dynamic Namespaced Reference generator for Firebase Realtime Database
+  const getNRef = (path: string) => {
+    return firebaseRef(db, `niche_${activeNicheId}/${path}`);
+  };
 
   const handleApplyNicheTemplate = (nicheId: 'game' | 'pharmacy' | 'supermarket' | 'school' | 'tailor' | 'legal' | 'consulting' | 'hyper') => {
     setActiveNicheId(nicheId);
@@ -133,9 +177,9 @@ export default function App() {
 
       // 4. Update the DB if firebase is live
       try {
-        set(ref(db, "settings/tickerMessage"), freshTicker);
-        set(ref(db, "categories"), targetNiche.categories);
-        set(ref(db, "products"), targetNiche.products);
+        set(firebaseRef(db, `niche_${nicheId}/settings/tickerMessage`), freshTicker);
+        set(firebaseRef(db, `niche_${nicheId}/categories`), targetNiche.categories);
+        set(firebaseRef(db, `niche_${nicheId}/products`), targetNiche.products);
       } catch (err) {
         console.warn("Could not sync niche switches to firebase:", err);
       }
@@ -145,8 +189,20 @@ export default function App() {
   };
 
   useEffect(() => {
+    // Check if developer session is present
+    let isDeveloper = false;
+    const sessionSaved = sessionStorage.getItem("store_admin_session");
+    if (sessionSaved) {
+      try {
+        const s = JSON.parse(sessionSaved);
+        if (s?.role === 'developer') {
+          isDeveloper = true;
+        }
+      } catch (e) {}
+    }
+
     const locked = getProjectTypeNiche();
-    if (locked) {
+    if (locked && !isDeveloper) {
       const activeNiche = localStorage.getItem("store_active_niche");
       if (activeNiche !== locked) {
         handleApplyNicheTemplate(locked);
@@ -200,6 +256,17 @@ export default function App() {
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(() => {
     return sessionStorage.getItem("is_admin_vip_logged") === "true";
   });
+  const [adminSession, setAdminSession] = useState<UserSession | null>(() => {
+    const saved = sessionStorage.getItem("store_admin_session");
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        return null;
+      }
+    }
+    return null;
+  });
   const [adminPassword, setAdminPassword] = useState(() => {
     return localStorage.getItem("store_admin_password") || "1122";
   });
@@ -246,6 +313,7 @@ export default function App() {
   };
 
   // Settings from Realtime Database
+  const [siteName, setSiteName] = useState(() => localStorage.getItem("store_site_name") || "مستودع ومتجر الذيباني VIP");
   const [logoUrl, setLogoUrl] = useState(() => localStorage.getItem("store_logo_url") || "");
   const [whatsappNumber, setWhatsappNumber] = useState(() => localStorage.getItem("store_whatsapp_number") || "967770493341"); // Famous VIP support number
   const [tickerMessage, setTickerMessage] = useState(() => localStorage.getItem("store_ticker_message") || "🔥 مرحباً بكم في متجر ومستودع الذيباني VIP! نوفر لكم خدمات الشحن الفوري للألعاب والتموين الفاخر بأفضل الأسعار. اسألوا مساعدنا الذكي AI عن أي شيء! ✨");
@@ -253,6 +321,12 @@ export default function App() {
   const [gameApiKey, setGameApiKey] = useState(() => localStorage.getItem("store_game_api_key") || "");
   const [gameApiProvider, setGameApiProvider] = useState(() => localStorage.getItem("store_game_api_provider") || "default");
   const [gameApiEnabled, setGameApiEnabled] = useState(() => localStorage.getItem("store_game_api_enabled") === "true");
+  const [gameApiLocalServerUrl, setGameApiLocalServerUrl] = useState(() => localStorage.getItem("store_game_api_local_server_url") || "");
+  const [gameApiLocalAccountNumber, setGameApiLocalAccountNumber] = useState(() => localStorage.getItem("store_game_api_local_account_number") || "");
+  const [gameApiLocalUsername, setGameApiLocalUsername] = useState(() => localStorage.getItem("store_game_api_local_username") || "");
+  const [gameApiLocalPassword, setGameApiLocalPassword] = useState(() => localStorage.getItem("store_game_api_local_password") || "");
+  const [gameApiLocalEmployeeId, setGameApiLocalEmployeeId] = useState(() => localStorage.getItem("store_game_api_local_employee_id") || "");
+  const [gameApiLocalSourceId, setGameApiLocalSourceId] = useState(() => localStorage.getItem("store_game_api_local_source_id") || "");
   
   // Payment Gateway API configuration states
   const [payApiEnabled, setPayApiEnabled] = useState(() => localStorage.getItem("store_pay_api_enabled") === "true");
@@ -323,8 +397,10 @@ export default function App() {
 
   // Sales Statistics State for simulated metrics
   const [salesStats, setSalesStats] = useState(() => {
-    const saved = localStorage.getItem("store_sales");
-    return saved ? JSON.parse(saved) : { totalRevenue: 1845.0, totalOrders: 11 };
+    const lockedNiche = getProjectTypeNiche();
+    const currNiche = lockedNiche || (localStorage.getItem("store_active_niche") as any) || 'game';
+    const saved = localStorage.getItem(`store_sales_${currNiche}`);
+    return saved ? JSON.parse(saved) : { totalRevenue: 0, totalOrders: 0 };
   });
 
   // User input name saved in memory
@@ -342,13 +418,28 @@ export default function App() {
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerAddress, setCustomerAddress] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("");
+  const [remittanceNumber, setRemittanceNumber] = useState("");
+  const [remittanceImage, setRemittanceImage] = useState("");
   const [createdOrderLink, setCreatedOrderLink] = useState("");
   const [isAnyInputFocused, setIsAnyInputFocused] = useState(false);
+
+  // Hidden Master Developer Control pathname check state & popstate listener
+  const [isMasterPath, setIsMasterPath] = useState(() => window.location.pathname === "/master-developer-control");
+
+  useEffect(() => {
+    const handleLocationChange = () => {
+      setIsMasterPath(window.location.pathname === "/master-developer-control");
+    };
+    window.addEventListener("popstate", handleLocationChange);
+    return () => {
+      window.removeEventListener("popstate", handleLocationChange);
+    };
+  }, []);
 
   // Firebase Realtime DB Listeners
   useEffect(() => {
     try {
-      const productsRef = ref(db, "products");
+      const productsRef = getNRef("products");
       const unsubscribe = onValue(productsRef, (snapshot) => {
         const val = snapshot.val();
         if (val) {
@@ -412,6 +503,17 @@ export default function App() {
               setCategories(extracted);
             }
           }
+        } else {
+          // Auto-seed this niche prefix if the database is brand new and empty
+          const targetNiche = NICHES.find(n => n.id === activeNicheId);
+          if (targetNiche && targetNiche.products && targetNiche.products.length > 0) {
+            set(firebaseRef(db, `niche_${activeNicheId}/products`), targetNiche.products);
+            if (targetNiche.categories && targetNiche.categories.length > 0) {
+              set(firebaseRef(db, `niche_${activeNicheId}/categories`), targetNiche.categories);
+            }
+            const freshTicker = `🔥 مرحباً بكم في ${targetNiche.name}! ${targetNiche.subtitle}. اسألوا مساعدنا الذكي AI عن أي شيء! ✨`;
+            set(firebaseRef(db, `niche_${activeNicheId}/settings/tickerMessage`), freshTicker);
+          }
         }
       }, (err) => {
         console.error("Firebase products stream error:", err);
@@ -420,12 +522,12 @@ export default function App() {
     } catch (e) {
       console.error(e);
     }
-  }, []);
+  }, [activeNicheId]);
 
   // Listen to live database orders for real-time customer tracking
   useEffect(() => {
     try {
-      const ordersRef = ref(db, "orders");
+      const ordersRef = getNRef("orders");
       const unsubscribe = onValue(ordersRef, (snapshot) => {
         const val = snapshot.val();
         if (val) {
@@ -456,18 +558,20 @@ export default function App() {
           // Newest orders first
           loadedList.sort((a, b) => b.id.localeCompare(a.id));
           setOrders(loadedList);
+        } else {
+          setOrders([]);
         }
       });
       return () => unsubscribe();
     } catch (e) {
       console.error("Firebase orders subscriber link fail:", e);
     }
-  }, []);
+  }, [activeNicheId]);
 
   // Listen to dynamic slider promotional carousel slides
   useEffect(() => {
     try {
-      const slidesRef = ref(db, "settings/carousel");
+      const slidesRef = getNRef("settings/carousel");
       const unsubscribe = onValue(slidesRef, (snapshot) => {
         const val = snapshot.val();
         if (val) {
@@ -490,18 +594,20 @@ export default function App() {
           if (loadedSlides.length > 0) {
             setCarouselSlides(loadedSlides);
           }
+        } else {
+          setCarouselSlides([]);
         }
       });
       return () => unsubscribe();
     } catch (e) {
       console.error("Firebase slider subscriber error:", e);
     }
-  }, []);
+  }, [activeNicheId]);
 
   // Listen to custom payment method configurations defined by the administrator
   useEffect(() => {
     try {
-      const paymentsRef = ref(db, "settings/payments");
+      const paymentsRef = getNRef("settings/payments");
       const unsubscribe = onValue(paymentsRef, (snapshot) => {
         const val = snapshot.val();
         if (val) {
@@ -514,6 +620,8 @@ export default function App() {
           if (loaded.length > 0) {
             setPaymentMethods(loaded);
           }
+        } else {
+          setPaymentMethods([]);
         }
       });
       return () => unsubscribe();
@@ -561,7 +669,7 @@ export default function App() {
 
   useEffect(() => {
     try {
-      const settingsRef = ref(db, "settings");
+      const settingsRef = getNRef("settings");
       const unsubscribe = onValue(settingsRef, (snapshot) => {
         const val = snapshot.val();
         if (val) {
@@ -592,6 +700,13 @@ export default function App() {
           const alertS = loadedSettings.find(s => s.Type === "alert" && s.Link_or_Status === "نشط");
           if (alertS && alertS.Value) {
             setTickerMessage(alertS.Value);
+          }
+
+          // Extract dynamic custom storefront site name
+          const siteNameS = loadedSettings.find(s => s.Key === "siteName" || s.Type === "siteName");
+          if (siteNameS && siteNameS.Value) {
+            setSiteName(siteNameS.Value);
+            localStorage.setItem("store_site_name", siteNameS.Value);
           }
 
           // Extract dynamic administration password/PIN
@@ -700,6 +815,42 @@ export default function App() {
             localStorage.setItem("store_game_api_enabled", String(gameApiEnabledS.Value));
           }
 
+          const gameApiLocalServerUrlS = loadedSettings.find(s => s.Key === "gameApiLocalServerUrl");
+          if (gameApiLocalServerUrlS) {
+            setGameApiLocalServerUrl(gameApiLocalServerUrlS.Value || "");
+            localStorage.setItem("store_game_api_local_server_url", gameApiLocalServerUrlS.Value || "");
+          }
+
+          const gameApiLocalAccountNumberS = loadedSettings.find(s => s.Key === "gameApiLocalAccountNumber");
+          if (gameApiLocalAccountNumberS) {
+            setGameApiLocalAccountNumber(gameApiLocalAccountNumberS.Value || "");
+            localStorage.setItem("store_game_api_local_account_number", gameApiLocalAccountNumberS.Value || "");
+          }
+
+          const gameApiLocalUsernameS = loadedSettings.find(s => s.Key === "gameApiLocalUsername");
+          if (gameApiLocalUsernameS) {
+            setGameApiLocalUsername(gameApiLocalUsernameS.Value || "");
+            localStorage.setItem("store_game_api_local_username", gameApiLocalUsernameS.Value || "");
+          }
+
+          const gameApiLocalPasswordS = loadedSettings.find(s => s.Key === "gameApiLocalPassword");
+          if (gameApiLocalPasswordS) {
+            setGameApiLocalPassword(gameApiLocalPasswordS.Value || "");
+            localStorage.setItem("store_game_api_local_password", gameApiLocalPasswordS.Value || "");
+          }
+
+          const gameApiLocalEmployeeIdS = loadedSettings.find(s => s.Key === "gameApiLocalEmployeeId");
+          if (gameApiLocalEmployeeIdS) {
+            setGameApiLocalEmployeeId(gameApiLocalEmployeeIdS.Value || "");
+            localStorage.setItem("store_game_api_local_employee_id", gameApiLocalEmployeeIdS.Value || "");
+          }
+
+          const gameApiLocalSourceIdS = loadedSettings.find(s => s.Key === "gameApiLocalSourceId");
+          if (gameApiLocalSourceIdS) {
+            setGameApiLocalSourceId(gameApiLocalSourceIdS.Value || "");
+            localStorage.setItem("store_game_api_local_source_id", gameApiLocalSourceIdS.Value || "");
+          }
+
           const payApiEnabledS = loadedSettings.find(s => s.Key === "payApiEnabled");
           if (payApiEnabledS) {
             setPayApiEnabled(payApiEnabledS.Value === "true" || payApiEnabledS.Value === true);
@@ -735,7 +886,7 @@ export default function App() {
     } catch (e) {
       console.error(e);
     }
-  }, []);
+  }, [activeNicheId]);
 
   // Save changes locally for instant caching
   useEffect(() => {
@@ -750,9 +901,19 @@ export default function App() {
     localStorage.setItem("store_cart", JSON.stringify(cart));
   }, [cart]);
 
+  // Sync sales stats dynamically when activeNicheId changes
   useEffect(() => {
-    localStorage.setItem("store_sales", JSON.stringify(salesStats));
-  }, [salesStats]);
+    const saved = localStorage.getItem(`store_sales_${activeNicheId}`);
+    if (saved) {
+      setSalesStats(JSON.parse(saved));
+    } else {
+      setSalesStats({ totalRevenue: 0, totalOrders: 0 });
+    }
+  }, [activeNicheId]);
+
+  useEffect(() => {
+    localStorage.setItem(`store_sales_${activeNicheId}`, JSON.stringify(salesStats));
+  }, [salesStats, activeNicheId]);
 
   useEffect(() => {
     localStorage.setItem("store_orders", JSON.stringify(orders));
@@ -1016,7 +1177,7 @@ export default function App() {
     
     try {
       updatedProducts.forEach((prod) => {
-        set(ref(db, `products/${prod.id}`), prod);
+        set(getNRef(`products/${prod.id}`), prod);
       });
       addToast(`🔄 تم تحويل جميع المنتجات السابقة ماليّاً لتعمل بـ ${targetCurrency === 'SAR' ? 'الريال السعودي' : 'الريال اليمني'} بنجاح!`, "success");
     } catch (err) {
@@ -1094,6 +1255,7 @@ export default function App() {
 *الجوال المساعد:* ${customerPhone}
 *عنوان التوصيل:* ${customerAddress}
 *وسيلة دفع السلة:* ${paymentMethod}
+${remittanceNumber ? `*رقم الحوالة المالية:* ${remittanceNumber}\n` : ''}
 
 *📋 تفاصيل الأصناف المحجوزة:*
 ${itemsText}
@@ -1155,7 +1317,9 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
       totalPrice: finalBillAmount,
       currency: currency,
       date: new Date().toLocaleString("ar-YE", { hour12: true }),
-      status: "قيد المعالجة"
+      status: "قيد المعالجة",
+      remittanceNumber: remittanceNumber || undefined,
+      remittanceImage: remittanceImage || undefined
     };
 
     setOrders((prev) => [newOrder, ...prev]);
@@ -1166,7 +1330,7 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
 
     try {
       const firebaseFriendlyOrder = cleanUndefined(newOrder);
-      set(ref(db, `orders/${orderId}`), firebaseFriendlyOrder);
+      set(getNRef(`orders/${orderId}`), firebaseFriendlyOrder);
     } catch (err) {
       console.error("Failed to commit order: ", err);
     }
@@ -1183,6 +1347,8 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
     setCustomerPhone("");
     setCustomerAddress("");
     setCreatedOrderLink("");
+    setRemittanceNumber("");
+    setRemittanceImage("");
   };
 
   const handleFinalizeOnlinePayment = async (orderId: string) => {
@@ -1240,7 +1406,7 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
 
     try {
       const firebaseFriendlyOrder = cleanUndefined(finalOrder);
-      set(ref(db, `orders/${orderId}`), firebaseFriendlyOrder);
+      set(getNRef(`orders/${orderId}`), firebaseFriendlyOrder);
     } catch (err) {
       console.error("Failed to commit paid order to Firebase: ", err);
     }
@@ -1284,9 +1450,122 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
     addToast("🎉 تمت الفوترة وتسليم البيانات التلقائية ونظام الربط بنجاح!", "success");
   };
 
+  if (isMasterPath) {
+    return (
+      <div className="min-h-screen bg-[#03060c] text-white font-sans antialiased" id="developer-viewport">
+        <MasterDeveloperControl
+          siteName={siteName}
+          onUpdateSiteName={(newName) => {
+            setSiteName(newName);
+            localStorage.setItem("store_site_name", newName);
+            try {
+              set(getNRef("settings/siteName"), {
+                Key: "siteName",
+                Type: "siteName",
+                Value: newName
+              });
+            } catch (e) {
+              console.error(e);
+            }
+          }}
+          adminPassword={adminPassword}
+          onResetAdminPassword={() => {
+            setAdminPassword("1122");
+            localStorage.setItem("store_admin_password", "1122");
+            try {
+              set(getNRef("settings/adminPassword"), {
+                Key: "adminPassword",
+                Type: "adminPassword",
+                Value: "1122",
+                Link_or_Status: "نشط"
+              });
+            } catch (e) {
+              console.error(e);
+            }
+          }}
+          gameApiUrl={gameApiUrl}
+          gameApiKey={gameApiKey}
+          gameApiProvider={gameApiProvider}
+          payApiUrl={payApiUrl}
+          payApiToken={payApiToken}
+          payApiProvider={payApiProvider}
+          payApiMerchantId={payApiMerchantId}
+          addToast={addToast}
+          onClose={() => {
+            window.history.pushState({}, "", "/");
+            setIsMasterPath(false);
+          }}
+        />
+        {/* Render Toast Notifications container to ensure toasts work in developer panel */}
+        <div className="fixed bottom-5 left-5 z-50 flex flex-col gap-2 pointer-events-none" id="developer-toasts-root">
+          {toasts.map((toast) => (
+            <div
+              key={toast.id}
+              className={`pointer-events-auto p-4 rounded-2xl shadow-2xl flex items-center gap-3 animate-slide-in-right text-right border ${
+                toast.type === "success"
+                  ? "bg-[#052e16] border-emerald-500/30 text-emerald-350"
+                  : toast.type === "error"
+                  ? "bg-[#451a03] border-red-500/30 text-red-350"
+                  : toast.type === "warning"
+                  ? "bg-[#713f12] border-yellow-500/30 text-yellow-350"
+                  : "bg-[#0f172a] border-blue-500/30 text-blue-350"
+              }`}
+            >
+              <div className="text-xs font-bold leading-relaxed">{toast.message}</div>
+              <button
+                onClick={() => setToasts((prev) => prev.filter((t) => t.id !== toast.id))}
+                className="text-slate-400 hover:text-white p-1 rounded-lg"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#060b18] text-white font-sans antialiased selection:bg-yellow-500/20 selection:text-yellow-405 overflow-x-hidden w-full" id="applet-main-container">
       
+      {/* Absolute Developer Super Admin Project Switcher & Command Bar */}
+      {adminSession?.role === "developer" && (
+        <div className="bg-gradient-to-r from-purple-950 via-indigo-950 to-purple-950 border-b border-purple-500/40 text-[11px] font-black text-white py-2 px-4 shadow-xl relative z-55 flex flex-col sm:flex-row items-center justify-between gap-3 text-right" dir="rtl" id="developer-control-bar">
+          <div className="flex items-center gap-2">
+            <span className="flex h-2 w-2 relative">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-purple-500"></span>
+            </span>
+            <span className="text-purple-300">منصة المطور المطلق 🛠️</span>
+            <span className="text-slate-400">|</span>
+            <p className="text-slate-300">
+              مرحبًا، <strong className="text-purple-200">عبدالكريم</strong>. أنت الآن تتصفح بكافة الصلاحيات وقفل القوالب ملغي تلقائيًّا!
+            </p>
+          </div>
+          <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+            <label className="text-[10px] text-purple-200 font-bold whitespace-nowrap">التحول السريع لقوالب المشاريع:</label>
+            <select
+              value={activeNicheId}
+              onChange={(e) => {
+                const targetNiche = e.target.value as any;
+                handleApplyNicheTemplate(targetNiche);
+                addToast(`🔄 تم تحديث المتجر فوراً لقالب: ${NICHES.find(n => n.id === targetNiche)?.name}`, "success");
+              }}
+              className="bg-[#060b18] border border-purple-500/40 focus:border-purple-300 rounded-lg px-2 py-0.5 text-[11px] text-purple-300 font-bold outline-none cursor-pointer"
+            >
+              <option value="game">🎮 متجر شحن الألعاب والترفيه (Game Charge)</option>
+              <option value="pharmacy">🧪 صيدلية ومستلزمات رعاية صحية (Pharmacy)</option>
+              <option value="supermarket">🛒 سوبر ماركت ومبيعات بقالة (Supermarket)</option>
+              <option value="school">🏫 مدارس ومؤسسات تعليمية (Educational)</option>
+              <option value="tailor">🪡 محلات خياطة وتصميم أزياء (Tailor)</option>
+              <option value="legal">⚖️ مكتب استشارات قانونية ومحاماة (Legal)</option>
+              <option value="consulting">💼 شركة استشارات إدارية (Consulting)</option>
+              <option value="hyper">✨ الهايبر ماركت الشامل (Hypermarket)</option>
+            </select>
+          </div>
+        </div>
+      )}
+
       {/* Dynamic Header Announcement marquee (Infinite slide feel) */}
       <div className={`bg-gradient-to-r from-blue-950 via-[#0f172a] to-blue-950 text-xs text-center py-2 px-4 shadow-sm border-b border-yellow-500/20 relative z-50 text-yellow-400 font-semibold transition-all duration-300 ${
         isAnyInputFocused ? 'hidden sm:block' : 'block'
@@ -1313,8 +1592,8 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
               )}
             </div>
             <div className="text-right">
-              <h1 className={`font-extrabold text-transparent bg-clip-text bg-gradient-to-l from-yellow-400 via-amber-300 to-yellow-400 leading-none transition-all duration-305 ${isAnyInputFocused ? 'text-sm md:text-xl' : 'text-base md:text-xl'}`}>
-                مستودع ومتجر الذيباني VIP
+              <h1 className={`font-extrabold text-[#ffffff] ... bg-gradient-to-l from-yellow-400 via-amber-300 to-yellow-400 leading-none transition-all duration-305 ${isAnyInputFocused ? 'text-sm md:text-xl' : 'text-base md:text-xl'}`}>
+                {siteName}
               </h1>
               {!isAnyInputFocused && (
                 <p className="text-[10px] text-slate-405 mt-1 font-semibold tracking-wide hidden sm:block">
@@ -1438,7 +1717,7 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
         {currentTab === "store" && (
           <div className="space-y-8">
             {/* Promo / Advertisements Carousel Slide Banner Area */}
-            <PromoCarousel slides={carouselSlides} onSetActiveTab={setCurrentTab} />
+            <PromoCarousel slides={carouselSlides} onSetActiveTab={setCurrentTab} activeNicheId={activeNicheId} />
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8" id="store-view-grid">
             
@@ -1453,8 +1732,8 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
                         {products.length} صنف متوفر بالمستودع
                       </span>
                     </h2>
-                    <p className="text-xs text-slate-405 mt-1">
-                      أصناف شحن الألعاب الفورية المباشرة بالإضافة لتشكيلة البهارات والمواد الفاخرة المعتمدة
+                    <p className="text-xs text-slate-400 mt-1">
+                      {NICHES.find(n => n.id === activeNicheId)?.subtitle || "أصناف فخمة وحصرية متوفرة للتسجيل المباشر فورياً"}
                     </p>
                   </div>
 
@@ -1508,7 +1787,7 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
                       <ShoppingBag className="w-10 h-10 mx-auto text-yellow-400 opacity-20 animate-pulse" />
                       <p className="text-xs font-semibold">سلتك خالية من البضائع حالياً</p>
                       <p className="text-[10px] text-slate-500 max-w-[200px] mx-auto leading-relaxed">
-                        اختر ما يناسبك من فئات الشحن السريع أو البهارات الفاخرة ليقوم مساعدنا بتجهيز الطلب لك
+                        اختر ما يناسبك من الأصناف المعروضة ليقوم مساعدنا الذكي بتجهيز وتأكيد الطلب لك
                       </p>
                     </div>
                   ) : (
@@ -1932,13 +2211,14 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
         {/* Tab 3: Admin Dashboard with Security login verification */}
         {currentTab === "admin" && (
           <div className="space-y-6" id="admin-tab-wrapper">
-            {!isAdminLoggedIn ? (
+            {!isAdminLoggedIn || !adminSession ? (
               <AdminLoginGate 
-                correctPassword={adminPassword}
-                onSuccess={() => {
+                onSuccess={(session) => {
+                  setAdminSession(session);
                   setIsAdminLoggedIn(true);
                   sessionStorage.setItem("is_admin_vip_logged", "true");
-                  addToast("🔑 تم التحقق بنجاح! نرحب بكم في كابينة الإشراف VIP...", "success");
+                  sessionStorage.setItem("store_admin_session", JSON.stringify(session));
+                  addToast(`🔑 نرحب بك يا ${session.fullName}! تم تسجيل الدخول كـ ${session.role === "developer" ? "المطور المطلق 🛠️" : session.role === "owner" ? "المالك 👑" : `الموظف: ${session.staffRole}`} بنجاح...`, "success");
                 }}
                 onCancel={() => {
                   setCurrentTab("store");
@@ -1958,6 +2238,7 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
                 </div>
 
                 <AdminDashboard
+                  userSession={adminSession}
                   products={products}
                   categories={categories}
                   salesData={salesStats}
@@ -1966,7 +2247,7 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
                     setLogoUrl(newLogo);
                     localStorage.setItem("store_logo_url", newLogo);
                     try {
-                      set(ref(db, "settings/logo"), {
+                      set(getNRef("settings/logo"), {
                         Key: "logo",
                         Type: "logo",
                         Value: newLogo,
@@ -1982,7 +2263,7 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
                     setWhatsappNumber(cleaned);
                     localStorage.setItem("store_whatsapp_number", cleaned);
                     try {
-                      set(ref(db, "settings/whatsapp"), {
+                      set(getNRef("settings/whatsapp"), {
                         Key: "whatsapp",
                         Type: "whatsapp",
                         Value: cleaned,
@@ -1997,7 +2278,7 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
                     setTickerMessage(newTicker);
                     localStorage.setItem("store_ticker_message", newTicker);
                     try {
-                      set(ref(db, "settings/alert"), {
+                      set(getNRef("settings/alert"), {
                         Key: "alert",
                         Type: "alert",
                         Value: newTicker,
@@ -2012,7 +2293,7 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
                     setPaymentMethods(newPayments);
                     localStorage.setItem("store_payment_methods", JSON.stringify(newPayments));
                     try {
-                      set(ref(db, "settings/payments"), newPayments);
+                      set(getNRef("settings/payments"), newPayments);
                     } catch (err) {
                       console.error("Failed to write payments to firebase:", err);
                     }
@@ -2021,7 +2302,7 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
                   onUpdateOrderStatus={(orderId, nextStatus) => {
                     setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: nextStatus } : o));
                     try {
-                      set(ref(db, `orders/${orderId}/status`), nextStatus);
+                      set(getNRef(`orders/${orderId}/status`), nextStatus);
                     } catch (err) {
                       console.error("Failed to update status on firebase: ", err);
                     }
@@ -2029,7 +2310,7 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
                   onDeleteOrder={(orderId) => {
                     setOrders(prev => prev.filter(o => o.id !== orderId));
                     try {
-                      set(ref(db, `orders/${orderId}`), null);
+                      set(getNRef(`orders/${orderId}`), null);
                     } catch (err) {
                       console.error("Failed to remove order from firebase:", err);
                     }
@@ -2039,16 +2320,16 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
                     setCarouselSlides(newSlides);
                     localStorage.setItem("store_carousel_slides", JSON.stringify(newSlides));
                     try {
-                      set(ref(db, "settings/carousel"), newSlides);
+                      set(getNRef("settings/carousel"), newSlides);
                     } catch(err) {
                       console.error("Failed to write carousel to firebase:", err);
                     }
                   }}
                   onAddProduct={(p) => {
-                    const created: Product = { ...p, id: `prod-${Date.now()}` };
+                    const created = { ...p, id: `prod-${Date.now()}` };
                     setProducts(prev => [...prev, created]);
                     try {
-                      set(ref(db, `products/${created.id}`), created);
+                      set(getNRef(`products/${created.id}`), created);
                     } catch(err) {
                       console.error("Failed to write newly added product to firebase:", err);
                     }
@@ -2058,7 +2339,7 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
                     try {
                       const selectProduct = products.find(p => p.id === id);
                       if (selectProduct) {
-                        set(ref(db, `products/${id}`), {
+                        set(getNRef(`products/${id}`), {
                           ...selectProduct,
                           ...updated
                         });
@@ -2071,16 +2352,16 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
                   onDeleteProduct={(id) => {
                     setProducts(prev => prev.filter(p => p.id !== id));
                     try {
-                      set(ref(db, `products/${id}`), null);
+                      set(getNRef(`products/${id}`), null);
                     } catch(err) {
                       console.error("Failed to delete product from firebase:", err);
                     }
                   }}
                   onAddCategory={(cat) => {
-                    const created: StoreCategory = { ...cat, id: `cat-${Date.now()}` };
+                    const created = { ...cat, id: `cat-${Date.now()}` };
                     setCategories(prev => [...prev, created]);
                     try {
-                      set(ref(db, `categories/${created.id}`), created);
+                      set(getNRef(`categories/${created.id}`), created);
                     } catch(err) {
                       console.error("Failed to add category to firebase:", err);
                     }
@@ -2088,7 +2369,7 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
                   onDeleteCategory={(id) => {
                     setCategories(prev => prev.filter(c => c.id !== id));
                     try {
-                      set(ref(db, `categories/${id}`), null);
+                      set(getNRef(`categories/${id}`), null);
                     } catch(err) {
                       console.error("Failed to delete category from firebase:", err);
                     }
@@ -2099,7 +2380,7 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
                     setAdminPassword(cleaned);
                     localStorage.setItem("store_admin_password", cleaned);
                     try {
-                      set(ref(db, "settings/adminPassword"), {
+                      set(getNRef("settings/adminPassword"), {
                         Key: "adminPassword",
                         Type: "adminPassword",
                         Value: cleaned,
@@ -2115,7 +2396,7 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
                     setCurrency(newCurr);
                     localStorage.setItem("store_currency", newCurr);
                     try {
-                      set(ref(db, "settings/currency"), {
+                      set(getNRef("settings/currency"), {
                         Key: "currency",
                         Type: "currency",
                         Value: newCurr,
@@ -2126,6 +2407,22 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
                       console.error("Failed to write currency to firebase:", err);
                     }
                   }}
+                  formatPrice={formatPrice}
+                  deliveryFeeEnabled={deliveryFeeEnabled}
+                  onUpdateDeliveryFeeEnabled={(enabled) => {
+                    setDeliveryFeeEnabled(enabled);
+                    localStorage.setItem("store_delivery_fee_enabled", String(enabled));
+                    try {
+                      set(getNRef("settings/deliveryFeeEnabled"), {
+                        Key: "deliveryFeeEnabled",
+                        Type: "deliveryFeeEnabled",
+                        Value: String(enabled),
+                        Link_or_Status: "نشط"
+                      });
+                    } catch (err) {
+                      console.error("Failed to write deliveryFeeEnabled to firebase:", err);
+                    }
+                  }}
                   exchangeRate={exchangeRate}
                   onUpdateExchangeRate={(newRate) => {
                     setCurrency('YER'); // auto-select Yemeni Rial to witness the changes if updating
@@ -2133,7 +2430,7 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
                     setExchangeRate(newRate);
                     localStorage.setItem("store_exchange_rate", String(newRate));
                     try {
-                      set(ref(db, "settings/exchangeRate"), {
+                      set(getNRef("settings/exchangeRate"), {
                         Key: "exchangeRate",
                         Type: "exchangeRate",
                         Value: newRate,
@@ -2144,50 +2441,54 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
                       console.error("Failed to write exchange rate to firebase:", err);
                     }
                   }}
-                  formatPrice={formatPrice}
-                  deliveryFeeEnabled={deliveryFeeEnabled}
-                  onUpdateDeliveryFeeEnabled={(enabled) => {
-                    setDeliveryFeeEnabled(enabled);
-                    localStorage.setItem("store_delivery_fee_enabled", String(enabled));
+                  gameApiUrl={gameApiUrl}
+                  gameApiKey={gameApiKey}
+                  gameApiProvider={gameApiProvider}
+                  gameApiEnabled={gameApiEnabled}
+                  gameApiLocalServerUrl={gameApiLocalServerUrl}
+                  gameApiLocalAccountNumber={gameApiLocalAccountNumber}
+                  gameApiLocalUsername={gameApiLocalUsername}
+                  gameApiLocalPassword={gameApiLocalPassword}
+                  gameApiLocalEmployeeId={gameApiLocalEmployeeId}
+                  gameApiLocalSourceId={gameApiLocalSourceId}
+                  onUpdateGameApiSettings={(url, key, provider, enabled, localServ, localAcc, localUser, localPass, localEmp, localSrc) => {
+                    setGameApiUrl(url);
+                    setGameApiKey(key || "");
+                    setGameApiProvider(provider);
+                    setGameApiEnabled(enabled);
+                    if (localServ !== undefined) setGameApiLocalServerUrl(localServ);
+                    if (localAcc !== undefined) setGameApiLocalAccountNumber(localAcc);
+                    if (localUser !== undefined) setGameApiLocalUsername(localUser);
+                    if (localPass !== undefined) setGameApiLocalPassword(localPass);
+                    if (localEmp !== undefined) setGameApiLocalEmployeeId(localEmp);
+                    if (localSrc !== undefined) setGameApiLocalSourceId(localSrc);
+
+                    localStorage.setItem("store_game_api_url", url);
+                    localStorage.setItem("store_game_api_key", key || "");
+                    localStorage.setItem("store_game_api_provider", provider);
+                    localStorage.setItem("store_game_api_enabled", String(enabled));
+                    if (localServ !== undefined) localStorage.setItem("store_game_api_local_server_url", localServ);
+                    if (localAcc !== undefined) localStorage.setItem("store_game_api_local_account_number", localAcc);
+                    if (localUser !== undefined) localStorage.setItem("store_game_api_local_username", localUser);
+                    if (localPass !== undefined) localStorage.setItem("store_game_api_local_password", localPass);
+                    if (localEmp !== undefined) localStorage.setItem("store_game_api_local_employee_id", localEmp);
+                    if (localSrc !== undefined) localStorage.setItem("store_game_api_local_source_id", localSrc);
+
                     try {
-                      set(ref(db, "settings/deliveryFeeEnabled"), {
-                        Key: "deliveryFeeEnabled",
-                        Type: "deliveryFeeEnabled",
-                        Value: String(enabled),
-                        Link_or_Status: "نشط"
-                      });
+                      set(getNRef("settings/gameApiUrl"), { Key: "gameApiUrl", Value: url });
+                      set(getNRef("settings/gameApiKey"), { Key: "gameApiKey", Value: key || "" });
+                      set(getNRef("settings/gameApiProvider"), { Key: "gameApiProvider", Value: provider });
+                      set(getNRef("settings/gameApiEnabled"), { Key: "gameApiEnabled", Value: String(enabled) });
+                      if (localServ !== undefined) set(getNRef("settings/gameApiLocalServerUrl"), { Key: "gameApiLocalServerUrl", Value: localServ });
+                      if (localAcc !== undefined) set(getNRef("settings/gameApiLocalAccountNumber"), { Key: "gameApiLocalAccountNumber", Value: localAcc });
+                      if (localUser !== undefined) set(getNRef("settings/gameApiLocalUsername"), { Key: "gameApiLocalUsername", Value: localUser });
+                      if (localPass !== undefined) set(getNRef("settings/gameApiLocalPassword"), { Key: "gameApiLocalPassword", Value: localPass });
+                      if (localEmp !== undefined) set(getNRef("settings/gameApiLocalEmployeeId"), { Key: "gameApiLocalEmployeeId", Value: localEmp });
+                      if (localSrc !== undefined) set(getNRef("settings/gameApiLocalSourceId"), { Key: "gameApiLocalSourceId", Value: localSrc });
+
+                      addToast("✨ تم تحديث وحفظ ربط بوابة الفواتير التلقائية بنجاح!", "success");
                     } catch (err) {
-                      console.error("Failed to write deliveryFeeEnabled to firebase:", err);
-                    }
-                  }}
-                  deliveryFeeValue={deliveryFeeValue}
-                  onUpdateDeliveryFeeValue={(newVal) => {
-                    setDeliveryFeeValue(newVal);
-                    localStorage.setItem("store_delivery_fee_value", String(newVal));
-                    try {
-                      set(ref(db, "settings/deliveryFeeValue"), {
-                        Key: "deliveryFeeValue",
-                        Type: "deliveryFeeValue",
-                        Value: Number(newVal),
-                        Link_or_Status: "نشط"
-                      });
-                    } catch (err) {
-                      console.error("Failed to write deliveryFeeValue to firebase:", err);
-                    }
-                  }}
-                  taxEnabled={taxEnabled}
-                  onUpdateTaxEnabled={(enabled) => {
-                    setTaxEnabled(enabled);
-                    localStorage.setItem("store_tax_enabled", String(enabled));
-                    try {
-                      set(ref(db, "settings/taxEnabled"), {
-                        Key: "taxEnabled",
-                        Type: "taxEnabled",
-                        Value: String(enabled),
-                        Link_or_Status: "نشط"
-                      });
-                    } catch (err) {
-                      console.error("Failed to write taxEnabled to firebase:", err);
+                      console.error("Failed to write game api settings to firebase:", err);
                     }
                   }}
                   taxRate={taxRate}
@@ -2195,7 +2496,7 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
                     setTaxRate(rate);
                     localStorage.setItem("store_tax_rate", String(rate));
                     try {
-                      set(ref(db, "settings/taxRate"), {
+                      set(getNRef("settings/taxRate"), {
                         Key: "taxRate",
                         Type: "taxRate",
                         Value: Number(rate),
@@ -2210,7 +2511,7 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
                     setTaxInTotal(inTotal);
                     localStorage.setItem("store_tax_in_total", String(inTotal));
                     try {
-                      set(ref(db, "settings/taxInTotal"), {
+                      set(getNRef("settings/taxInTotal"), {
                         Key: "taxInTotal",
                         Type: "taxInTotal",
                         Value: String(inTotal),
@@ -2225,7 +2526,7 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
                     setTaxVisible(visible);
                     localStorage.setItem("store_tax_visible", String(visible));
                     try {
-                      set(ref(db, "settings/taxVisible"), {
+                      set(getNRef("settings/taxVisible"), {
                         Key: "taxVisible",
                         Type: "taxVisible",
                         Value: String(visible),
@@ -2240,7 +2541,7 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
                     setDeliveryInTotal(inTotal);
                     localStorage.setItem("store_delivery_in_total", String(inTotal));
                     try {
-                      set(ref(db, "settings/deliveryInTotal"), {
+                      set(getNRef("settings/deliveryInTotal"), {
                         Key: "deliveryInTotal",
                         Type: "deliveryInTotal",
                         Value: String(inTotal),
@@ -2255,7 +2556,7 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
                     setDeliveryVisible(visible);
                     localStorage.setItem("store_delivery_visible", String(visible));
                     try {
-                      set(ref(db, "settings/deliveryVisible"), {
+                      set(getNRef("settings/deliveryVisible"), {
                         Key: "deliveryVisible",
                         Type: "deliveryVisible",
                         Value: String(visible),
@@ -2263,29 +2564,6 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
                       });
                     } catch (err) {
                       console.error("Failed to write deliveryVisible to firebase:", err);
-                    }
-                  }}
-                  gameApiUrl={gameApiUrl}
-                  gameApiKey={gameApiKey}
-                  gameApiProvider={gameApiProvider}
-                  gameApiEnabled={gameApiEnabled}
-                  onUpdateGameApiSettings={(url, key, provider, enabled) => {
-                    setGameApiUrl(url);
-                    setGameApiKey(key);
-                    setGameApiProvider(provider);
-                    setGameApiEnabled(enabled);
-                    localStorage.setItem("store_game_api_url", url);
-                    localStorage.setItem("store_game_api_key", key);
-                    localStorage.setItem("store_game_api_provider", provider);
-                    localStorage.setItem("store_game_api_enabled", String(enabled));
-                    try {
-                      set(ref(db, "settings/gameApiUrl"), { Key: "gameApiUrl", Value: url });
-                      set(ref(db, "settings/gameApiKey"), { Key: "gameApiKey", Value: key });
-                      set(ref(db, "settings/gameApiProvider"), { Key: "gameApiProvider", Value: provider });
-                      set(ref(db, "settings/gameApiEnabled"), { Key: "gameApiEnabled", Value: String(enabled) });
-                      addToast("✨ تم تحديث وحفظ ربط بوابة الفواتير التلقائية بنجاح!", "success");
-                    } catch (err) {
-                      console.error("Failed to write game api settings to firebase:", err);
                     }
                   }}
                   payApiEnabled={payApiEnabled}
@@ -2305,11 +2583,11 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
                     localStorage.setItem("store_pay_api_merchant_id", merchantId);
                     localStorage.setItem("store_pay_api_enabled", String(enabled));
                     try {
-                      set(ref(db, "settings/payApiUrl"), { Key: "payApiUrl", Value: url });
-                      set(ref(db, "settings/payApiToken"), { Key: "payApiToken", Value: token });
-                      set(ref(db, "settings/payApiProvider"), { Key: "payApiProvider", Value: provider });
-                      set(ref(db, "settings/payApiMerchantId"), { Key: "payApiMerchantId", Value: merchantId });
-                      set(ref(db, "settings/payApiEnabled"), { Key: "payApiEnabled", Value: String(enabled) });
+                      set(getNRef("settings/payApiUrl"), { Key: "payApiUrl", Value: url });
+                      set(getNRef("settings/payApiToken"), { Key: "payApiToken", Value: token });
+                      set(getNRef("settings/payApiProvider"), { Key: "payApiProvider", Value: provider });
+                      set(getNRef("settings/payApiMerchantId"), { Key: "payApiMerchantId", Value: merchantId });
+                      set(getNRef("settings/payApiEnabled"), { Key: "payApiEnabled", Value: String(enabled) });
                       addToast("💳 تم تحديث وحفظ إعدادات بوابات الدفع الإلكترونية بنجاح!", "success");
                     } catch (err) {
                       console.error("Failed to write pay api settings to firebase:", err);
@@ -2317,9 +2595,17 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
                   }}
                   onLogoutAdmin={() => {
                     setIsAdminLoggedIn(false);
+                    setAdminSession(null);
                     sessionStorage.removeItem("is_admin_vip_logged");
+                    sessionStorage.removeItem("store_admin_session");
                     setCurrentTab("store");
                     addToast("🔒 تم خروج المشرف وإغلاق الجلسة الآمنة بنجاح.", "warning");
+
+                    // Re-enforce environment variable lock upon logout 
+                    const locked = getProjectTypeNiche();
+                    if (locked) {
+                      handleApplyNicheTemplate(locked);
+                    }
                   }}
                   activeNicheId={activeNicheId}
                   onApplyNicheTemplate={handleApplyNicheTemplate}
@@ -2527,6 +2813,16 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
                         </div>
                       </div>
 
+                      {/* Manual Remittance & Receipt Upload (Isolated modular feature) */}
+                      {isModuleEnabled('games_hyper') && (paymentMethod.includes("حوالة") || paymentMethod.includes("كريمي") || paymentMethod.includes("بنك")) && (
+                        <ManualRemittance
+                          remittanceNumber={remittanceNumber}
+                          setRemittanceNumber={setRemittanceNumber}
+                          remittanceImage={remittanceImage}
+                          setRemittanceImage={setRemittanceImage}
+                        />
+                      )}
+
                       {/* Summary recap block inside step 3 */}
                       <div className="bg-yellow-500/5 border border-yellow-500/10 p-3 rounded-xl text-[10px] text-slate-350 leading-relaxed space-y-1">
                         <div className="flex justify-between">
@@ -2651,7 +2947,7 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
                 </div>
                 <div className="flex justify-between items-center text-[11px] text-slate-400">
                   <span>المستفيد:</span>
-                  <span className="text-white font-bold">مستودع ومتجر الذيباني VIP 🐺</span>
+                  <span className="text-white font-bold">{siteName} 🐺</span>
                 </div>
                 <div className="pt-2 border-t border-blue-900/20 flex justify-between items-center">
                   <span className="text-xs font-black text-slate-300">مبلغ الفاتورة المطلوب دفعها:</span>
@@ -2966,7 +3262,7 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
       {/* CORE FOOTER */}
       <footer className="bg-[#0b1329] border-t border-yellow-500/20 mt-16 pb-24 lg:pb-8 pt-8" id="store-main-footer">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-xs text-slate-400 space-y-4" dir="rtl">
-          <p>© {new Date().getFullYear()} متجر ومستودع الذيباني الفاخر VIP. حقوق البرمجة والعمليات التامة محفوظة.</p>
+          <p>© {new Date().getFullYear()} {siteName}. حقوق البرمجة والعمليات التامة محفوظة.</p>
           <div className="flex justify-center items-center flex-wrap gap-x-3 gap-y-2 text-[10px] text-slate-500">
             <span>الرقم المعتمد: {whatsappNumber}</span>
             <span>•</span>

@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
-import { Product, StoreCategory, Order, CarouselSlide, Staff } from '../types';
+import { Product, StoreCategory, Order, CarouselSlide, Staff, UserSession } from '../types';
 import { NICHES } from '../data';
+import { isModuleEnabled } from '../core/moduleLoader';
+import { DollarExchangePricing } from '../modules/games_hyper/DollarExchangePricing';
 import { 
   Plus, 
   Edit2, 
@@ -114,11 +116,29 @@ interface AdminDashboardProps {
   deliveryVisible?: boolean;
   onUpdateDeliveryVisible?: (visible: boolean) => void;
   // Game charging gateway details
+  siteName?: string;
   gameApiUrl?: string;
   gameApiKey?: string;
   gameApiProvider?: string;
   gameApiEnabled?: boolean;
-  onUpdateGameApiSettings?: (url: string, key: string, provider: string, enabled: boolean) => void;
+  gameApiLocalServerUrl?: string;
+  gameApiLocalAccountNumber?: string;
+  gameApiLocalUsername?: string;
+  gameApiLocalPassword?: string;
+  gameApiLocalEmployeeId?: string;
+  gameApiLocalSourceId?: string;
+  onUpdateGameApiSettings?: (
+    url: string, 
+    key: string, 
+    provider: string, 
+    enabled: boolean,
+    localUrl?: string,
+    localAcc?: string,
+    localUser?: string,
+    localPass?: string,
+    localEmp?: string,
+    localSrc?: string
+  ) => void;
   // Payment Gateway API details
   payApiUrl?: string;
   payApiToken?: string;
@@ -128,6 +148,11 @@ interface AdminDashboardProps {
   onUpdatePayApiSettings?: (url: string, token: string, provider: string, merchantId: string, enabled: boolean) => void;
   activeNicheId?: 'game' | 'pharmacy' | 'supermarket' | 'school' | 'tailor' | 'legal' | 'consulting' | 'hyper';
   onApplyNicheTemplate?: (nicheId: 'game' | 'pharmacy' | 'supermarket' | 'school' | 'tailor' | 'legal' | 'consulting' | 'hyper') => void;
+  userSession?: UserSession;
+  usdToSar?: number;
+  onUpdateUsdToSar?: (rate: number) => void;
+  usdToYer?: number;
+  onUpdateUsdToYer?: (rate: number) => void;
 }
 
 export default function AdminDashboard({
@@ -178,10 +203,17 @@ export default function AdminDashboard({
   onUpdateDeliveryInTotal,
   deliveryVisible = true,
   onUpdateDeliveryVisible,
+  siteName = 'متجر ومستودع الذيباني VIP',
   gameApiUrl = '',
   gameApiKey = '',
   gameApiProvider = 'default',
   gameApiEnabled = false,
+  gameApiLocalServerUrl = '',
+  gameApiLocalAccountNumber = '',
+  gameApiLocalUsername = '',
+  gameApiLocalPassword = '',
+  gameApiLocalEmployeeId = '',
+  gameApiLocalSourceId = '',
   onUpdateGameApiSettings,
   payApiUrl = '',
   payApiToken = '',
@@ -190,10 +222,23 @@ export default function AdminDashboard({
   payApiEnabled = false,
   onUpdatePayApiSettings,
   activeNicheId = 'game',
-  onApplyNicheTemplate
+  onApplyNicheTemplate,
+  userSession,
+  usdToSar = 3.75,
+  onUpdateUsdToSar,
+  usdToYer = 530,
+  onUpdateUsdToYer
 }: AdminDashboardProps) {
   // Main admin control panel navigation tabs
-  const [activeTab, setActiveTab] = useState<'products' | 'categories' | 'orders' | 'slides' | 'configuration' | 'stats' | 'staff'>('products');
+  const [activeTab, setActiveTab] = useState<'products' | 'categories' | 'orders' | 'slides' | 'configuration' | 'stats' | 'staff'>(() => {
+    if (userSession?.role === 'staff') {
+      if (userSession.permissions?.canEditInventory) return 'products';
+      if (userSession.permissions?.canManageOrders) return 'orders';
+      if (userSession.permissions?.canViewFinance) return 'stats';
+      return 'orders';
+    }
+    return 'products';
+  });
   
   // Advanced reporting & reconciliation states
   const [reportsSubTab, setReportsSubTab] = useState<'reconciliation' | 'analytics'>('reconciliation');
@@ -203,6 +248,16 @@ export default function AdminDashboard({
   const [reconciliationPeriod, setReconciliationPeriod] = useState<'all' | 'recent' | 'today'>('recent');
   const [locallyReconciledOrderIds, setLocallyReconciledOrderIds] = useState<string[]>([]);
   const [isPrintModalOpen, setIsPrintModalOpen] = useState<boolean>(false);
+  
+  // Strict Permission Helpers for RBAC
+  const isDeveloper = userSession?.role === 'developer';
+  const isOwner = userSession?.role === 'owner';
+  const isStaff = userSession?.role === 'staff';
+  
+  const hasFinancePermission = isDeveloper || isOwner || (isStaff && !!userSession?.permissions?.canViewFinance);
+  const hasInventoryPermission = isDeveloper || isOwner || (isStaff && !!userSession?.permissions?.canEditInventory);
+  const hasOrdersPermission = isDeveloper || isOwner || (isStaff && !!userSession?.permissions?.canManageOrders);
+  const isSuperUser = isDeveloper || isOwner; // configuration and staff management are limited to owners and developers
   
   const displayPrice = (val: number) => {
     if (formatPrice) return formatPrice(val);
@@ -219,6 +274,17 @@ export default function AdminDashboard({
   const [inputDeliveryFeeEnabled, setInputDeliveryFeeEnabled] = useState(deliveryFeeEnabled);
   const [inputDeliveryFeeValue, setInputDeliveryFeeValue] = useState(deliveryFeeValue);
   const [inputCurrency, setInputCurrency] = useState<'SAR' | 'YER'>(currency);
+  
+  // Smart multi-currency input states
+  const [inputUsdToSar, setInputUsdToSar] = useState<number>(usdToSar);
+  const [inputUsdToYer, setInputUsdToYer] = useState<number>(usdToYer);
+
+  // Digital Specific product fields
+  const [productCostUsd, setProductCostUsd] = useState<number | ''>('');
+  const [productProfitMarginUsd, setProductProfitMarginUsd] = useState<number | ''>('');
+  const [productIsDigitalService, setProductIsDigitalService] = useState<boolean>(false);
+  const [productDigitalServiceType, setProductDigitalServiceType] = useState<'direct' | 'card'>('direct');
+  const [productDigitalCategory, setProductDigitalCategory] = useState<'game' | 'balance' | 'cards'>('game');
 
   const [inputTaxEnabled, setInputTaxEnabled] = useState(taxEnabled);
   const [inputTaxRate, setInputTaxRate] = useState(taxRate);
@@ -232,6 +298,12 @@ export default function AdminDashboard({
   const [inputGameApiUrl, setInputGameApiUrl] = useState(gameApiUrl);
   const [inputGameApiKey, setInputGameApiKey] = useState(gameApiKey);
   const [inputGameApiProvider, setInputGameApiProvider] = useState(gameApiProvider);
+  const [inputGameApiLocalServerUrl, setInputGameApiLocalServerUrl] = useState(gameApiLocalServerUrl);
+  const [inputGameApiLocalAccountNumber, setInputGameApiLocalAccountNumber] = useState(gameApiLocalAccountNumber);
+  const [inputGameApiLocalUsername, setInputGameApiLocalUsername] = useState(gameApiLocalUsername);
+  const [inputGameApiLocalPassword, setInputGameApiLocalPassword] = useState(gameApiLocalPassword);
+  const [inputGameApiLocalEmployeeId, setInputGameApiLocalEmployeeId] = useState(gameApiLocalEmployeeId);
+  const [inputGameApiLocalSourceId, setInputGameApiLocalSourceId] = useState(gameApiLocalSourceId);
   const [checkingBalance, setCheckingBalance] = useState(false);
   const [apiBalanceResult, setApiBalanceResult] = useState<{ success: boolean; msg: string; balance?: number; currency?: string } | null>(null);
 
@@ -264,6 +336,14 @@ export default function AdminDashboard({
   React.useEffect(() => {
     setInputExchangeRate(exchangeRate);
   }, [exchangeRate]);
+
+  React.useEffect(() => {
+    setInputUsdToSar(usdToSar);
+  }, [usdToSar]);
+
+  React.useEffect(() => {
+    setInputUsdToYer(usdToYer);
+  }, [usdToYer]);
 
   React.useEffect(() => {
     setInputDeliveryFeeEnabled(deliveryFeeEnabled);
@@ -316,6 +396,30 @@ export default function AdminDashboard({
   React.useEffect(() => {
     setInputGameApiProvider(gameApiProvider);
   }, [gameApiProvider]);
+
+  React.useEffect(() => {
+    setInputGameApiLocalServerUrl(gameApiLocalServerUrl);
+  }, [gameApiLocalServerUrl]);
+
+  React.useEffect(() => {
+    setInputGameApiLocalAccountNumber(gameApiLocalAccountNumber);
+  }, [gameApiLocalAccountNumber]);
+
+  React.useEffect(() => {
+    setInputGameApiLocalUsername(gameApiLocalUsername);
+  }, [gameApiLocalUsername]);
+
+  React.useEffect(() => {
+    setInputGameApiLocalPassword(gameApiLocalPassword);
+  }, [gameApiLocalPassword]);
+
+  React.useEffect(() => {
+    setInputGameApiLocalEmployeeId(gameApiLocalEmployeeId);
+  }, [gameApiLocalEmployeeId]);
+
+  React.useEffect(() => {
+    setInputGameApiLocalSourceId(gameApiLocalSourceId);
+  }, [gameApiLocalSourceId]);
 
   React.useEffect(() => {
     setInputPayApiEnabled(payApiEnabled);
@@ -678,7 +782,14 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
         currency: productCurrency,
         colors: productColors ? productColors.split(',').map(s => s.trim()).filter(Boolean) : [],
         flavors: productFlavors ? productFlavors.split(',').map(s => s.trim()).filter(Boolean) : [],
-        images: productImages ? productImages.split(',').map(s => s.trim()).filter(Boolean) : []
+        images: productImages ? productImages.split(',').map(s => s.trim()).filter(Boolean) : [],
+        cost_usd: productCostUsd !== '' ? Number(productCostUsd) : undefined,
+        profit_margin_usd: productProfitMarginUsd !== '' ? Number(productProfitMarginUsd) : undefined,
+        is_digital_service: productIsDigitalService,
+        digital_service_type: productIsDigitalService ? productDigitalServiceType : undefined,
+        digital_category: productIsDigitalService ? productDigitalCategory : undefined,
+        isApiProduct: productIsDigitalService && productDigitalServiceType === 'direct',
+        apiRequiredField: productIsDigitalService && productDigitalServiceType === 'direct' ? 'معرف اللاعب (Player ID) / رقم الهاتف' : undefined
       });
       triggerNotification('تم تحديث الصنف ومزامنته مع المخازن ✨');
       setEditingId(null);
@@ -696,7 +807,14 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
         currency: productCurrency,
         colors: productColors ? productColors.split(',').map(s => s.trim()).filter(Boolean) : [],
         flavors: productFlavors ? productFlavors.split(',').map(s => s.trim()).filter(Boolean) : [],
-        images: productImages ? productImages.split(',').map(s => s.trim()).filter(Boolean) : []
+        images: productImages ? productImages.split(',').map(s => s.trim()).filter(Boolean) : [],
+        cost_usd: productCostUsd !== '' ? Number(productCostUsd) : undefined,
+        profit_margin_usd: productProfitMarginUsd !== '' ? Number(productProfitMarginUsd) : undefined,
+        is_digital_service: productIsDigitalService,
+        digital_service_type: productIsDigitalService ? productDigitalServiceType : undefined,
+        digital_category: productIsDigitalService ? productDigitalCategory : undefined,
+        isApiProduct: productIsDigitalService && productDigitalServiceType === 'direct',
+        apiRequiredField: productIsDigitalService && productDigitalServiceType === 'direct' ? 'معرف اللاعب (Player ID) / رقم الهاتف' : undefined
       });
       triggerNotification('تم تفويض الصنف بنجاح وإضافته للمخزن 🌱');
     }
@@ -716,6 +834,11 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
     setProductImage('');
     setProductCode('');
     setProductImages('');
+    setProductCostUsd('');
+    setProductProfitMarginUsd('');
+    setProductIsDigitalService(false);
+    setProductDigitalServiceType('direct');
+    setProductDigitalCategory('game');
   };
 
   const startEditProduct = (p: Product) => {
@@ -734,6 +857,11 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
     setProductImage(p.image);
     setProductCode(p.code || '');
     setProductImages(p.images ? p.images.join(', ') : '');
+    setProductCostUsd(p.cost_usd !== undefined && p.cost_usd !== null ? p.cost_usd : '');
+    setProductProfitMarginUsd(p.profit_margin_usd !== undefined && p.profit_margin_usd !== null ? p.profit_margin_usd : '');
+    setProductIsDigitalService(!!p.is_digital_service);
+    setProductDigitalServiceType(p.digital_service_type || 'direct');
+    setProductDigitalCategory(p.digital_category || 'game');
     setActiveTab('products');
     triggerNotification('تم نسخ بيانات الصنف للتعديل الفوري', 'info');
   };
@@ -844,7 +972,7 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
     doc.write(`
       <html>
         <head>
-          <title>كشف حركة أرصدة الصناديق وجرد الخزينة - متجر الذيباني VIP</title>
+          <title>كشف حركة أرصدة الصناديق وجرد الخزينة - ${siteName}</title>
           <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
           <style>
             @import url('https://fonts.googleapis.com/css2?family=Inter:wght=400;500;700&display=swap');
@@ -939,7 +1067,18 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
       onUpdateDeliveryVisible(inputDeliveryVisible);
     }
     if (onUpdateGameApiSettings) {
-      onUpdateGameApiSettings(inputGameApiUrl, inputGameApiKey, inputGameApiProvider, inputGameApiEnabled);
+      onUpdateGameApiSettings(
+        inputGameApiUrl, 
+        inputGameApiKey, 
+        inputGameApiProvider, 
+        inputGameApiEnabled,
+        inputGameApiLocalServerUrl,
+        inputGameApiLocalAccountNumber,
+        inputGameApiLocalUsername,
+        inputGameApiLocalPassword,
+        inputGameApiLocalEmployeeId,
+        inputGameApiLocalSourceId
+      );
     }
     if (onUpdatePayApiSettings) {
       onUpdatePayApiSettings(inputPayApiUrl, inputPayApiToken, inputPayApiProvider, inputPayApiMerchantId, inputPayApiEnabled);
@@ -948,10 +1087,17 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
   };
 
   const handleCheckApiBalance = async () => {
-    if (!inputGameApiKey) {
+    if (inputGameApiProvider !== 'etisalatonline' && !inputGameApiKey) {
       setApiBalanceResult({
         success: false,
         msg: 'الرجاء إدخال الرمز السري للربط API Key أولاً!'
+      });
+      return;
+    }
+    if (inputGameApiProvider === 'etisalatonline' && (!inputGameApiLocalServerUrl || !inputGameApiLocalAccountNumber || !inputGameApiLocalUsername || !inputGameApiLocalPassword)) {
+      setApiBalanceResult({
+        success: false,
+        msg: 'الرجاء إدخال رابط سيرفر اتصالات، رقم الحساب، اسم المستخدم وكلمة المرور لإجراء الفحص!'
       });
       return;
     }
@@ -965,8 +1111,13 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
         },
         body: JSON.stringify({
           provider: inputGameApiProvider,
-          apiUrl: inputGameApiUrl,
-          apiKey: inputGameApiKey
+          apiUrl: inputGameApiProvider === 'etisalatonline' ? inputGameApiLocalServerUrl : inputGameApiUrl,
+          apiKey: inputGameApiKey,
+          accountNumber: inputGameApiLocalAccountNumber,
+          username: inputGameApiLocalUsername,
+          password: inputGameApiLocalPassword,
+          employeeId: inputGameApiLocalEmployeeId,
+          sourceId: inputGameApiLocalSourceId
         })
       });
       const data = await res.json();
@@ -1083,9 +1234,16 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
           <h2 className="text-xl font-extrabold text-transparent bg-clip-text bg-gradient-to-l from-yellow-400 via-amber-300 to-yellow-400 tracking-tight" id="dashboard-title">
             لوحة الإدارة الفنية والتحكم المتكاملة VIP 🛠️
           </h2>
-          <p className="text-xs text-slate-400 mt-1" id="dashboard-subtitle">
-            لديك سيطرة مطلقة على المخزون والأقسام، الإشراف على طلبات عملائك، تعديل إعلانات الواجهة، وبناء هوية المتجر واللوجو فورياً.
-          </p>
+          <div className="flex flex-wrap gap-2 items-center mt-2">
+            <p className="text-xs text-slate-400" id="dashboard-subtitle">
+              لديك سيطرة مطلقة على المخزون والأقسام، الإشراف على طلبات عملائك، تعديل إعلانات الواجهة، وبناء هوية المتجر واللوجو فورياً.
+            </p>
+            {userSession && (
+              <span className="text-[10px] px-2 py-0.5 rounded-full font-black bg-purple-950/40 text-purple-400 border border-purple-500/20">
+                الحساب النشط: {userSession.fullName} ({userSession.role === 'developer' ? 'المطور المطلق 🛠' : userSession.role === 'owner' ? 'المالك 👑' : `كادر المنشأة: ${userSession.staffRole}`})
+              </span>
+            )}
+          </div>
           {onLogoutAdmin && (
             <button
               onClick={onLogoutAdmin}
@@ -1096,75 +1254,89 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
           )}
         </div>
 
-        {/* Dynamic Navigation Controllers */}
+        {/* Dynamic Navigation Controllers with strict RBAC */}
         <div className="flex bg-[#060b18] p-1.5 rounded-2xl border border-blue-900/50 w-full xl:w-auto flex-wrap gap-1" id="dashboard-navigation">
-          <button
-            onClick={() => setActiveTab('products')}
-            className={`flex-1 xl:flex-none px-3.5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
-              activeTab === 'products' ? 'bg-[#111a2f] text-yellow-400 shadow-lg font-black border border-yellow-500/10' : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            المخزن والأصناف
-          </button>
+          {hasInventoryPermission && (
+            <button
+              onClick={() => setActiveTab('products')}
+              className={`flex-1 xl:flex-none px-3.5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                activeTab === 'products' ? 'bg-[#111a2f] text-yellow-400 shadow-lg font-black border border-yellow-500/10' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              المخزن والأصناف
+            </button>
+          )}
           
-          <button
-            onClick={() => setActiveTab('categories')}
-            className={`flex-1 xl:flex-none px-3.5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
-              activeTab === 'categories' ? 'bg-[#111a2f] text-yellow-400 shadow-lg font-black border border-yellow-500/10' : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            الأقسام ({categories.length})
-          </button>
+          {hasInventoryPermission && (
+            <button
+              onClick={() => setActiveTab('categories')}
+              className={`flex-1 xl:flex-none px-3.5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                activeTab === 'categories' ? 'bg-[#111a2f] text-yellow-405 shadow-lg font-black border border-yellow-500/10' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              الأقسام ({categories.length})
+            </button>
+          )}
 
-          <button
-            onClick={() => setActiveTab('orders')}
-            className={`flex-1 xl:flex-none px-3.5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer relative ${
-              activeTab === 'orders' ? 'bg-[#111a2f] text-yellow-400 shadow-lg font-black border border-yellow-500/10' : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            <span>الطلبات المستلمة</span>
-            {orders.length > 0 && (
-              <span className="absolute -top-1 -left-1 bg-red-500 text-white font-black text-[9px] w-4.5 h-4.5 rounded-full flex items-center justify-center animate-pulse">
-                {orders.length}
-              </span>
-            )}
-          </button>
+          {hasOrdersPermission && (
+            <button
+              onClick={() => setActiveTab('orders')}
+              className={`flex-1 xl:flex-none px-3.5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer relative ${
+                activeTab === 'orders' ? 'bg-[#111a2f] text-yellow-400 shadow-lg font-black border border-yellow-500/10' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <span>الطلبات المستلمة</span>
+              {orders.length > 0 && (
+                <span className="absolute -top-1 -left-1 bg-red-500 text-white font-black text-[9px] w-4.5 h-4.5 rounded-full flex items-center justify-center animate-pulse">
+                  {orders.length}
+                </span>
+              )}
+            </button>
+          )}
 
-          <button
-            onClick={() => setActiveTab('slides')}
-            className={`flex-1 xl:flex-none px-3.5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
-              activeTab === 'slides' ? 'bg-[#111a2f] text-yellow-400 shadow-lg font-black border border-yellow-500/10' : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            إعلانات السلايدر ({carouselSlides.length})
-          </button>
+          {hasInventoryPermission && (
+            <button
+              onClick={() => setActiveTab('slides')}
+              className={`flex-1 xl:flex-none px-3.5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                activeTab === 'slides' ? 'bg-[#111a2f] text-yellow-400 shadow-lg font-black border border-yellow-500/10' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              إعلانات السلايدر ({carouselSlides.length})
+            </button>
+          )}
 
-          <button
-            onClick={() => setActiveTab('configuration')}
-            className={`flex-1 xl:flex-none px-3.5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
-              activeTab === 'configuration' ? 'bg-[#111a2f] text-yellow-400 shadow-lg font-black border border-yellow-500/10' : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            إعدادات الضبط العام ⚙️
-          </button>
+          {isSuperUser && (
+            <button
+              onClick={() => setActiveTab('configuration')}
+              className={`flex-1 xl:flex-none px-3.5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                activeTab === 'configuration' ? 'bg-[#111a2f] text-yellow-500 shadow-lg font-black border border-yellow-500/10' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              إعدادات الضبط العام ⚙️
+            </button>
+          )}
 
-          <button
-            onClick={() => setActiveTab('stats')}
-            className={`flex-1 xl:flex-none px-3.5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
-              activeTab === 'stats' ? 'bg-[#111a2f] text-yellow-400 shadow-lg font-black border border-yellow-500/10' : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            البيانات والتقارير 📊
-          </button>
+          {hasFinancePermission && (
+            <button
+              onClick={() => setActiveTab('stats')}
+              className={`flex-1 xl:flex-none px-3.5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                activeTab === 'stats' ? 'bg-[#111a2f] text-yellow-400 shadow-lg font-black border border-yellow-500/10' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              البيانات والتقارير 📊
+            </button>
+          )}
 
-          <button
-            onClick={() => setActiveTab('staff')}
-            className={`flex-1 xl:flex-none px-3.5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
-              activeTab === 'staff' ? 'bg-[#111a2f] text-yellow-500 shadow-lg font-black border border-yellow-500/10' : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            إدارة الموظفين والامتيازات 👥🔑
-          </button>
+          {isSuperUser && (
+            <button
+              onClick={() => setActiveTab('staff')}
+              className={`flex-1 xl:flex-none px-3.5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                activeTab === 'staff' ? 'bg-[#111a2f] text-yellow-500 shadow-lg font-black border border-yellow-500/10' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              إدارة الموظفين والامتيازات 👥🔑
+            </button>
+          )}
         </div>
       </div>
 
@@ -1238,7 +1410,7 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
       </div>
 
       {/* PRODUCTS MANAGING TAB */}
-      {activeTab === 'products' && (
+      {activeTab === 'products' && hasInventoryPermission && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-fade-in" id="products-tab-section">
           
           {/* Form */}
@@ -1312,10 +1484,13 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
                       value={productPriceSar}
                       onChange={(e) => {
                         const val = e.target.value;
-                        setProductPriceSar(val === '' ? '' : Number(val));
-                        // Auto-fill YER if empty
-                        if (val !== '' && !productPriceYer) {
-                          setProductPriceYer(Math.round(Number(val) * (exchangeRate || 400)));
+                        if (val === '') {
+                          setProductPriceSar('');
+                          setProductPriceYer('');
+                        } else {
+                          const numSar = Number(val);
+                          setProductPriceSar(numSar);
+                          setProductPriceYer(Math.round(numSar * (exchangeRate || 400)));
                         }
                       }}
                       className="w-full px-2.5 py-2 bg-[#060b18] border border-blue-900/60 rounded-xl text-xs text-white focus:border-amber-500/50 outline-none transition-colors font-mono"
@@ -1332,10 +1507,13 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
                       value={productPriceYer}
                       onChange={(e) => {
                         const val = e.target.value;
-                        setProductPriceYer(val === '' ? '' : Number(val));
-                        // Auto-fill SAR if empty
-                        if (val !== '' && !productPriceSar) {
-                          setProductPriceSar(Number((Number(val) / (exchangeRate || 400)).toFixed(1)));
+                        if (val === '') {
+                          setProductPriceYer('');
+                          setProductPriceSar('');
+                        } else {
+                          const numYer = Number(val);
+                          setProductPriceYer(numYer);
+                          setProductPriceSar(Number((numYer / (exchangeRate || 400)).toFixed(2)));
                         }
                       }}
                       className="w-full px-2.5 py-2 bg-[#060b18] border border-blue-900/60 rounded-xl text-xs text-white focus:border-emerald-500/50 outline-none transition-colors font-mono"
@@ -1518,6 +1696,20 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
                 )}
               </div>
 
+              {/* Dynamic isolated dollar pricing module layout */}
+              {isModuleEnabled('games_hyper') && (
+                <DollarExchangePricing
+                  productCostUsd={productCostUsd}
+                  setProductCostUsd={setProductCostUsd}
+                  productProfitMarginUsd={productProfitMarginUsd}
+                  setProductProfitMarginUsd={setProductProfitMarginUsd}
+                  inputUsdToSar={inputUsdToSar}
+                  setInputUsdToSar={setInputUsdToSar}
+                  inputUsdToYer={inputUsdToYer}
+                  setInputUsdToYer={setInputUsdToYer}
+                />
+              )}
+
               <div className="pt-2 flex gap-2">
                 <button
                   type="submit"
@@ -1641,7 +1833,7 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
       )}
 
       {/* CATEGORIES MANAGING TAB */}
-      {activeTab === 'categories' && (
+      {activeTab === 'categories' && hasInventoryPermission && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-fade-in" id="categories-tab-section">
           
           <div className="bg-[#0b1329] p-6 rounded-2xl border border-blue-900/40 shadow-sm h-fit">
@@ -1723,7 +1915,7 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
       )}
 
       {/* CUSTOMER ORDERS MANAGING TAB */}
-      {activeTab === 'orders' && (
+      {activeTab === 'orders' && hasOrdersPermission && (
         <div className="bg-[#0b1329] p-6 rounded-3xl border border-blue-900/40 shadow-sm space-y-4 animate-fade-in" id="orders-tab-section">
           <div className="flex justify-between items-center border-b border-blue-900/25 pb-4">
             <div>
@@ -1824,7 +2016,7 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
                               else if (cleanPhone.startsWith('05') && cleanPhone.length === 10) cleanPhone = '966' + cleanPhone.slice(1);
                               else if (cleanPhone.startsWith('5') && cleanPhone.length === 9) cleanPhone = '966' + cleanPhone;
                               
-                              const msg = `*📥 تحديث من متجر ومستودع الذيباني VIP* 🐺💎\n\nأهلاً بك عزيزنا العميل المحترم *${order.customerName}*،\nنسعد بإبلاغك بأن طلبك رقم *${order.id}* جاري تجهيزه وتحضيره الآن في المستودع بكل حب وعناية ⏳📦\n\nوسيقوم موظف التوصيل لدينا بالتواصل معك فور انطلاقه للتسليم.\n\nنشكرك على ثقتك الكبيرة بنا! 🌸✨`;
+                              const msg = `*📥 تحديث من ${siteName}* 🐺💎\n\nأهلاً بك عزيزنا العميل المحترم *${order.customerName}*،\nنسعد بإبلاغك بأن طلبك رقم *${order.id}* جاري تجهيزه وتحضيره الآن في المستودع بكل حب وعناية ⏳📦\n\nوسيقوم موظف التوصيل لدينا بالتواصل معك فور انطلاقه للتسليم.\n\nنشكرك على ثقتك الكبيرة بنا! 🌸✨`;
                               window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, '_blank');
                             }}
                             className="px-2 py-0.5 rounded bg-amber-500/10 text-amber-500 font-bold hover:bg-amber-500/20 cursor-pointer"
@@ -1839,7 +2031,7 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
                               else if (cleanPhone.startsWith('05') && cleanPhone.length === 10) cleanPhone = '966' + cleanPhone.slice(1);
                               else if (cleanPhone.startsWith('5') && cleanPhone.length === 9) cleanPhone = '966' + cleanPhone;
                               
-                              const msg = `*📥 تحديث من متجر ومستودع الذيباني VIP* 🐺💎\n\nعزيزنا العميل المحترم *${order.customerName}*،\n\nيسرنا إخطارك بأن طلبك رقم *${order.id}* قد تم تجهيزه بالكامل وتغليفه 🎁 وهو الآن في طريقه إليك مع مندوب الشحن والتوصيل 🚚💨\n\nالرجاء إبقاء هاتفك متاحاً لتسهيل عملية الاستلام والسداد المالي.\n\nطاب يومك بكل خير! 🌟`;
+                              const msg = `*📥 تحديث من ${siteName}* 🐺💎\n\nعزيزنا العميل المحترم *${order.customerName}*،\n\nيسرنا إخطارك بأن طلبك رقم *${order.id}* قد تم تجهيزه بالكامل وتغليفه 🎁 وهو الآن في طريقه إليك مع مندوب الشحن والتوصيل 🚚💨\n\nالرجاء إبقاء هاتفك متاحاً لتسهيل عملية الاستلام والسداد المالي.\n\nطاب يومك بكل خير! 🌟`;
                               window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, '_blank');
                             }}
                             className="px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 font-bold hover:bg-blue-500/20 cursor-pointer"
@@ -1854,7 +2046,7 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
                               else if (cleanPhone.startsWith('05') && cleanPhone.length === 10) cleanPhone = '966' + cleanPhone.slice(1);
                               else if (cleanPhone.startsWith('5') && cleanPhone.length === 9) cleanPhone = '966' + cleanPhone;
                               
-                              const msg = `*📥 تحديث من متجر ومستودع الذيباني VIP* 🐺💎\n\nعزيزنا العميل المحترم *${order.customerName}*،\n\nالحمد لله، تم تسليم طلبك رقم *${order.id}* بنجاح تام 🟢\n\nسعدنا جداً بخدمتك ونتمنى أن تكون تجربتك معنا رائعة ومميزة. ننتظر تعاملكم القادم بإذن الله! 🥰🌹`;
+                              const msg = `*📥 تحديث من ${siteName}* 🐺💎\n\nعزيزنا العميل المحترم *${order.customerName}*،\n\nالحمد لله، تم تسليم طلبك رقم *${order.id}* بنجاح تام 🟢\n\nسعدنا جداً بخدمتك ونتمنى أن تكون تجربتك معنا رائعة ومميزة. ننتظر تعاملكم القادم بإذن الله! 🥰🌹`;
                               window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, '_blank');
                             }}
                             className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-bold hover:bg-emerald-500/20 cursor-pointer"
@@ -1936,6 +2128,89 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
                       </div>
                     </div>
 
+                    {/* Manual Top-up Copy Console (Shown when Game API is disabled or when manual override is requested) */}
+                    {order.items?.some(i => i.playerId) && (
+                      <div className="mt-4 p-4 border border-blue-900/30 bg-blue-950/20 rounded-2xl animate-fade-in space-y-3" id={`copy-payload-${order.id}`}>
+                        <div className="flex items-center justify-between border-b border-blue-900/25 pb-2">
+                          <h5 className="text-[11px] font-black text-yellow-400 flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 bg-yellow-500 rounded-full animate-pulse" />
+                            <span>بوابة إمدادات المطور والشحن اليدوي (سلات الألعاب الرقمية)</span>
+                          </h5>
+                          <span className="text-[9px] bg-yellow-500/10 text-yellow-300 font-bold px-2 py-0.5 border border-yellow-500/20 rounded-lg">التحضير المباشر</span>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-[11px]">
+                          {order.items?.filter(item => item.playerId).map((chargeItem, cIdx) => (
+                            <div key={cIdx} className="bg-[#03060c] border border-blue-950 p-3 rounded-xl space-y-2.5">
+                              <div className="text-[10px] text-white font-extrabold truncate border-b border-slate-900 pb-1.5">
+                                🎮 {chargeItem.product.name}
+                              </div>
+
+                              <div className="space-y-2">
+                                {/* Player ID row */}
+                                <div className="flex justify-between items-center gap-1.5">
+                                  <span className="text-slate-400 text-[10px]">مُعرِّف اللاعب (Player ID):</span>
+                                  <div className="flex items-center gap-1 bg-[#0b1329] border border-blue-950 px-2 py-0.5 rounded-lg">
+                                    <span className="font-mono text-yellow-400 font-bold selection:bg-yellow-500/30 select-all">{chargeItem.playerId}</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        navigator.clipboard.writeText(chargeItem.playerId || "");
+                                        triggerNotification("📋 تم نسخ معرف اللاعب (Player ID) إلى الحافظة!");
+                                      }}
+                                      className="text-yellow-500 hover:text-yellow-400 mr-1.5 text-[9px] font-bold"
+                                    >
+                                      نسخ
+                                    </button>
+                                  </div>
+                                </div>
+
+                                {/* Quantity row */}
+                                <div className="flex justify-between items-center gap-1.5">
+                                  <span className="text-slate-400 text-[10px]">الكمية المطلوبة:</span>
+                                  <div className="flex items-center gap-1 bg-[#0b1329] border border-blue-950 px-2 py-0.5 rounded-lg">
+                                    <span className="font-mono text-white font-bold">{chargeItem.quantity ?? 1}</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        navigator.clipboard.writeText(String(chargeItem.quantity ?? 1));
+                                        triggerNotification("📋 تم نسخ الكمية إلى الحافظة!");
+                                      }}
+                                      className="text-blue-400 hover:text-blue-300 mr-1.5 text-[9px] font-bold"
+                                    >
+                                      نسخ
+                                    </button>
+                                  </div>
+                                </div>
+
+                                {/* Phone row */}
+                                <div className="flex justify-between items-center gap-1.5">
+                                  <span className="text-slate-400 text-[10px]">الهاتف للتأكيد:</span>
+                                  <div className="flex items-center gap-1 bg-[#0b1329] border border-blue-950 px-2 py-0.5 rounded-lg">
+                                    <span className="font-mono text-teal-405 font-bold">{order.phone}</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        navigator.clipboard.writeText(order.phone || "");
+                                        triggerNotification("📋 تم نسخ رقم الهاتف إلى الحافظة!");
+                                      }}
+                                      className="text-teal-400 hover:text-teal-300 mr-1.5 text-[9px] font-bold"
+                                    >
+                                      نسخ
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="text-[9px] text-slate-450 leading-normal bg-black/20 p-2 border border-blue-950 rounded-xl">
+                          💡 يمكنك نسخ هذه المعطيات بضغطة زر وتوريدها للعميل يدوياً من تطبيق الموزع الخاص بك، ثم الضغط على زر <strong>(تسليم ✅)</strong> بالأعلى لتأمين انتهاء العملية.
+                        </div>
+                      </div>
+                    )}
+
                   </div>
                 );
               })}
@@ -1946,7 +2221,7 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
       )}
 
       {/* PROMO ADS & SLIDES MANAGING TAB */}
-      {activeTab === 'slides' && (
+      {activeTab === 'slides' && hasInventoryPermission && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-fade-in" id="slides-tab-section">
           
           {/* Slide Builder form */}
@@ -2139,7 +2414,7 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
       )}
 
       {/* STAFF & ROLE-BASED ACCESS CONTROL TAB (RBAC) */}
-      {activeTab === 'staff' && (
+      {activeTab === 'staff' && isSuperUser && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-fade-in" id="staff-tab-section">
           
           {/* Creator Form Panel */}
@@ -2393,14 +2668,14 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
       )}
 
       {/* RE-ARCHITECTED CONFIGURATOR & IDENTITY PROFILE */}
-      {activeTab === 'configuration' && (
+      {activeTab === 'configuration' && isSuperUser && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 animate-fade-in" id="configs-tab-section">
           
           {/* Main system controls */}
           <div className="bg-[#0b1329] p-6 rounded-2xl border border-blue-900/40 shadow-sm md:col-span-2 space-y-6">
             
             {/* SaaS Multi-Niche Active Template Selector */}
-            {getProjectTypeNiche() ? (
+            {getProjectTypeNiche() && !isDeveloper ? (
               <div className="p-5 bg-gradient-to-r from-blue-950/70 to-blue-900/40 border border-blue-500/30 rounded-2xl" id="locked-project-niche-panel">
                 <div className="flex items-center gap-2 mb-2">
                   <Zap className="w-5 h-5 text-yellow-400 animate-bounce" />
@@ -2453,7 +2728,7 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
             )}
 
             <div>
-              <h3 className="text-sm font-black text-white">إعدادات هوية متجر ومستودع الذيباني VIP</h3>
+              <h3 className="text-sm font-black text-white">إعدادات هوية {siteName}</h3>
               <p className="text-xs text-slate-400 mt-1">تحديث رقم هاتف إلاملاء، لوحة تحرك شريط الأخبار العلوي، وتخصيص طرق تحصيل السداد.</p>
             </div>
 
@@ -2833,7 +3108,7 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
               </div>
 
               <div className="space-y-1">
-                <p className="text-xs font-black text-white">مستودع ومتجر الذيباني VIP</p>
+                <p className="text-xs font-black text-white">{siteName}</p>
                 <p className="text-[10px] text-slate-500 leading-normal">رقم الامتياز المعتمد: {inputWhatsapp || whatsappNumber}</p>
               </div>
             </div>
@@ -2871,39 +3146,115 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
                   <select
                     value={inputGameApiProvider}
                     onChange={(e) => setInputGameApiProvider(e.target.value)}
-                    className="w-full px-2.5 py-2 bg-[#060b18] border border-blue-900/60 rounded-xl text-xs text-white outline-none focus:border-yellow-500/50"
+                    className="w-full px-2.5 py-2 bg-[#060b18] border border-blue-900/60 rounded-xl text-xs text-white outline-none focus:border-yellow-500/50 cursor-pointer"
                   >
                     <option value="default">سيليكن /LikeCard الشحن الافتراضي التجريبي (Default Simulated)</option>
                     <option value="likecard">لايك كارد (LikeCard Cards API)</option>
                     <option value="smm">لوحات SMM القياسية (SMM Panels Standard API)</option>
+                    <option value="etisalatonline">نظام اتصالات اليمني للتسديدات الفورية (Etisalat Yemen Local System)</option>
                   </select>
                 </div>
 
-                {/* API Request Url */}
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-300 mb-1">رابط بوابة المزود (API Base URL)</label>
-                  <input
-                    type="url"
-                    placeholder="https://api.like4card.com/ or https://smm-panel.com/api/v2"
-                    value={inputGameApiUrl}
-                    onChange={(e) => setInputGameApiUrl(e.target.value)}
-                    className="w-full px-3 py-2 bg-[#060b18] border border-blue-900/60 rounded-xl text-xs text-white outline-none focus:border-yellow-500/50 font-mono text-left"
-                    dir="ltr"
-                  />
-                </div>
+                {inputGameApiProvider === "etisalatonline" ? (
+                  // Local Yemeni provider inputs
+                  <div className="space-y-3.5 border border-yellow-500/10 bg-yellow-500/5 p-3 rounded-2xl animate-fade-in">
+                    <div>
+                      <label className="block text-[10px] font-bold text-yellow-300 mb-1">رابط سيرفر اتصالات اليمني</label>
+                      <input
+                        type="url"
+                        placeholder="https://etisalatonline.yrbso.app/api or http://localhost/api"
+                        value={inputGameApiLocalServerUrl}
+                        onChange={(e) => setInputGameApiLocalServerUrl(e.target.value)}
+                        className="w-full px-3 py-2 bg-[#060b18] border border-blue-900/60 rounded-xl text-xs text-white outline-none focus:border-yellow-500/50 font-mono text-left"
+                        dir="ltr"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-300 mb-1">رقم الحساب الطرفي</label>
+                      <input
+                        type="text"
+                        placeholder="أدخل رقم الحساب المعتمد"
+                        value={inputGameApiLocalAccountNumber}
+                        onChange={(e) => setInputGameApiLocalAccountNumber(e.target.value)}
+                        className="w-full px-3 py-2 bg-[#060b18] border border-blue-900/60 rounded-xl text-xs text-white font-mono text-left"
+                        dir="ltr"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-300 mb-1">اسم المستخدم</label>
+                      <input
+                        type="text"
+                        placeholder="Username"
+                        value={inputGameApiLocalUsername}
+                        onChange={(e) => setInputGameApiLocalUsername(e.target.value)}
+                        className="w-full px-3 py-2 bg-[#060b18] border border-blue-900/60 rounded-xl text-xs text-white font-mono text-left"
+                        dir="ltr"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-300 mb-1">كلمة المرور</label>
+                      <input
+                        type="password"
+                        placeholder="Password"
+                        value={inputGameApiLocalPassword}
+                        onChange={(e) => setInputGameApiLocalPassword(e.target.value)}
+                        className="w-full px-3 py-2 bg-[#060b18] border border-blue-900/60 rounded-xl text-xs text-white font-mono text-left"
+                        dir="ltr"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-300 mb-1">رقم الموظف</label>
+                      <input
+                        type="text"
+                        placeholder="Employee Terminal ID"
+                        value={inputGameApiLocalEmployeeId}
+                        onChange={(e) => setInputGameApiLocalEmployeeId(e.target.value)}
+                        className="w-full px-3 py-2 bg-[#060b18] border border-blue-900/60 rounded-xl text-xs text-white font-mono text-left"
+                        dir="ltr"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-300 mb-1">رقم المصدر</label>
+                      <input
+                        type="text"
+                        placeholder="Source ID"
+                        value={inputGameApiLocalSourceId}
+                        onChange={(e) => setInputGameApiLocalSourceId(e.target.value)}
+                        className="w-full px-3 py-2 bg-[#060b18] border border-blue-900/60 rounded-xl text-xs text-white font-mono text-left"
+                        dir="ltr"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  // Classic options
+                  <>
+                    {/* API Request Url */}
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-300 mb-1">رابط بوابة المزود (API Base URL)</label>
+                      <input
+                        type="url"
+                        placeholder="https://api.like4card.com/ or https://smm-panel.com/api/v2"
+                        value={inputGameApiUrl}
+                        onChange={(e) => setInputGameApiUrl(e.target.value)}
+                        className="w-full px-3 py-2 bg-[#060b18] border border-blue-900/60 rounded-xl text-xs text-white outline-none focus:border-yellow-500/50 font-mono text-left"
+                        dir="ltr"
+                      />
+                    </div>
 
-                {/* API Token / Key */}
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-300 mb-1">مفتاح الاتصال السري (API Key / Auth Token)</label>
-                  <input
-                    type="password"
-                    placeholder="ضع كود التوكن أو الـ API Key السري هنا..."
-                    value={inputGameApiKey}
-                    onChange={(e) => setInputGameApiKey(e.target.value)}
-                    className="w-full px-3 py-2 bg-[#060b18] border border-blue-900/60 rounded-xl text-xs text-white outline-none focus:border-yellow-500/50 font-mono text-left"
-                    dir="ltr"
-                  />
-                </div>
+                    {/* API Token / Key */}
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-300 mb-1">مفتاح الاتصال السري (API Key / Auth Token)</label>
+                      <input
+                        type="password"
+                        placeholder="ضع كود التوكن أو الـ API Key السري هنا..."
+                        value={inputGameApiKey}
+                        onChange={(e) => setInputGameApiKey(e.target.value)}
+                        className="w-full px-3 py-2 bg-[#060b18] border border-blue-900/60 rounded-xl text-xs text-white outline-none focus:border-yellow-500/50 font-mono text-left"
+                        dir="ltr"
+                      />
+                    </div>
+                  </>
+                )}
 
                 {/* Check balance button */}
                 <button
@@ -2979,7 +3330,7 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
                     onChange={(e) => setInputPayApiProvider(e.target.value)}
                     className="w-full px-2.5 py-2 bg-[#060b18] border border-blue-900/60 rounded-xl text-xs text-white outline-none focus:border-yellow-500/50"
                   >
-                    <option value="simulated">بوابة الذيباني التجريبية (Simulated Gateway ✓)</option>
+                    <option value="simulated">بوابة {siteName} التجريبية (Simulated Gateway ✓)</option>
                     <option value="myfatoorah">ماي فاتورة (MyFatoorah Global API)</option>
                     <option value="tap">تاب بايمنتس (Tap Payments Gate)</option>
                     <option value="moyasar">ميسر لخدمات الدفع (Moyasar KSA API)</option>
@@ -3077,7 +3428,7 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
       )}
 
       {/* FULL DETAILED REPORTS AND METRICS */}
-      {activeTab === 'stats' && (() => {
+      {activeTab === 'stats' && hasFinancePermission && (() => {
         // 1. Calculations for reconciliation Ledger
         const filteredReconciliationOrders = orders.filter(order => {
           // Fund Box filter
@@ -3573,14 +3924,14 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
 
                 </div>
 
-                {/* Strategic Development & Interactive Add-on Needs (تحليل الذيباني لكيف التنمية والإضافات) */}
+                {/* Strategic Development & Interactive Add-on Needs (تحليل المتجر لكيف التنمية والإضافات) */}
                 <div className="bg-[#060b18] p-5 rounded-3xl border border-blue-900/30 space-y-4">
                   <div>
                     <h4 className="text-xs font-black text-white flex items-center gap-2">
                       <Lightbulb className="w-4 h-4 text-yellow-450 animate-bounce" />
-                      <span>التوصيات الذكية والإضافات المقترحة لتطوير موقع الذيباني VIP 💡</span>
+                      <span>التوصيات الذكية والإضافات المقترحة لتطوير موقع {siteName} 💡</span>
                     </h4>
-                    <p className="text-[10px] text-slate-400 mt-1">مقترحات مصممة آلياً لمتجركم VIP لرفع متوسط الربحية وتطوير رحلة مستخدم الذيباني.</p>
+                    <p className="text-[10px] text-slate-400 mt-1">مقترحات مصممة آلياً لمتجركم {siteName} لرفع متوسط الربحية وتطوير رحلة مستخدم الذيباني.</p>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -3713,7 +4064,7 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
                     {/* Document Header */}
                     <div className="flex items-center justify-between border-b-2 border-slate-900 pb-5 mb-6">
                       <div className="space-y-1">
-                        <h1 className="text-base sm:text-lg font-black text-slate-900">متجر ومستودع الذيباني VIP</h1>
+                        <h1 className="text-base sm:text-lg font-black text-slate-900">{siteName}</h1>
                         <p className="text-[10px] text-slate-500 font-extrabold pb-0.5">بوابة الرقابة المالية والحسابات والمطابقة الفورية</p>
                         <p className="text-[10px] text-slate-500 font-bold">هاتف الدعم المعتمد: {whatsappNumber}</p>
                       </div>
@@ -3729,7 +4080,7 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
                           />
                         ) : (
                           <div className="w-12 h-12 rounded-full border-2 border-dashed border-slate-400 flex items-center justify-center font-black text-slate-600 text-[10px]">
-                            الذيباني VIP
+                            {siteName}
                           </div>
                         )}
                         <span className="text-[8px] tracking-widest text-slate-400 font-black uppercase font-mono">FINANCE SEAL</span>
@@ -3901,7 +4252,7 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
 
                     {/* Footer info for print */}
                     <div className="text-center text-[8px] text-slate-400 mt-12 bg-slate-50 p-2.5 rounded-lg border border-slate-150 flex items-center justify-between font-mono font-bold">
-                      <span>صادر من النظام المالي الإلكتروني لمنصة الذيباني VIP</span>
+                      <span>صادر من النظام المالي الإلكتروني لمنصة {siteName}</span>
                       <span>صفحة 1 من 1</span>
                       <span>بإشراف قسم الحسابات العام</span>
                     </div>
