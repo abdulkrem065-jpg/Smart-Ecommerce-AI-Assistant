@@ -295,7 +295,7 @@ export default function App() {
   const formatPrice = (priceInSAR: number) => {
     if (currency === 'YER') {
       const priceInYER = Math.round(priceInSAR * exchangeRate);
-      return `${priceInYER.toLocaleString('ar-YE')} ر.ي`;
+      return `${priceInYER.toLocaleString('en-US')} ريال يمني`;
     }
     return `${priceInSAR.toFixed(1)} ر.س`;
   };
@@ -1199,6 +1199,20 @@ export default function App() {
     return p.price;
   };
 
+  const getOrderTotalPrice = (order: Order) => {
+    if (order.totalPrice && order.totalPrice > 0) {
+      return order.totalPrice;
+    }
+    if (order.items && order.items.length > 0) {
+      const itemsSum = order.items.reduce((sum, item) => {
+        const pPrice = getProductPriceInSAR(item.product);
+        return sum + pPrice * (item.quantity || 1);
+      }, 0);
+      return itemsSum;
+    }
+    return 0;
+  };
+
   const handleBulkConvertCurrency = (targetCurrency: 'SAR' | 'YER') => {
     const rate = exchangeRate || 400;
     const updatedProducts = products.map((prod) => {
@@ -1704,7 +1718,7 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
               onClick={() => {
                 setCurrency('YER');
                 localStorage.setItem("store_currency", "YER");
-                addToast("🇾🇪 تم تغيير عملة المتجر إلى الريال اليمني (ر.ي)", "info");
+                addToast("🇾🇪 تم تغيير عملة المتجر إلى الريال اليمني", "info");
               }}
               className={`px-3 py-1.5 rounded-xl text-[11px] font-black transition-all flex items-center gap-1 cursor-pointer select-none ${
                 currency === 'YER'
@@ -2129,7 +2143,7 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
                               </div>
                               <div className="text-right">
                                 <span className="text-[10px] text-slate-400 block">الإجمالي الكلي المطلوب:</span>
-                                <span className="text-xs font-black text-yellow-455 font-mono">{formatPrice(order.totalPrice)}</span>
+                                <span className="text-xs font-black text-yellow-455 font-mono">{formatPrice(getOrderTotalPrice(order))}</span>
                               </div>
                             </div>
 
@@ -2241,7 +2255,7 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
                                         </div>
                                       )}
                                     </div>
-                                    <span className="font-mono flex-shrink-0">({item.quantity} حبة) x {formatPrice(item.product.price)}</span>
+                                    <span className="font-mono flex-shrink-0">({item.quantity} حبة) x {formatPrice(getProductPriceInSAR(item.product))}</span>
                                   </div>
                                 ))}
                               </div>

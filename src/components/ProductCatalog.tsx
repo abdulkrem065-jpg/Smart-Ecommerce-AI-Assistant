@@ -358,7 +358,7 @@ export default function ProductCatalog({
         
       return {
         mainText: `${mainPrice.toFixed(2)} ${customCurrencySymbol || customCurrencyCode}`,
-        subText: `تعادل بالتقريب: ${Math.round(subPriceInYer).toLocaleString('ar-YE')} ر.ي`
+        subText: `تعادل بالتقريب: ${Math.round(subPriceInYer).toLocaleString('en-US')} ريال يمني`
       };
     } else if (currency === 'YER') {
       // YER Direct/Manual pricing mode to absolutely terminate discrepancy and overflow
@@ -366,8 +366,8 @@ export default function ProductCatalog({
       const subPrice = p.price_sar !== undefined && p.price_sar !== null ? p.price_sar : (p.price_yer ?? p.price ?? 0) / rate;
       
       return {
-        mainText: `${Math.round(mainPrice).toLocaleString('ar-YE')} ر.ي`,
-        subText: `تعادل بالتقريب: ${subPrice.toLocaleString('ar-YE', { minimumFractionDigits: 0, maximumFractionDigits: 1 })} ر.س`
+        mainText: `${Math.round(mainPrice).toLocaleString('en-US')} ريال يمني`,
+        subText: `تعادل بالتقريب: ${subPrice.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 1 })} ر.س`
       };
     } else {
       // SAR Direct/Manual pricing mode
@@ -375,8 +375,8 @@ export default function ProductCatalog({
       const subPrice = p.price_yer !== undefined && p.price_yer !== null ? p.price_yer : mainPrice * rate;
       
       return {
-        mainText: `${mainPrice.toLocaleString('ar-YE', { minimumFractionDigits: 0, maximumFractionDigits: 1 })} ر.س`,
-        subText: `تعادل بالتقريب: ${Math.round(subPrice).toLocaleString('ar-YE')} ر.ي`
+        mainText: `${mainPrice.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 1 })} ر.س`,
+        subText: `تعادل بالتقريب: ${Math.round(subPrice).toLocaleString('en-US')} ريال يمني`
       };
     }
   };

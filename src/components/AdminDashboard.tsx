@@ -287,6 +287,34 @@ export default function AdminDashboard({
   const hasOrdersPermission = isDeveloper || isOwner || (isStaff && !!userSession?.permissions?.canManageOrders);
   const isSuperUser = isDeveloper || isOwner; // configuration and staff management are limited to owners and developers
   
+  const getProductPriceInSAR = (p: any) => {
+    if (!p) return 0;
+    if (p.price_sar !== undefined && p.price_sar !== null && p.price_sar !== 0) {
+      return p.price_sar;
+    }
+    if (p.price_yer !== undefined && p.price_yer !== null && p.price_yer !== 0) {
+      return p.price_yer / (exchangeRate || 400);
+    }
+    if (p.currency === 'YER') {
+      return p.price / (exchangeRate || 400);
+    }
+    return p.price || 0;
+  };
+
+  const getOrderTotalPrice = (order: any) => {
+    if (order.totalPrice && order.totalPrice > 0) {
+      return order.totalPrice;
+    }
+    if (order.items && order.items.length > 0) {
+      const itemsSum = order.items.reduce((sum: number, item: any) => {
+        const pPrice = getProductPriceInSAR(item.product);
+        return sum + pPrice * (item.quantity || 1);
+      }, 0);
+      return itemsSum;
+    }
+    return 0;
+  };
+
   const displayPrice = (val: number) => {
     if (formatPrice) return formatPrice(val);
     return `${val.toFixed(1)} ريال`;
@@ -1570,7 +1598,7 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
                         }
                       }}
                       className="w-full px-2.5 py-2 bg-[#060b18] border border-blue-900/60 rounded-xl text-xs text-white focus:border-emerald-500/50 outline-none transition-colors font-mono"
-                      placeholder="ر.ي..."
+                      placeholder="ريال يمني..."
                     />
                   </div>
                   <div>
@@ -1843,13 +1871,13 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
                           <>
                             <span className="text-yellow-400 font-extrabold text-xs block font-mono">
                               {isYemeni 
-                                ? `${Math.round(nativePrice).toLocaleString('ar-YE')} ر.ي`
+                                ? `${Math.round(nativePrice).toLocaleString('en-US')} ريال يمني`
                                 : `${nativePrice.toFixed(1)} ر.س`}
                             </span>
                             <span className="text-emerald-400 font-medium text-[9px] block font-mono mt-0.5">
                               يعادل: {isYemeni 
                                 ? `${convertedPrice.toFixed(1)} ر.س`
-                                : `${Math.round(convertedPrice).toLocaleString('ar-YE')} ر.ي`}
+                                : `${Math.round(convertedPrice).toLocaleString('en-US')} ريال يمني`}
                             </span>
                           </>
                         );
@@ -2154,7 +2182,7 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
                         </div>
                         <div className="pt-2">
                           <span className="text-xs bg-yellow-505/10 text-yellow-405 font-black px-2.5 py-1 rounded border border-yellow-500/10">
-                            القيمة الإجمالية: {displayPrice(order.totalPrice)}
+                            القيمة الإجمالية: {displayPrice(getOrderTotalPrice(order))}
                           </span>
                         </div>
                       </div>
@@ -2174,7 +2202,7 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
                                   </div>
                                 )}
                               </div>
-                              <span className="text-slate-400 flex-shrink-0">({item.quantity} حبة) - <span className="text-yellow-500 font-bold font-mono">{displayPrice(item.product.price)}</span></span>
+                              <span className="text-slate-400 flex-shrink-0">({item.quantity} حبة) - <span className="text-yellow-500 font-bold font-mono">{displayPrice(getProductPriceInSAR(item.product))}</span></span>
                             </div>
                           ))}
                         </div>
@@ -2734,13 +2762,13 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
                 <h4 className="text-xs font-black text-white">منصة سحابية مستقلة ومخصصة 🔒 (Independent Dedicated Platform)</h4>
               </div>
               <p className="text-[11px] text-slate-300 leading-normal" dir="rtl">
-                تم قفل وترخيص لوحة العميل وتخصيص البوابات والمنتجات تلقائياً لصالح نشاط: <strong className="text-yellow-400">[{NICHES.find(n => n.id === activeNicheId)?.name || 'النشاط المخصص'}]</strong>. تم إخفاء أي لوحات أو بوابات غير متطابقة من لوحة التحكم بنجاح لمظهر مستقل 100%. التغيير متاح فقط للمطور المسؤول عبر مصفوفة التحكم العليا.
+                تم قفل وترخيص لوحة العميل وتخصيص البوابات والمنتجات تلقائياً لصالح نشاط: <strong className="text-yellow-400">[{NICHES?.find(n => n.id === activeNicheId)?.name || 'النشاط المخصص'}]</strong>. تم إخفاء أي لوحات أو بوابات غير متطابقة من لوحة التحكم بنجاح لمظهر مستقل 100%. التغيير متاح فقط للمطور المسؤول عبر مصفوفة التحكم العليا.
               </p>
             </div>
 
             <div>
               <h3 className="text-sm font-black text-white">إعدادات هوية {siteName}</h3>
-              <p className="text-xs text-slate-400 mt-1">تحديث رقم هاتف إلاملاء، لوحة تحرك شريط الأخبار العلوي، وتخصيص طرق تحصيل السداد.</p>
+              <p className="text-xs text-slate-400 mt-1">تحديث رقم هاتف الاستلام، وتخصيص الشعار وشريط الإعلانات.</p>
             </div>
 
             <form onSubmit={handleSaveConfigs} className="space-y-6">
@@ -2849,7 +2877,7 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
                   >
                     <div className="flex flex-col">
                       <span className="text-xs font-black">ريال يمني (YER)</span>
-                      <span className="text-[10px] opacity-70">ر.ي - العملة اليمنية</span>
+                      <span className="text-[10px] opacity-70">ريال يمني - العملة اليمنية</span>
                     </div>
                     {inputCurrency === 'YER' && <CheckIcon className="w-4.5 h-4.5 text-yellow-500" />}
                   </button>
@@ -2875,7 +2903,7 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
                   className="w-full px-3.5 py-2 bg-[#060b18] border border-blue-900/60 rounded-xl text-xs text-white focus:border-yellow-500/50 outline-none font-mono text-center text-base"
                 />
                 <p className="text-[10px] text-slate-450 leading-relaxed">
-                  هذه القيمة تستخدم لحساب وتحويل أسعار المنتجات والفواتير تلقائياً عند قيام العميل باختيار العملة اليمنية (ر.ي) بدلاً من العملة السعودية (ر.س). (القيمة الافتراضية الموصى بها: <span className="text-yellow-450 font-black font-mono">400</span>)
+                  هذه القيمة تستخدم لحساب وتحويل أسعار المنتجات والفواتير تلقائياً عند قيام العميل باختيار العملة اليمنية بدلاً من العملة السعودية (ر.س). (القيمة الافتراضية الموصى بها: <span className="text-yellow-450 font-black font-mono">400</span>)
                 </p>
               </div>
 
@@ -3486,11 +3514,11 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
         // 2. Financial totals of filtered reconciliation list
         const readyAmount = filteredReconciliationOrders
           .filter(o => o.status === 'تم التسليم 🟢')
-          .reduce((sum, o) => sum + o.totalPrice, 0);
+          .reduce((sum, o) => sum + getOrderTotalPrice(o), 0);
 
         const pendingAmount = filteredReconciliationOrders
           .filter(o => o.status === 'قيد المعالجة' || o.status === 'تم التجهيز للشحن')
-          .reduce((sum, o) => sum + o.totalPrice, 0);
+          .reduce((sum, o) => sum + getOrderTotalPrice(o), 0);
 
         // 3. Overall product statistics & recommendations
         const productSales: { [id: string]: { name: string; qty: number; revenue: number; category: string } } = {};
@@ -3503,7 +3531,7 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
                   productSales[pid] = { name: it.product.name, qty: 0, revenue: 0, category: it.product.category };
                 }
                 productSales[pid].qty += it.quantity;
-                productSales[pid].revenue += (it.product.price * it.quantity);
+                productSales[pid].revenue += (getProductPriceInSAR(it.product) * it.quantity);
               }
             });
           }
@@ -3515,7 +3543,7 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
         const lowStockProds = products.filter(p => p.stock !== undefined && p.stock <= 4);
 
         const successfulOrders = orders.filter(o => o.status !== 'ملغي ❌');
-        const totalRev = successfulOrders.reduce((sum, o) => sum + o.totalPrice, 0);
+        const totalRev = successfulOrders.reduce((sum, o) => sum + getOrderTotalPrice(o), 0);
         const avgOrder = successfulOrders.length > 0 ? (totalRev / successfulOrders.length) : 0;
 
         return (
@@ -3712,7 +3740,7 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
                       {(() => {
                         const matchedTotal = filteredReconciliationOrders
                           .filter(o => locallyReconciledOrderIds.includes(o.id))
-                          .reduce((sum, o) => sum + o.totalPrice, 0);
+                          .reduce((sum, o) => sum + getOrderTotalPrice(o), 0);
                         const matchedCount = filteredReconciliationOrders
                           .filter(o => locallyReconciledOrderIds.includes(o.id)).length;
                         return (
@@ -3804,7 +3832,7 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
                                 </td>
 
                                 <td className="p-3 font-mono font-black text-left text-white whitespace-nowrap text-[11px]">
-                                  {displayPrice(order.totalPrice)}
+                                  {displayPrice(getOrderTotalPrice(order))}
                                 </td>
 
                                 <td className="p-3 text-center whitespace-nowrap">
@@ -3981,7 +4009,7 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
                         <strong className="text-xs text-white">تقليل "التحويلات المعلقة" بدمج بوابة دفع فوري</strong>
                       </div>
                       <p className="text-[10px] text-slate-400 leading-relaxed">
-                        لديك عمليات معلقة بالانتظار بقيمة <span className="text-amber-500 font-bold font-mono">{displayPrice(orders.filter(o => o.status === 'قيد المعالجة').reduce((s,o)=>s+o.totalPrice,0))}</span>. 
+                        لديك عمليات معلقة بالانتظار بقيمة <span className="text-amber-500 font-bold font-mono">{displayPrice(orders.filter(o => o.status === 'قيد المعالجة').reduce((s,o)=>s+getOrderTotalPrice(o),0))}</span>. 
                         <b> الربط التلقائي عبر بوابات الكريمي وجوال بي الفورية</b> سيحول هذه الأرصدة إلى "جاهزة" تلقائياً دون تفتيش بشري!
                       </p>
                     </div>
@@ -4167,7 +4195,7 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
                         {(() => {
                           const matchedTotal = filteredReconciliationOrders
                             .filter(o => locallyReconciledOrderIds.includes(o.id))
-                            .reduce((sum, o) => sum + o.totalPrice, 0);
+                            .reduce((sum, o) => sum + getOrderTotalPrice(o), 0);
                           const matchedCount = filteredReconciliationOrders
                             .filter(o => locallyReconciledOrderIds.includes(o.id)).length;
                           return (
@@ -4212,7 +4240,7 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
                                   <td className="p-2 text-center font-bold text-slate-700 border-r border-slate-200">
                                     💵 {order.paymentMethod || 'نقد يدوي'}
                                   </td>
-                                  <td className="p-2 font-black text-slate-900 text-left font-mono text-[10px] border-r border-slate-200">{displayPrice(order.totalPrice)}</td>
+                                  <td className="p-2 font-black text-slate-900 text-left font-mono text-[10px] border-r border-slate-200">{displayPrice(getOrderTotalPrice(order))}</td>
                                   <td className="p-2 text-center border-r border-slate-200">
                                     {order.status === 'تم التسليم 🟢' ? (
                                       <span className="inline-block px-1.5 py-0.5 rounded text-[8px] font-black bg-emerald-50 text-emerald-700 border border-emerald-100">
