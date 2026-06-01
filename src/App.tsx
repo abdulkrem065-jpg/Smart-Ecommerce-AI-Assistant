@@ -102,17 +102,17 @@ const DEFAULT_PRODUCTS: Product[] = [
   }
 ];
 
-const getProjectTypeNiche = (): 'game' | 'pharmacy' | 'supermarket' | 'school' | 'tailor' | 'legal' | 'consulting' | 'hyper' | null => {
+const getProjectTypeNiche = (): string | null => {
   const envVal = (((import.meta as any).env?.VITE_PROJECT_TYPE) || "").toLowerCase().trim();
   if (!envVal) return null;
-  if (envVal.includes("game") || envVal.includes("charge")) return "game";
-  if (envVal.includes("pharmacy") || envVal.includes("medicine")) return "pharmacy";
-  if (envVal.includes("supermarket") || envVal.includes("grocery")) return "supermarket";
+  if (envVal.includes("game") || envVal.includes("charge")) return "hyper_games";
+  if (envVal.includes("pharmacy") || envVal.includes("medicine")) return "smart_pharmacy";
+  if (envVal.includes("supermarket") || envVal.includes("grocery")) return "hypermarket_supply";
   if (envVal.includes("school") || envVal.includes("education")) return "school";
-  if (envVal.includes("tailor")) return "tailor";
-  if (envVal.includes("legal") || envVal.includes("law")) return "legal";
+  if (envVal.includes("tailor")) return "luxury_tailoring";
+  if (envVal.includes("legal") || envVal.includes("law")) return "legal_consulting";
   if (envVal.includes("consulting") || envVal.includes("corporate")) return "consulting";
-  if (envVal.includes("hyper") || envVal.includes("multiproject")) return "hyper";
+  if (envVal.includes("hyper") || envVal.includes("multiproject")) return "hypermarket_supply";
   return null;
 };
 
@@ -144,7 +144,13 @@ export default function App() {
 
     const lockedNiche = getProjectTypeNiche();
     if (lockedNiche && !isDeveloper) return lockedNiche;
-    return (localStorage.getItem("store_active_niche") as any) || 'game';
+    const saved = localStorage.getItem("store_active_niche");
+    if (!saved || saved === 'game') return 'hyper_games';
+    if (saved === 'pharmacy') return 'smart_pharmacy';
+    if (saved === 'tailor') return 'luxury_tailoring';
+    if (saved === 'supermarket' || saved === 'hyper') return 'hypermarket_supply';
+    if (saved === 'legal') return 'legal_consulting';
+    return saved;
   });
 
   // Dynamic Namespaced Reference generator for Firebase Realtime Database
@@ -1533,6 +1539,8 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
           payApiProvider={payApiProvider}
           payApiMerchantId={payApiMerchantId}
           addToast={addToast}
+          activeNicheId={activeNicheId}
+          onApplyNicheTemplate={handleApplyNicheTemplate}
           onClose={() => {
             window.history.pushState({}, "", "/");
             setIsMasterPath(false);
@@ -2273,7 +2281,7 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
         {currentTab === "ai" && (
           <div className="space-y-6" id="ai-tab-wrapper">
             <div className="max-w-4xl mx-auto">
-              <AIChatSection products={products} />
+              <AIChatSection products={products} activeNicheId={activeNicheId} />
             </div>
           </div>
         )}

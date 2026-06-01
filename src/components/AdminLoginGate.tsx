@@ -9,7 +9,7 @@ interface AdminLoginGateProps {
 }
 
 export default function AdminLoginGate({ correctPassword = "1122", onSuccess, onCancel }: AdminLoginGateProps) {
-  const [activeTab, setActiveTab] = useState<"owner" | "developer" | "staff">("owner");
+  const [activeTab, setActiveTab] = useState<"owner" | "staff">("owner");
   
   // Owner passcode (numpad) state
   const [pin, setPin] = useState("");
@@ -143,17 +143,10 @@ export default function AdminLoginGate({ correctPassword = "1122", onSuccess, on
         },
         {
           id: 'staff-2',
-          username: 'tailor_vip',
-          fullName: 'الخياط والمصمم الملكي رفيق',
-          role: 'tailor',
-          permissions: { canViewFinance: false, canEditInventory: true, canManageOrders: true, canUseAI: true }
-        },
-        {
-          id: 'staff-3',
-          username: 'legal_advisor',
-          fullName: 'المستشار القانوني أ. صالح العنسي',
-          role: 'lawyer',
-          permissions: { canViewFinance: true, canEditInventory: false, canManageOrders: false, canUseAI: true }
+          username: 'assistant',
+          fullName: 'الكادر المساعد المعتمد',
+          role: 'cashier',
+          permissions: { canViewFinance: true, canEditInventory: true, canManageOrders: true, canUseAI: true }
         }
       ];
     }
@@ -205,13 +198,13 @@ export default function AdminLoginGate({ correctPassword = "1122", onSuccess, on
       </div>
 
       {/* Role Selection Tabs */}
-      <div className="grid grid-cols-3 gap-1 bg-[#060b18] p-1.5 rounded-2xl border border-blue-900/40 mb-5 text-center">
+      <div className="grid grid-cols-2 gap-1.5 bg-[#060b18] p-1.5 rounded-2xl border border-blue-900/40 mb-5 text-center">
         <button
           type="button"
           onClick={() => { setActiveTab("owner"); setErrorMessage(""); }}
           className={`py-2 rounded-xl text-[11px] font-black transition-all flex flex-col items-center gap-1 ${
             activeTab === "owner"
-              ? "bg-yellow-500 text-blue-950 shadow-md transform scale-102"
+              ? "bg-yellow-500 text-blue-950 shadow-md transform scale-[1.02]"
               : "text-slate-400 hover:text-slate-200"
           }`}
         >
@@ -220,22 +213,10 @@ export default function AdminLoginGate({ correctPassword = "1122", onSuccess, on
         </button>
         <button
           type="button"
-          onClick={() => { setActiveTab("developer"); setErrorMessage(""); }}
-          className={`py-2 rounded-xl text-[11px] font-black transition-all flex flex-col items-center gap-1 ${
-            activeTab === "developer"
-              ? "bg-purple-600 text-white shadow-md transform scale-102 border border-purple-400/30"
-              : "text-slate-400 hover:text-slate-200"
-          }`}
-        >
-          <ShieldAlert className="w-3.5 h-3.5" />
-          <span>المطور المطلق</span>
-        </button>
-        <button
-          type="button"
           onClick={() => { setActiveTab("staff"); setErrorMessage(""); }}
           className={`py-2 rounded-xl text-[11px] font-black transition-all flex flex-col items-center gap-1 ${
             activeTab === "staff"
-              ? "bg-emerald-600 text-white shadow-md transform scale-102 border border-emerald-400/30"
+              ? "bg-emerald-600 text-white shadow-md transform scale-[1.02] border border-emerald-400/30"
               : "text-slate-400 hover:text-slate-200"
           }`}
         >
@@ -318,62 +299,6 @@ export default function AdminLoginGate({ correctPassword = "1122", onSuccess, on
             تم ضبط الرمز الافتراضي لمالك النظام ليكون (<strong>1122</strong>) للمحاكاة والتبسيط.
           </div>
         </div>
-      )}
-
-      {/* TAB 2: DEVELOPER/SUPER-ADMIN SECURE ACCESS */}
-      {activeTab === "developer" && (
-        <form onSubmit={handleVerifyDeveloper} className="space-y-4 text-right">
-          <div className="space-y-1.5">
-            <label className="text-[11px] font-black text-slate-300 block">بريد المطور الرئيسي الرئيسي لمطور المنصة:</label>
-            <div className="relative">
-              <Mail className="w-4 h-4 text-slate-500 absolute top-3.5 right-3.5" />
-              <input
-                type="email"
-                placeholder="abdulkrem065@gmail.com"
-                value={devEmail}
-                onChange={(e) => setDevEmail(e.target.value)}
-                required
-                className="w-full bg-[#060b18] border border-blue-900/60 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 rounded-xl py-3.5 pr-10 pl-4 text-xs text-white placeholder-slate-600 font-bold outline-none font-mono"
-              />
-            </div>
-            <p className="text-[9px] text-slate-550 leading-relaxed font-semibold">
-              * للتفعيل المباشر، الرجاء إدخال البريد الرئيسي المعتمد من قبل المالك وهو: <span className="font-mono text-purple-400 text-[10px] underline">abdulkrem065@gmail.com</span>
-            </p>
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-[11px] font-black text-slate-300 block">الكود السري للتفعيل (Developer Master PIN):</label>
-            <div className="relative">
-              <Lock className="w-4 h-4 text-slate-500 absolute top-3.5 right-3.5" />
-              <input
-                type="password"
-                placeholder="أدخل رمز المطور الرئيسي مثلاً 1122 أو dev777"
-                value={devPassword}
-                onChange={(e) => setDevPassword(e.target.value)}
-                required
-                className="w-full bg-[#060b18] border border-blue-900/60 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 rounded-xl py-3.5 pr-10 pl-4 text-xs text-white placeholder-slate-600 font-bold outline-none"
-              />
-            </div>
-          </div>
-
-          <div className="flex gap-3 pt-2">
-            <button
-              type="button"
-              onClick={onCancel}
-              className="flex-1 py-3 bg-slate-800/45 hover:bg-slate-800 rounded-xl text-xs font-bold text-slate-300 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span>رجوع للمعرض</span>
-            </button>
-            <button
-              type="submit"
-              className="flex-1.5 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 shadow-lg shadow-purple-600/10 cursor-pointer"
-            >
-              <ShieldAlert className="w-4 h-4" />
-              <span>تحقق كمطور مطلق</span>
-            </button>
-          </div>
-        </form>
       )}
 
       {/* TAB 3: STAFF SECURE ACCESS */}

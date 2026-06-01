@@ -34,12 +34,18 @@ async function startServer() {
   app.use(express.json());
 
   // Helper to dynamically compile guidelines based on active Niche for AI System Instructions
-  function getSystemInstructionForNiche(niche: string, productsContext: string) {
-    const baseHeader = `أنت المساعد الذكي التفاعلي لـ 'منصة ومنشأة الذيباني VIP السحابية المتكاملة'. مهمتك الأولى والأهم هي مساعدة المستخدمين والإجابة على استفساراتهم بذكاء وصبر، بلغة عربية فصحى أو لهجة محلية مبسطة وودية للغاية ومحترمة.
+  function getSystemInstructionForNiche(niche: string, productsContext: string, projectTitle?: string, projectAiBehavior?: string) {
+    const effectiveTitle = projectTitle || 'منصة ومنشأة الذيباني VIP السحابية المتكاملة';
+    const effectiveBehavior = projectAiBehavior ? `دعم مخصص في [${projectAiBehavior}]` : 'أرقى الاستشارات والخدمات السحابية Interactive';
+
+    const baseHeader = `أنت المساعد الذكي التفاعلي لـ '${effectiveTitle}'. مهمتك الأولى والأهم هي مساعدة المستخدمين والإجابة على استفساراتهم بذكاء وصبر، بلغة عربية فصحى أو لهجة محلية مبسطة وودية للغاية ومحترمة ومخصصة لـ (${effectiveBehavior}).
+
+ملاحظة شمولية حاسمة وعامة: يرجى العلم بأنك شخصية استشارية شاملة بذكاء خارق. بالرغم من تلوّنك وتكيّفك مع هوية أو قالب القسم النشط الذي يتصفحه المستخدم حالياً (مثل الصيدلية، الخياطة، الألعاب والاتصالات، إلخ)، إلا أنه يُحظر عليك تماماً رفض أي سؤال خارجي! إذا قام العميل بسؤالك في أي وقت عن أي موضوع خارجي في الكون مثل: البرمجة، الرياضيات، الفيزياء، عادات الصحة، عادات الطبخ، خامات الحديد والصلب، تخفيف الوزن، أو أي معلومة ثقافية عامة، فيجب عليك الإجابة عليها فوراً وبكل رحابة صدر وذكاء كامل وودية تامة تليق بالعميل VIP دون أي تمنع أو تذمر أو تبرير بالاقتصار على تخصص الصيدلية أو الخياطة فقط.
+
 إليك قائمة بجميع المنتجات/الخدمات الحالية في لوحة التحكم لمساعدتك على الإجابة بدقة عن الأسعار والمواصفات:
 ${productsContext}
 
-ملاحظة هامة: يجب أن تتبع قالب النشاط المختار تماماً:`;
+ملاحظة هامة: يجب أن تتبع وتتكيف مع قالب النشاط المختار تماماً بالتوازي مع مبدأ الشمولية المعرفية:`;
 
     switch (niche) {
       case 'pharmacy':
@@ -108,7 +114,7 @@ ${productsContext}
   // API Route: Advanced Multi-Niche AI Assistant Chat
   app.post("/api/chat", async (req, res) => {
     try {
-      const { message, chatHistory, products, niche = "game" } = req.body;
+      const { message, chatHistory, products, niche = "game", projectTitle, projectAiBehavior } = req.body;
 
       if (!message) {
         return res.status(400).json({ error: "Message is required" });
@@ -118,15 +124,17 @@ ${productsContext}
       if (!client) {
         // High-Quality Simulated Niche Advisor Fallback when API key is missing
         const lowerMsg = message.toLowerCase();
-        let fallbackText = `مرحباً بك في منصة الذيباني الاستشارية VIP! (ملاحظة: مفتاح API غير متوفر حالياً، نعمل بالوضع الاستشاري الذكي المحاكي لقالب النخبة المختار: "${niche}"). `;
+        let fallbackText = `مرحباً بك في منصة ${projectTitle || 'الذيباني الاستشارية VIP'}! (ملاحظة: مفتاح API غير متوفر حالياً، نعمل بالوضع الاستشاري الذكي المحاكي لقالب النخبة المختار: "${projectTitle || niche}"). `;
         
-        if (niche === 'pharmacy') {
+        if (projectAiBehavior) {
+          fallbackText += `بصفتي خبيراً استشارياً متخصصاً في: [${projectAiBehavior}]، يسعدني الإجابة على كافة تساؤلاتك ودعم رغباتك في متجرنا VIP بلغة عربية مبسطة وذكية. ما تفاصيل الخدمة أو المنتجات التي تبحث عنها اليوم؟`;
+        } else if (niche === 'pharmacy' || niche === 'smart_pharmacy') {
           fallbackText += `بصفتي مستشارك الدوائي، أود تذكيرك بضرورة شرب كميات كافية من المياه مع المكملات فيتامين سي. هل تود أن أرشح لك أفضل الأجهزة الطبية المتوفرة بمستودعنا والجرعة المقترحة؟`;
         } else if (niche === 'school') {
           fallbackText += `بصفتي موجهك الأكاديمي، لقد قمت بتجهيز كويز سريع لك:\nس1: ما هو ناتج ضرب 12 في 12؟\nأ) 144\nب) 124\nج) 148\n\nيرجى كتابة رمز الإجابة لأقوم بتصحيحها وفحص درجاتك ومعدلك الدراسي فوراً!`;
-        } else if (niche === 'tailor') {
+        } else if (niche === 'tailor' || niche === 'luxury_tailoring') {
           fallbackText += `أهلاً بك بدار الأزياء الراقية. لتفصيل ثوبك الياباني اللوكس يرجى تزويدي بالآتي:\n- الطول الكلي:\n- الكتف:\n- طول الكم والرقبة:\nوسأقوم بجدولتها لك بالملخص لإحالتها للخياط المباشر!`;
-        } else if (niche === 'legal') {
+        } else if (niche === 'legal' || niche === 'legal_consulting') {
           fallbackText += `طاب يومك رائد الأعمال. لتأسيس شركتك واستخراج رخص البلدية أو الاستثمار الأجنبي، سأرشدك للخطوات الثلاث الذهبية: 1. توقيع عقد شراكة تجاري رقمي بوزارة التجارة. 2. ربط رخصة الاستثمار والبلدية. 3. سداد الرسوم. هل تريد مني صياغة بند سرية المعلومات أو بند التحكيم وصياغة مسودة لحماية شراكتك؟`;
         } else if (niche === 'consulting') {
           fallbackText += `بصفتي خبيراً إدارياً، أنصحك لتقليل التكاليف التشغيلية باعتماد "الأتمتة والرقمنة السحابية للأنظمة" والاعتماد على باقات الدفع بالاستخدام. دراسات الجدوى تدل على فرصة نمو تبلغ 25% بمبيعات الويب. هل ترغب بصياغة مؤشرات أداء (KPIs) لمندوبينك؟`;
@@ -141,7 +149,7 @@ ${productsContext}
         ? products.map((p: any) => `- الاسم: ${p.name}\n  الوصف: ${p.description || 'متوفر بجودة ممتازة'}\n  القسم: ${p.category || 'عام'}\n  السعر بالريال السعودي: ${p.price_sar ?? p.price ?? 0} ر.س\n  السعر بالريال اليمني: ${p.price_yer ?? (Math.round((p.price_sar ?? p.price ?? 0) * 400))} ر.ي\n  المخزون المتوفر: ${p.stock ?? 'متوفر في المستودع'} قطع`).join("\n")
         : "لا توجد منتجات مضافة في المتجر حالياً.";
 
-      const systemInstruction = getSystemInstructionForNiche(niche, productsContext);
+      const systemInstruction = getSystemInstructionForNiche(niche, productsContext, projectTitle, projectAiBehavior);
 
       // Map chat history conforming to Gemini API standard
       const formattedContents: any[] = [];

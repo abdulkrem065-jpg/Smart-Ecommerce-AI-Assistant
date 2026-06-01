@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { motion } from "motion/react";
+import { NICHES, saveNiches } from "../data";
 import { 
   Shield, 
   Lock, 
@@ -16,7 +17,8 @@ import {
   ArrowLeft,
   Cpu,
   Radio,
-  ExternalLink
+  ExternalLink,
+  Sparkles
 } from "lucide-react";
 
 interface MasterDeveloperControlProps {
@@ -40,6 +42,8 @@ interface MasterDeveloperControlProps {
   payApiMerchantId: string;
   addToast: (text: string, type: 'success' | 'error' | 'info' | 'warning') => void;
   onClose: () => void;
+  activeNicheId: string;
+  onApplyNicheTemplate: (id: string) => void;
 }
 
 export const MasterDeveloperControl: React.FC<MasterDeveloperControlProps> = ({
@@ -63,6 +67,8 @@ export const MasterDeveloperControl: React.FC<MasterDeveloperControlProps> = ({
   payApiMerchantId,
   addToast,
   onClose,
+  activeNicheId,
+  onApplyNicheTemplate,
 }) => {
   // Authentication states
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
@@ -75,6 +81,7 @@ export const MasterDeveloperControl: React.FC<MasterDeveloperControlProps> = ({
   // Settings states
   const [tempSiteName, setTempSiteName] = useState(siteName);
   const [isEditingName, setIsEditingName] = useState(false);
+  const [customAdminPass, setCustomAdminPass] = useState("");
 
   // Connection/Audit states
   const [topupAuditLoading, setTopupAuditLoading] = useState(false);
@@ -92,8 +99,8 @@ export const MasterDeveloperControl: React.FC<MasterDeveloperControlProps> = ({
         setLocalStaffList(JSON.parse(saved));
       } else {
         const defaults = [
-          { id: "st-1", name: "عبدالرحمن الذيباني", role: "admin", staffRole: "المدير العام", phone: "967770493341", password: "1122" },
-          { id: "st-2", name: "محمد العاصمي", role: "moderator", staffRole: "مشرف مبيعات", phone: "967771234567", password: "3344" }
+          { id: "st-1", name: "عبدالرحمن الذيباني", role: "admin", staffRole: "المدير العام والمالك", phone: "967770493341", password: "1122" },
+          { id: "st-2", name: "الكادر المساعد المعتمد", role: "moderator", staffRole: "الكادر المساعد", phone: "967771234567", password: "3344" }
         ];
         localStorage.setItem("store_staff", JSON.stringify(defaults));
         setLocalStaffList(defaults);
@@ -222,6 +229,67 @@ export const MasterDeveloperControl: React.FC<MasterDeveloperControlProps> = ({
     setNewProjectDesc("");
     addLog(`➕ مصفوفة المطور: تم تسخير مشروع ديناميكي جديد [${name}] بنجاح.`);
     addToast(`🚀 تم تضمين مشروعك الجديد "${name}" في مصفوفة السيطرة!`, "success");
+  };
+
+  // --- Editable Niches Template Array State & Action Handlers ---
+  const [localNiches, setLocalNiches] = useState<any[]>(() => [...NICHES]);
+  const [editingNicheId, setEditingNicheId] = useState<string | null>(null);
+  const [editNicheForm, setEditNicheForm] = useState({
+    id: "",
+    name: "",
+    badgeText: "",
+    subtitle: "",
+    aiBehavior: "",
+  });
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      setLocalNiches([...NICHES]);
+    };
+    window.addEventListener("niches-matrix-updated", handleUpdate);
+    return () => window.removeEventListener("niches-matrix-updated", handleUpdate);
+  }, []);
+
+  const handleStartEditNiche = (niche: any) => {
+    setEditingNicheId(niche.id);
+    setEditNicheForm({
+      id: niche.id,
+      name: niche.name,
+      badgeText: niche.badgeText || "",
+      subtitle: niche.subtitle || niche.desc || "",
+      aiBehavior: niche.aiBehavior || "",
+    });
+  };
+
+  const handleSaveNicheEdit = () => {
+    if (!editNicheForm.name.trim()) {
+      addToast("❌ اسم المشروع/القالب مطلوب!", "error");
+      return;
+    }
+    const updated = localNiches.map(n => {
+      if (n.id === editingNicheId) {
+        return {
+          ...n,
+          id: editNicheForm.id,
+          name: editNicheForm.name.trim(),
+          badgeText: editNicheForm.badgeText.trim(),
+          subtitle: editNicheForm.subtitle.trim(),
+          aiBehavior: editNicheForm.aiBehavior.trim(),
+        };
+      }
+      return n;
+    });
+
+    saveNiches(updated);
+    setEditingNicheId(null);
+    addLog(`📝 تم تعديل معالم القالب [${editNicheForm.name}] وحفظ التغييرات في المزدوج والمصفوفة بنجاح.`);
+    addToast("✅ تم حفظ تعديلات القالب وإعادة تهيئة مستشار الذكاء الاصطناعي بنجاح", "success");
+
+    if (editingNicheId !== editNicheForm.id && activeNicheId === editingNicheId) {
+      if (onApplyNicheTemplate) {
+        onApplyNicheTemplate(editNicheForm.id);
+      }
+    }
   };
 
   const [targetModuleId, setTargetModuleId] = useState("");
@@ -678,13 +746,43 @@ export const MasterDeveloperControl: React.FC<MasterDeveloperControlProps> = ({
                       </table>
                     </div>
 
-                    <button
-                      onClick={handleResetPasswords}
-                      className="w-full py-2 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 rounded-xl text-[10px] font-black transition-all cursor-pointer flex items-center justify-center gap-1.5"
-                    >
-                      <RefreshCw className="w-3 h-3 text-red-400" />
-                      <span>إرجاع المدير الرئيسي لـ "1122"</span>
-                    </button>
+                    <div className="space-y-2 border-t border-blue-950 pt-3">
+                      <label className="block text-[10px] font-bold text-slate-400">تعديل كلمة مرور عبد الرحمن الذيباني (المدير الفني) يدوياً:</label>
+                      <div className="flex gap-1.5" dir="rtl">
+                        <input
+                          type="text"
+                          value={customAdminPass}
+                          onChange={(e) => setCustomAdminPass(e.target.value)}
+                          placeholder="مثال: 7788 أو PIN-9999"
+                          className="flex-1 bg-[#03060c] border border-blue-900/60 rounded-xl px-2.5 py-1.5 text-xs text-white placeholder-slate-600 outline-none focus:border-purple-500 font-sans"
+                        />
+                        <button
+                          onClick={() => {
+                            if (!customAdminPass.trim()) {
+                              addToast("⚠️ الرجاء كتابة كلمة المرور الجديدة أولاً!", "warning");
+                              return;
+                            }
+                            onUpdateAdminPassword(customAdminPass.trim());
+                            addLog(`🛡️ تم تغيير كلمة مرور عبدالرحمن الذيباني يدوياً إلى: ${customAdminPass.trim()}`);
+                            addToast("✅ تم تحديث وتعميم كلمة مرور الإدارة بنجاح!", "success");
+                            setCustomAdminPass("");
+                          }}
+                          className="bg-purple-600 hover:bg-purple-500 text-white rounded-xl px-3 text-[10px] font-black cursor-pointer transition-all active:scale-95"
+                        >
+                          حفظ 💾
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="pt-2">
+                      <button
+                        onClick={handleResetPasswords}
+                        className="w-full py-2 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 rounded-xl text-[10px] font-black transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                      >
+                        <RefreshCw className="w-3 h-3 text-red-400" />
+                        <span>إرجاع المدير الرئيسي لـ "1122"</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -720,6 +818,251 @@ export const MasterDeveloperControl: React.FC<MasterDeveloperControlProps> = ({
 
               {/* Box 2 (Right Side): Local & Global Gateway Balance Audit (8 Columns) */}
               <div className="lg:col-span-8 space-y-6">
+
+                {/* UNIVERSAL SAAS TEMPLATE SELECTOR (MIGRATED FROM MAIN USER SITE TO EXCLUSIVE SECURITY PORTAL) */}
+                <div className="bg-[#070d19] border border-blue-900/30 rounded-3xl p-6 space-y-6 shadow-[0_0_50px_rgba(30,144,255,0.05)] text-right" dir="rtl" id="exclusive-niche-templates-card">
+                  <div className="flex items-center justify-between border-b border-blue-950 pb-4 flex-wrap gap-3">
+                    <div className="flex items-center gap-2.5">
+                      <div className="p-2.5 bg-blue-500/10 border border-blue-500/30 rounded-2xl">
+                        <Sparkles className="w-5 h-5 text-blue-400 animate-pulse" />
+                      </div>
+                      <div>
+                        <h3 className="font-extrabold text-sm text-white">قائمة الأنشطة والمشاريع السحابية الشاملة (Universal SaaS Templates) 🌐</h3>
+                        <p className="text-[10px] text-slate-400 mt-0.5">تحكّم حصري لتعديل، تفعيل وتوريث قالب النشاط الفوري بالتخصيص الكامل للذكاء الاصطناعي وجدول الهويات والأسعار.</p>
+                      </div>
+                    </div>
+                    {/* Active niche ID badge */}
+                    <div className="px-3 py-1 bg-blue-500/10 border border-blue-500/30 rounded-xl text-[10px] font-black text-blue-300">
+                      القالب النشط حالياً: {localNiches.find(n => n.id === activeNicheId)?.name || activeNicheId}
+                    </div>
+                  </div>
+
+                  {/* Inline edit panel if editing a niche */}
+                  {editingNicheId && (
+                    <div className="bg-[#0b1329] border-2 border-purple-500 pb-6 rounded-2xl p-5 mb-5 space-y-4 shadow-[0_0_30px_rgba(168,85,247,0.15)] text-right" id="niche-editor-panel" dir="rtl">
+                      <div className="flex items-center justify-between border-b border-purple-950/40 pb-2">
+                        <span className="text-xs font-black text-purple-400 flex items-center gap-1">✏️ تعديل معالم القالب والذكاء الاصطناعي للاستشاري الذكي</span>
+                        <button 
+                          onClick={() => setEditingNicheId(null)}
+                          className="p-1 text-slate-400 bg-black/40 hover:text-white rounded-lg transition-colors"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <label className="text-[11px] text-slate-400 font-bold">معرّف القالب لربط الأنظمة والسيرفر (ID):</label>
+                          <input 
+                            type="text" 
+                            value={editNicheForm.id}
+                            onChange={(e) => setEditNicheForm({...editNicheForm, id: e.target.value})}
+                            className="w-full text-xs font-sans text-white bg-black/45 border border-slate-800 rounded-xl px-3 py-2 focus:border-purple-500 focus:outline-none"
+                          />
+                        </div>
+                        
+                        <div className="space-y-1">
+                          <label className="text-[11px] text-slate-400 font-bold">3.1 اسم الموديول (ModuleName / Title):</label>
+                          <input 
+                            type="text" 
+                            value={editNicheForm.name}
+                            onChange={(e) => setEditNicheForm({...editNicheForm, name: e.target.value})}
+                            className="w-full text-xs text-white bg-black/45 border border-slate-800 rounded-xl px-3 py-2 focus:border-purple-500 focus:outline-none"
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-[11px] text-slate-400 font-bold">علامة ومسمى الفئة (BadgeText / Category):</label>
+                          <input 
+                            type="text" 
+                            value={editNicheForm.badgeText}
+                            onChange={(e) => setEditNicheForm({...editNicheForm, badgeText: e.target.value})}
+                            className="w-full text-xs text-white bg-black/45 border border-slate-800 rounded-xl px-3 py-2 focus:border-purple-500 focus:outline-none"
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-[11px] text-slate-400 font-bold">الوصف الفرعي للقالب (Subtitle / Desc):</label>
+                          <input 
+                            type="text" 
+                            value={editNicheForm.subtitle}
+                            onChange={(e) => setEditNicheForm({...editNicheForm, subtitle: e.target.value})}
+                            className="w-full text-xs text-white bg-black/45 border border-slate-800 rounded-xl px-3 py-2 focus:border-purple-500 focus:outline-none"
+                          />
+                        </div>
+
+                        <div className="space-y-1 md:col-span-2">
+                          <label className="text-[11px] text-slate-400 font-bold">تخصيص سلوك وهوية مستشار الذكاء الاصطناعي (AI Behavior System Instructions):</label>
+                          <textarea 
+                            rows={3}
+                            value={editNicheForm.aiBehavior}
+                            onChange={(e) => setEditNicheForm({...editNicheForm, aiBehavior: e.target.value})}
+                            placeholder="مثال: Digital & gaming top-up consultant. ركز على خدمات الشحن والألعاب..."
+                            className="w-full text-xs text-emerald-400 font-mono bg-black/50 border border-slate-800 rounded-xl px-3 py-2 focus:border-purple-500 focus:outline-none resize-none"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex justify-end gap-2.5 pt-2">
+                        <button
+                          onClick={() => setEditingNicheId(null)}
+                          className="px-4 py-2 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition-all"
+                        >
+                          إلغاء
+                        </button>
+                        <button
+                          onClick={handleSaveNicheEdit}
+                          className="px-4 py-2 text-xs bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold rounded-xl transition-all shadow-md shadow-indigo-950/40"
+                        >
+                          حفظ التعديلات وتعميم النظام
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Grid of Templates */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3" id="dev-niches-radio-group">
+                    {localNiches.map((niche) => {
+                      // Check if module is disabled in Developer Matrix
+                      const savedMatrix = localStorage.getItem("developer_modules_matrix");
+                      let isEnabled = true;
+                      try {
+                        if (savedMatrix) {
+                          const list = JSON.parse(savedMatrix);
+                          const found = list.find((m: any) => m.id === (niche.id === "game" ? "games_hyper" : niche.id === "legal" ? "law_firm" : niche.id));
+                          if (found) isEnabled = found.enabled;
+                        }
+                      } catch (e) {}
+
+                      if (!isEnabled) return null;
+
+                      const isSelected = activeNicheId === niche.id;
+
+                      return (
+                        <div
+                          key={niche.id}
+                          className={`p-4 rounded-2xl border transition-all relative flex flex-col justify-between text-right select-none group ${
+                            isSelected 
+                              ? 'bg-blue-950/20 border-blue-500 shadow-[0_0_20px_rgba(59,130,246,0.15)] bg-gradient-to-br from-blue-950/30 to-[#070d19]' 
+                              : 'bg-black/25 border-slate-900 hover:border-slate-800'
+                          }`}
+                        >
+                          {isSelected && (
+                            <div className="absolute top-3 left-3 bg-blue-500 text-slate-950 p-1 rounded-full text-[9px] font-black h-4.5 w-4.5 flex items-center justify-center">
+                              ✓
+                            </div>
+                          )}
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between gap-2 border-b border-slate-900/40 pb-1.5 mb-1.5">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-[11px] font-black text-white">{niche.name}</span>
+                                {niche.badgeText && (
+                                  <span className="font-mono text-[8.5px] bg-black/40 text-blue-400 px-1 py-0.2 rounded border border-blue-900/40">
+                                    {niche.badgeText}
+                                  </span>
+                                )}
+                              </div>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleStartEditNiche(niche);
+                                }}
+                                className="text-[9px] bg-slate-900 hover:bg-purple-950/70 border border-slate-850 hover:border-purple-500/30 text-purple-300 px-2 py-0.5 rounded-lg transition-all"
+                              >
+                                ✏️ تعديل
+                              </button>
+                            </div>
+                            <p className="text-[10px] text-slate-400 font-sans leading-normal">
+                              {niche.subtitle}
+                            </p>
+                            {niche.aiBehavior && (
+                              <p className="text-[8.5px] text-emerald-400 font-mono line-clamp-1 border-t border-slate-900/60 pt-1 mt-1 opacity-90">
+                                سلوك الذكاء: {niche.aiBehavior}
+                              </p>
+                            )}
+                          </div>
+                          
+                          {/* Radio circle at bottom left */}
+                          <div 
+                            onClick={() => {
+                              if (onApplyNicheTemplate) {
+                                onApplyNicheTemplate(niche.id);
+                              }
+                              addLog(`⚙️ تم تطبيق وتعمير قالب المشروع الجديد: [${niche.name}] بنجاح.`);
+                              addToast(`🚀 تم تحويل المنصة فوراً لقالب: ${niche.name}`, "success");
+                            }}
+                            className="mt-3 flex items-center justify-between border-t border-slate-950 pt-2 cursor-pointer"
+                          >
+                            <span className="text-[9px] text-slate-500 font-mono">ID: {niche.id}</span>
+                            <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${
+                              isSelected ? 'border-blue-500 bg-blue-500/20' : 'border-slate-700 bg-black/25'
+                            }`}>
+                              {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-blue-400" />}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                    {/* Render dynamic developer custom modules */}
+                    {(() => {
+                      const savedMatrix = localStorage.getItem("developer_modules_matrix");
+                      let list: any[] = [];
+                      try {
+                        if (savedMatrix) list = JSON.parse(savedMatrix);
+                      } catch (e) {}
+
+                      return list.filter((m: any) => m.enabled && !["games_hyper", "pharmacy", "law_firm"].includes(m.id)).map((customNiche) => {
+                        const isSelected = activeNicheId === customNiche.id;
+                        return (
+                          <div
+                            key={customNiche.id}
+                            onClick={() => {
+                              if (onApplyNicheTemplate) {
+                                onApplyNicheTemplate(customNiche.id);
+                              }
+                              addLog(`⚙️ تم الاستجابة وتعميم قالب المطور الخاص: [${customNiche.name}]`);
+                              addToast(`🚀 تم تحويل المنصة للمشروع المخصص: ${customNiche.name}`, "success");
+                            }}
+                            className={`p-4 rounded-2xl border transition-all cursor-pointer relative flex flex-col justify-between text-right select-none ${
+                              isSelected 
+                                ? 'bg-purple-950/20 border-purple-500 shadow-[0_0_20px_rgba(139,92,246,0.15)] bg-gradient-to-br from-purple-950/30 to-[#070d19]' 
+                                : 'bg-black/25 border-slate-900 hover:border-slate-800'
+                            }`}
+                          >
+                            {isSelected && (
+                              <div className="absolute top-3 left-3 bg-purple-500 text-slate-950 p-1 rounded-full text-[9px] font-black h-4.5 w-4.5 flex items-center justify-center">
+                                ✓
+                              </div>
+                            )}
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-[11px] font-black text-purple-300">⚡ {customNiche.name}</span>
+                                <span className="font-mono text-[8.5px] bg-black/40 text-purple-400 px-1 py-0.2 rounded border border-purple-900/45">
+                                  CUSTOM
+                                </span>
+                              </div>
+                              <p className="text-[10px] text-slate-400 font-sans leading-normal mt-1">
+                                معرّف المشروع الخاص النشط عبر مصفوفة وموديلات التحكم المفتوحة.
+                              </p>
+                            </div>
+                            
+                            {/* Radio circle at bottom left */}
+                            <div className="mt-3 flex items-center justify-between border-t border-slate-950 pt-2">
+                              <span className="text-[9px] text-slate-500 font-mono">ID: {customNiche.id}</span>
+                              <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${
+                                isSelected ? 'border-purple-500 bg-purple-500/20' : 'border-slate-700 bg-black/25'
+                              }`}>
+                                {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-purple-400" />}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      });
+                    })()}
+                  </div>
+                </div>
 
                 {/* DYNAMIC CONTROL MATRIX OF THE ABSOLUTE DEVELOPER */}
                 <div className="bg-[#070d19] border-2 border-purple-900/50 rounded-3xl p-6 space-y-6 shadow-[0_0_40px_rgba(139,92,246,0.1)] relative text-right" dir="rtl" id="developer-control-matrix-card">

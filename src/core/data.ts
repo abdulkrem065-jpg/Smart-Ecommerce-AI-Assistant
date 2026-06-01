@@ -1,8 +1,8 @@
 import { Product, StoreCategory } from './types';
 
 export interface NicheConfig {
-  id: 'game' | 'pharmacy' | 'supermarket' | 'school' | 'tailor' | 'legal' | 'consulting' | 'hyper';
-  name: string;
+  id: string; // Dynamic ID, e.g. hyper_games, smart_pharmacy
+  name: string; // Dynamic Title
   subtitle: string;
   themeColor: string; // Tailwind accent base color
   badgeText: string;
@@ -12,15 +12,18 @@ export interface NicheConfig {
   iconName: string;
   categories: StoreCategory[];
   products: Product[];
+  aiBehavior: string; // AI personality outline
 }
 
-export const NICHES: NicheConfig[] = [
+// Initial Templates Definition matching exactly user specifications + original modules
+const DEFAULT_TEMPLATES: NicheConfig[] = [
   {
-    id: 'game',
-    name: 'متجر شحن الألعاب والترفيه VIP 🎮',
+    id: 'hyper_games',
+    name: '🎮 Aldhibani Hyper Games & VIP Digital Services',
     subtitle: 'شحن فوري بالمعرف للألعاب والبطاقات الرقمية ومستلزمات الجيمنج',
+    aiBehavior: 'Digital & gaming top-up consultant.',
     themeColor: 'amber',
-    badgeText: 'خدمات الجيمنج السريعة',
+    badgeText: 'خدمات الألعاب والشحن الفوري',
     accentClass: 'text-yellow-400',
     backgroundClass: 'from-[#030a1c] to-[#01030a]',
     gradientClass: 'from-amber-500 to-yellow-500',
@@ -78,9 +81,10 @@ export const NICHES: NicheConfig[] = [
     ]
   },
   {
-    id: 'pharmacy',
-    name: 'صيدلية العناية والشفاء السحابية 🧪',
+    id: 'smart_pharmacy',
+    name: '💊 Aldhibani Smart Pharmacy & Warehouse',
     subtitle: 'استشارة طبية ذكية وتوفير أدوية معتمدة ومكملات وأجهزة رعاية منزلية',
+    aiBehavior: 'Medical, pharmaceutical, and inventory advisor.',
     themeColor: 'teal',
     badgeText: 'العناية والصحة الرقمية',
     accentClass: 'text-teal-400',
@@ -132,12 +136,70 @@ export const NICHES: NicheConfig[] = [
     ]
   },
   {
-    id: 'supermarket',
-    name: 'سوبرماركت التموين الأسري الفوري 🛒',
-    subtitle: 'خضار وفواكه طازجة ولحوم ومواد أساسية وتوصيل سريع لباب منزلك',
+    id: 'luxury_tailoring',
+    name: '🪡 Aldhibani Luxury Tailoring & Fashion',
+    subtitle: 'تثبيت وحفظ مقاساتك وصياغة أثواب وأقمشة رجالية يابانية فخمة بمواصفات ملكية',
+    aiBehavior: 'Fashion design, fabrics, and measurement consultant.',
+    themeColor: 'amber',
+    badgeText: 'تفصيل وتصميم الأزياء والملابس',
+    accentClass: 'text-amber-500',
+    backgroundClass: 'from-[#140b03] to-[#040200]',
+    gradientClass: 'from-amber-600 to-orange-500',
+    iconName: 'Scissors',
+    categories: [
+      { id: 'cat-tl-1', name: 'تفصيل وخياطة أثواب مخصصة 🧵', englishName: 'custom_tailor' },
+      { id: 'cat-tl-2', name: 'طاقات وقماش فخم مستورد 🥻', englishName: 'fabrics' },
+      { id: 'cat-tl-3', name: 'مستلزمات وأزرار ملكية فاخرة 🎖️', englishName: 'royal_accessories' }
+    ],
+    products: [
+      {
+        id: 'p-tl-1',
+        name: 'تفصيل ثوب ياباني لوكس (درع ملكي سبيشال) 🪡',
+        description: 'ثوب رجالي يتناسب مع مقاسك المسجل. يتم التفصيل من قماش تويوبو الياباني الفاخر بجلد ناعم صيفي أو شتوي.',
+        category: 'تفصيل وخياطة أثواب مخصصة 🧵',
+        price: 240.0,
+        price_sar: 240.0,
+        price_yer: 96000,
+        image: 'https://images.unsplash.com/photo-1593032465175-481ac7f401a0?w=500&q=80',
+        stock: 30,
+        code: 'THOB-JAP',
+        isApiProduct: true,
+        apiRequiredField: 'رقم مقاسك المحفوظ أو اكتب (مقاساتي في الرسائل)'
+      },
+      {
+        id: 'p-tl-2',
+        name: 'طاقة قماش صوفي إنجليزي فخم (يكفي 5 أثواب) 🧵',
+        description: 'قماش فاخر دافئ جداً مناسب للأجواء الباردة والشتوية، ألوان متعددة (كحلي، رمادي، رملي).',
+        category: 'طاقات وقماش فخم مستورد 🥻',
+        price: 450.0,
+        price_sar: 450.0,
+        price_yer: 180000,
+        image: 'https://images.unsplash.com/photo-1524295981997-ec4f4e159675?w=500&q=80',
+        stock: 12,
+        code: 'WOOL-ENG'
+      },
+      {
+        id: 'p-tl-3',
+        name: 'باقة أزرار رويال نحاسية مطليّة بماء الذهب 🎖️',
+        description: 'طقم أزرار من النحاس الخالص المقاوم للصدأ بشعار ملكي مصمم خصيصاً لأصحاب الفخامة والذوق الرفيع.',
+        category: 'مستلزمات وأزرار ملكية فاخرة 🎖️',
+        price: 60.0,
+        price_sar: 60.0,
+        price_yer: 24000,
+        image: 'https://images.unsplash.com/photo-1620799140408-edc6dcb6d633?w=500&q=80',
+        stock: 80,
+        code: 'BTN-GOLD'
+      }
+    ]
+  },
+  {
+    id: 'hypermarket_supply',
+    name: '🛒 Aldhibani Hypermarket & Central Supply',
+    subtitle: 'خضار وفواكه طازجة ولحوم ومواد أساسية وتوصيل سريع لباب منزلك والبهارات',
+    aiBehavior: 'Grocery, spices, shopping, and home supply assistant.',
     themeColor: 'emerald',
-    badgeText: 'السلع الاستهلاكية الفورية',
-    accentClass: 'text-emerald-450',
+    badgeText: 'السلع والتموين والخدمات',
+    accentClass: 'text-emerald-400',
     backgroundClass: 'from-[#031c0a] to-[#000502]',
     gradientClass: 'from-emerald-500 to-green-500',
     iconName: 'ShoppingBag',
@@ -150,7 +212,7 @@ export const NICHES: NicheConfig[] = [
       {
         id: 'p-sm-1',
         name: 'أرز بسمتي الشعلان الفاخر (وزن 5 كجم) 🌾',
-        description: 'أرز سيلا بسمتي ذو الحبة الطويلة، درجة أولى، طعم تقليدي شهي لا يقاوم.',
+        description: 'أرز سيلا بسمتي ذو الحبة الطويلة، درجة أولى، طعم تقليدي شهي لا يقاوم للوجبات العائلية الفخمة.',
         category: 'مواد تموينية أساسية 🌾',
         price: 45.0,
         price_sar: 45.0,
@@ -162,7 +224,7 @@ export const NICHES: NicheConfig[] = [
       {
         id: 'p-sm-2',
         name: 'قهوة بن يمني مطحون فاخر (وزن نصف كيلو) ☕',
-        description: 'قهوة يمنية أصيلة بخلاصة الهيل والزنجبيل والبهارات العربية العطرة.',
+        description: 'قهوة يمنية أصيلة بخلاصة الهيل والزنجبيل والبهارات العربية العطرة المصنوعة يدوياً.',
         category: 'خضار فواكه ولحوم طازجة 🥩',
         price: 65.0,
         price_sar: 65.0,
@@ -174,7 +236,7 @@ export const NICHES: NicheConfig[] = [
       {
         id: 'p-sm-3',
         name: 'زيت الزيتون البكر الممتاز عضوي (1 لتر) 🫒',
-        description: 'عصرة أولى على البارد، صحي ونقي 100% مستورد من أجود المزارع الجبلية.',
+        description: 'عصرة أولى على البارد، صحي ونقي 100% مستورد من أجود المزارع الجبلية العالية.',
         category: 'مواد تموينية أساسية 🌾',
         price: 36.0,
         price_sar: 36.0,
@@ -186,11 +248,123 @@ export const NICHES: NicheConfig[] = [
     ]
   },
   {
+    id: 'electronics_techno',
+    name: '⚡ Aldhibani Techno for Electronics & Maintenance',
+    subtitle: 'أجهزة إلكترونية حديثة، صيانة فورية، قطع غيار ذكية وتمديدات معتمدة بضمان',
+    aiBehavior: 'Technical support, hardware, and electronics maintenance expert.',
+    themeColor: 'blue',
+    badgeText: 'صيانة وتجهيزات إلكترونية للورش والمنزل',
+    accentClass: 'text-cyan-400',
+    backgroundClass: 'from-[#03152d] to-[#01040f]',
+    gradientClass: 'from-blue-500 to-cyan-500',
+    iconName: 'Cpu',
+    categories: [
+      { id: 'cat-el-1', name: 'خدمات الصيانة والتشخيص 🛠️', englishName: 'maintenance' },
+      { id: 'cat-el-2', name: 'قطع غيار وإلكترونيات ⚡', englishName: 'electronics' }
+    ],
+    products: [
+      {
+        id: 'p-el-1',
+        name: 'جهاز لحام الكترونيات ومكواة حرارية تخصصية ⚡',
+        description: 'ذات تحكم دقيق بالحرارة وشاشة رقمية من قطعات الصيانة الممتازة للدوائر وإلكترونيات الألعاب والاتصالات.',
+        category: 'قطع غيار وإلكترونيات ⚡',
+        price: 45.0,
+        price_sar: 45.0,
+        price_yer: 18000,
+        image: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500&q=80',
+        stock: 12,
+        code: 'WELD-DIGI'
+      },
+      {
+        id: 'p-el-2',
+        name: 'جهاز قياس كهربائي رقمي (Multimeter Pro) 🌡️',
+        description: 'جهاز احترافي لفحص التوصيلات الكهربائية والجهد والمقاومة في الورش والمنازل ومقاومة الأعطال بدقة.',
+        category: 'قطع غيار وإلكترونيات ⚡',
+        price: 25.0,
+        price_sar: 25.0,
+        price_yer: 10000,
+        image: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=500&q=80',
+        stock: 30,
+        code: 'MULTI-METER'
+      },
+      {
+        id: 'p-el-3',
+        name: 'باقة تشخيص وصيانة تمديدات كهربائية متكاملة 🛠️',
+        description: 'خدمة مهندس صيانة لزيارة الموقع واكتشاف مشكلات الإضاءة والتحكم والأجهزة والديكورات الكهربية وسماعات الدي جي.',
+        category: 'خدمات الصيانة والتشخيص 🛠️',
+        price: 80.0,
+        price_sar: 80.0,
+        price_yer: 32000,
+        image: 'https://images.unsplash.com/photo-1558346490-a72e53ae2d4f?w=500&q=80',
+        stock: 100,
+        isApiProduct: true,
+        apiRequiredField: 'نوع العطل بالتفصيل بالإضافة لعنوانك والمنطقة'
+      }
+    ]
+  },
+  {
+    id: 'legal_consulting',
+    name: '⚖️ Aldhibani Legal Consultations & Law Firm',
+    subtitle: 'صياغة عقود تجارية ورسمية، تصفية شركات، ومساعد وتوثيق قانوني فوري 24 ساعة',
+    aiBehavior: 'General legal terminology, documentation, and consulting advisor.',
+    themeColor: 'cyan',
+    badgeText: 'المظلة والاستشارة القانونية والأمان',
+    accentClass: 'text-cyan-400',
+    backgroundClass: 'from-[#010c1f] to-[#00040a]',
+    gradientClass: 'from-blue-600 to-cyan-500',
+    iconName: 'Scale',
+    categories: [
+      { id: 'cat-lg-1', name: 'استشارات قانونية تخصصية ⚖️', englishName: 'consultations' },
+      { id: 'cat-lg-2', name: 'صياغة ومراجعة العقود والاتفاقيات 📜', englishName: 'contracts' },
+      { id: 'cat-lg-3', name: 'تجهيز رخص وتأسيس وتصفية شركات 🏗️', englishName: 'licensing' }
+    ],
+    products: [
+      {
+        id: 'p-lg-1',
+        name: 'صياغة ومراجعة عقد شراكة تجارية متكامل 📜',
+        description: 'تجهيز وصياغة عقد قانوني مهني يحمي الشركاء ويحدد الحصص والأرباح والالتزامات حسب لوائح القوانين الصارمة.',
+        category: 'صياغة ومراجعة العقود والاتفاقيات 📜',
+        price: 350.0,
+        price_sar: 350.0,
+        price_yer: 140000,
+        image: 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=500&q=80',
+        stock: 99,
+        code: 'CNTRCT-SH'
+      },
+      {
+        id: 'p-lg-2',
+        name: 'جلسة استشارة قانونية مهنيّة (ساعة كاملة عبر زووم) ⚖️',
+        description: 'جلسة رسمية مع محامٍ مرخص لمناقشة جميع مستنداتك وتوضيح موقفك القضائي وصيغ الدفاع باحتراف.',
+        category: 'استشارات قانونية تخصصية ⚖️',
+        price: 150.0,
+        price_sar: 150.0,
+        price_yer: 60000,
+        image: 'https://images.unsplash.com/photo-1450175847920-7244ccde2365?w=500&q=80',
+        stock: 50,
+        isApiProduct: true,
+        apiRequiredField: 'مجال الاستشارة (مثال: عمالية، عقارية، تجارية)'
+      },
+      {
+        id: 'p-lg-3',
+        name: 'تجهيز أوراق رخصة الاستثمار والشركات الأجنبية 🏦',
+        description: 'باقة المتابعة الكاملة لوزارة التجارة وهيئة الاستثمار لتلقي السجل التجاري والختم والتراخيص بدون عناء.',
+        category: 'تجهيز رخص وتأسيس وتصفية شركات 🏗️',
+        price: 600.0,
+        price_sar: 600.0,
+        price_yer: 240000,
+        image: 'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=500&q=80',
+        stock: 15,
+        code: 'LIC-INVEST'
+      }
+    ]
+  },
+  {
     id: 'school',
-    name: 'أكاديمية المنصة التعليمية الذكية 📚',
-    subtitle: 'دورات خصوصية، مناهج، توليد اختبارات تفاعلية، ومستشار ذكي للتقوية',
+    name: '🏫 Aldhibani Academic Academy & Tutoring',
+    subtitle: 'دورات خصوصية، مناهج تخصصية، توليد اختبارات MCQ بذكاء الـ AI وتحسين أدائك الكلي',
+    aiBehavior: 'Academic, educational, and exam tutor.',
     themeColor: 'indigo',
-    badgeText: 'التعليم الأكاديمي والتدريب',
+    badgeText: 'العلوم الأكاديمية والمناهج المعتمدة',
     accentClass: 'text-indigo-400',
     backgroundClass: 'from-[#090b1c] to-[#01020a]',
     gradientClass: 'from-indigo-500 to-violet-500',
@@ -242,122 +416,12 @@ export const NICHES: NicheConfig[] = [
     ]
   },
   {
-    id: 'tailor',
-    name: 'مشغل ودار الذيباني الراقية للأزياء والخياطة 🪡',
-    subtitle: 'تثبيت وحفظ مقاساتك وصياغة أثواب وأقمشة رجالية يابانية فخمة بمواصفات ملكية',
-    themeColor: 'amber',
-    badgeText: 'تفصيل وتصميم الأزياء',
-    accentClass: 'text-amber-500',
-    backgroundClass: 'from-[#140b03] to-[#040200]',
-    gradientClass: 'from-amber-655 to-orange-555',
-    iconName: 'Scissors',
-    categories: [
-      { id: 'cat-tl-1', name: 'تفصيل وخياطة أثواب مخصصة 🧵', englishName: 'custom_tailor' },
-      { id: 'cat-tl-2', name: 'طاقات وقماش فخم مستورد 🥻', englishName: 'fabrics' },
-      { id: 'cat-tl-3', name: 'مستلزمات وأزرار ملكية فاخرة 🎖️', englishName: 'royal_accessories' }
-    ],
-    products: [
-      {
-        id: 'p-tl-1',
-        name: 'تفصيل ثوب ياباني لوكس (درع ملكي سبيشال) 🪡',
-        description: 'ثوب رجالي يتناسب مع مقاسك المسجل. يتم التفصيل من قماش تويوبو الياباني الفاخر بجلد ناعم صيفي أو شتوي.',
-        category: 'تفصيل وخياطة أثواب مخصصة 🧵',
-        price: 240.0,
-        price_sar: 240.0,
-        price_yer: 96000,
-        image: 'https://images.unsplash.com/photo-1593032465175-481ac7f401a0?w=500&q=80',
-        stock: 30,
-        code: 'THOB-JAP',
-        isApiProduct: true,
-        apiRequiredField: 'رقم مقاسك المحفوظ أو اكتب (مقاساتي في الرسائل)'
-      },
-      {
-        id: 'p-tl-2',
-        name: 'طاقة قماش صوفي إنجليزي فخم (يكفي 5 أثواب) 🧵',
-        description: 'قماش فاخر دافئ جداً مناسب للأجواء الباردة والشتوية، ألوان متعددة (كحلي، رمادي، رملي).',
-        category: 'طاقات وقماش فخم مستورد 🥻',
-        price: 450.0,
-        price_sar: 450.0,
-        price_yer: 180000,
-        image: 'https://images.unsplash.com/photo-1524295981997-ec4f4e159675?w=500&q=80',
-        stock: 12,
-        code: 'WOOL-ENG'
-      },
-      {
-        id: 'p-tl-3',
-        name: 'باقة أزرار رويال نحاسية مطليّة بماء الذهب 🎖️',
-        description: 'طقم أزرار من النحاس الخالص المقاوم للصدأ بشعار ملكي مصمم خصيصاً لأصحاب الفخامة والذوق الرفيع.',
-        category: 'مستلزمات وأزرار ملكية فاخرة 🎖️',
-        price: 60.0,
-        price_sar: 60.0,
-        price_yer: 24000,
-        image: 'https://images.unsplash.com/photo-1620799140408-edc6dcb6d633?w=500&q=80',
-        stock: 80,
-        code: 'BTN-GOLD'
-      }
-    ]
-  },
-  {
-    id: 'legal',
-    name: 'مكتب الذيباني للاستشارات القانونية والشرعية ⚖️',
-    subtitle: 'صياغة عقود تجارية، مراجعة لوائح، شروط التراخيص، ومساعد قانوني ذكي 24 ساعة',
-    themeColor: 'cyan',
-    badgeText: 'المظلة والاستشارة القانونية',
-    accentClass: 'text-cyan-400',
-    backgroundClass: 'from-[#010c1f] to-[#00040a]',
-    gradientClass: 'from-blue-600 to-cyan-500',
-    iconName: 'Scale',
-    categories: [
-      { id: 'cat-lg-1', name: 'استشارات قانونية تخصصية ⚖️', englishName: 'consultations' },
-      { id: 'cat-lg-2', name: 'صياغة ومراجعة العقود والاتفاقيات 📜', englishName: 'contracts' },
-      { id: 'cat-lg-3', name: 'تجهيز رخص وتأسيس وتصفية شركات 🏗️', englishName: 'licensing' }
-    ],
-    products: [
-      {
-        id: 'p-lg-1',
-        name: 'صياغة ومراجعة عقد شراكة تجارية متكامل 📜',
-        description: 'تجهيز وصياغة عقد قانوني مهني يحمي الشركاء ويحدد الحصص والأرباح والالتزامات حسب لوائح القوانين الصارمة.',
-        category: 'صياغة ومراجعة العقود والاتفاقيات 📜',
-        price: 350.0,
-        price_sar: 350.0,
-        price_yer: 140000,
-        image: 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=500&q=80',
-        stock: 99,
-        code: 'CNTRCT-SH'
-      },
-      {
-        id: 'p-lg-2',
-        name: 'جلسة استشارة قانونية مهنيّة (ساعة كاملة عبر زووم) ⚖️',
-        description: 'جلسة رسمية مع محامٍ مرخص لمناقشة جميع مستنداتك وتوضيح موقفك القضائي وصيغ الدفاع باحتراف.',
-        category: 'استشارات قانونية تخصصية ⚖️',
-        price: 150.0,
-        price_sar: 150.0,
-        price_yer: 60000,
-        image: 'https://images.unsplash.com/photo-1450175847920-7244ccde2365?w=500&q=80',
-        stock: 50,
-        isApiProduct: true,
-        apiRequiredField: 'مجال الاستشارة (مثال: عمالية، عقارية، تجارية)'
-      },
-      {
-        id: 'p-lg-3',
-        name: 'تجهيز أوراق رخصة الاستثمار والشركات الأجنبية 🏦',
-        description: 'باقة المتابعة الكاملة لوزارة التجارة وهيئة الاستثمار لتلقي السجل التجاري والختم والتراخيص بدون عناء.',
-        category: 'تجهيز رخص وتأسيس وتصفية شركات 🏗️',
-        price: 600.0,
-        price_sar: 600.0,
-        price_yer: 240000,
-        image: 'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=500&q=80',
-        stock: 15,
-        code: 'LIC-INVEST'
-      }
-    ]
-  },
-  {
     id: 'consulting',
-    name: 'مجموعة الذيباني للاستشارات وإدارة الشركات 📊',
-    subtitle: 'خطط خفض تكاليف، دراسات جدوى اقتصادية، إعادة الهيكلة والتطوير المؤسسي',
+    name: '💼 Aldhibani Strategic Consulting & Management',
+    subtitle: 'دراسات جدوى متكاملة، تقليص مصاريف تشغيلية بنسب فورية، وأتمتة إدارية شاملة',
+    aiBehavior: 'Corporate operations and financial optimization expert.',
     themeColor: 'purple',
-    badgeText: 'الاستراتيجية وتطوير الأعمال',
+    badgeText: 'إعادة الهيكلة ونماذج الجدوى',
     accentClass: 'text-purple-400',
     backgroundClass: 'from-[#0b041c] to-[#010005]',
     gradientClass: 'from-purple-600 to-indigo-500',
@@ -405,105 +469,49 @@ export const NICHES: NicheConfig[] = [
         code: 'TRAIN-SLS'
       }
     ]
-  },
-  {
-    id: 'hyper',
-    name: 'هايبر ماركت ومجمع الخدمات الشامل VIP 🛒🎮⚡',
-    subtitle: 'مظلتك الشاملة للمواد الغذائية والتموينية، شحن الألعاب، والخدمات الرقمية والبطاقات',
-    themeColor: 'blue',
-    badgeText: 'الهايبر ماركت الشامل',
-    accentClass: 'text-cyan-400',
-    backgroundClass: 'from-[#03152d] to-[#01040f]',
-    gradientClass: 'from-blue-500 to-cyan-500',
-    iconName: 'LayoutGrid',
-    categories: [
-      { id: 'cat-hy-1', name: 'مواد ومبيعات غذائية وتموينية 🛒', englishName: 'food_groceries' },
-      { id: 'cat-hy-2', name: 'شحن فوري لأشهر الألعاب 🎮', englishName: 'gaming_topup' },
-      { id: 'cat-hy-3', name: 'الخدمات والبطاقات الرقمية ⚡', englishName: 'digital_services' }
-    ],
-    products: [
-      {
-        id: 'p-hy-1',
-        name: 'أرز بسمتي الشعلان الفاخر (وزن 5 كجم) 🌾',
-        description: 'أرز سيلا بسمتي ذو الحبة الطويلة، درجة أولى، طعم تقليدي شهي لا يقاوم للوجبات العائلية.',
-        category: 'مواد ومبيعات غذائية وتموينية 🛒',
-        price: 45.0,
-        price_sar: 45.0,
-        price_yer: 18000,
-        image: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=500&q=80',
-        stock: 120,
-        code: 'RICE-SHL'
-      },
-      {
-        id: 'p-hy-2',
-        name: 'قهوة بن يمني مطحون فاخر (وزن نصف كيلو) ☕',
-        description: 'قهوة يمنية أصيلة بخلاصة الهيل والزنجبيل والبهارات العربية العطرة المصنوعة يدوياً.',
-        category: 'مواد ومبيعات غذائية وتموينية 🛒',
-        price: 65.0,
-        price_sar: 65.0,
-        price_yer: 26000,
-        image: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=500&q=80',
-        stock: 80,
-        code: 'YEM-COFFEE'
-      },
-      {
-        id: 'p-hy-3',
-        name: 'شحن مجوهرات فري فاير (100+10 جوهرة فوري) 💎',
-        description: 'شحن رسمي آمن وسريع عبر المعرف المباشر للّاعب، متاح 24 ساعة بموافقة فورية.',
-        category: 'شحن فوري لأشهر الألعاب 🎮',
-        price: 4.5,
-        price_sar: 4.5,
-        price_yer: 1800,
-        image: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=500&q=80',
-        stock: 500,
-        code: 'FF102',
-        isApiProduct: true,
-        apiRequiredField: 'رقم معرف اللاعب أو الأيدي (Player ID)',
-        apiProvider: 'likecard',
-        apiProductId: '840003'
-      },
-      {
-        id: 'p-hy-4',
-        name: 'شحن شدات ببجي موبايل (60 شدّة فوري) 🔫',
-        description: 'شحن رسمي فوري ومعتمد على حسابك مباشرة بالمعرّف آلياً.',
-        category: 'شحن فوري لأشهر الألعاب 🎮',
-        price: 5.0,
-        price_sar: 5.0,
-        price_yer: 2000,
-        image: 'https://images.unsplash.com/photo-1553481187-be93c21490a9?w=500&q=80',
-        stock: 450,
-        code: 'PUBG62',
-        isApiProduct: true,
-        apiRequiredField: 'رقم الأيدي للّاعب (Character ID)',
-        apiProvider: 'likecard',
-        apiProductId: '850020'
-      },
-      {
-        id: 'p-hy-5',
-        name: 'اشتراك يوتيوب بريميوم فوري (صلاحية 1 شهر) 📺',
-        description: 'تفعيل رسمي يوتيوب بريميوم على بريدك الإلكتروني بدون إعلانات مع تشغيل في الخلفية وميزة التنزيل.',
-        category: 'الخدمات والبطاقات الرقمية ⚡',
-        price: 15.0,
-        price_sar: 15.0,
-        price_yer: 6000,
-        image: 'https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?w=500&q=80',
-        stock: 200,
-        code: 'YT-PREM',
-        isApiProduct: true,
-        apiRequiredField: 'رقم هاتفك أو الإيميل الخاص بك لتسجيل تبرع الدخول'
-      },
-      {
-        id: 'p-hy-6',
-        name: 'بطاقة رصيد جوجل بلاي فئة 10 دولار 💳',
-        description: 'بطاقة رقمية مشحونة جاهزة للشراء داخل التطبيقات والألعاب والكتب والمسلسلات.',
-        category: 'الخدمات والبطاقات الرقمية ⚡',
-        price: 40.0,
-        price_sar: 40.0,
-        price_yer: 16000,
-        image: 'https://images.unsplash.com/photo-1579621970563-ebec7560ff3e?w=500&q=80',
-        stock: 150,
-        code: 'GP-10USD'
-      }
-    ]
   }
 ];
+
+// In-place editable list of projects that components consume
+export const NICHES: NicheConfig[] = [];
+
+// Initialize functions to load/save from localStorage
+export function initializeNiches() {
+  if (typeof window === 'undefined') {
+    NICHES.splice(0, NICHES.length, ...DEFAULT_TEMPLATES);
+    return;
+  }
+
+  const saved = localStorage.getItem("store_editable_projects");
+  if (saved) {
+    try {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        NICHES.splice(0, NICHES.length, ...parsed);
+        return;
+      }
+    } catch (e) {
+      console.error("Failed to parse editable projects array:", e);
+    }
+  }
+
+  // Fallback / Initial write of template array
+  localStorage.setItem("store_editable_projects", JSON.stringify(DEFAULT_TEMPLATES));
+  NICHES.splice(0, NICHES.length, ...DEFAULT_TEMPLATES);
+}
+
+// Save modified niches back to localStorage and keep memory in sync
+export function saveNiches(updated: NicheConfig[]) {
+  if (typeof window !== 'undefined') {
+    localStorage.setItem("store_editable_projects", JSON.stringify(updated));
+  }
+  NICHES.splice(0, NICHES.length, ...updated);
+  
+  // Dispatch dynamic custom event so parts of the React UI can listen and refresh instantly
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event("niches-matrix-updated"));
+  }
+}
+
+// Pre-call initializer
+initializeNiches();

@@ -532,7 +532,7 @@ export default function AdminDashboard({
         // Fallback below
       }
     }
-    // Deeply integrated, authentic default staff for the multi-niche platform
+    // Deeply integrated, authentic default staff for the multi-niche platform: Owner & Assistant Staff
     return [
       {
         id: 'staff-1',
@@ -543,17 +543,10 @@ export default function AdminDashboard({
       },
       {
         id: 'staff-2',
-        username: 'tailor_vip',
-        fullName: 'الخياط والمصمم الملكي رفيق',
-        role: 'tailor',
-        permissions: { canViewFinance: false, canEditInventory: true, canManageOrders: true, canUseAI: true }
-      },
-      {
-        id: 'staff-3',
-        username: 'legal_advisor',
-        fullName: 'المستشار القانوني أ. صالح العنسي',
-        role: 'lawyer',
-        permissions: { canViewFinance: true, canEditInventory: false, canManageOrders: false, canUseAI: true }
+        username: 'assistant',
+        fullName: 'الكادر المساعد المعتمد',
+        role: 'cashier',
+        permissions: { canViewFinance: true, canEditInventory: true, canManageOrders: true, canUseAI: true }
       }
     ];
   });
@@ -2734,58 +2727,16 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
           {/* Main system controls */}
           <div className="bg-[#0b1329] p-6 rounded-2xl border border-blue-900/40 shadow-sm md:col-span-2 space-y-6">
             
-            {/* SaaS Multi-Niche Active Template Selector */}
-            {getProjectTypeNiche() && !isDeveloper ? (
-              <div className="p-5 bg-gradient-to-r from-blue-950/70 to-blue-900/40 border border-blue-500/30 rounded-2xl" id="locked-project-niche-panel">
-                <div className="flex items-center gap-2 mb-2">
-                  <Zap className="w-5 h-5 text-yellow-400 animate-bounce" />
-                  <h4 className="text-xs font-black text-white">منصة سحابية مستقلة ومخصصة 🔒 (Independent Dedicated Platform)</h4>
-                </div>
-                <p className="text-[11px] text-slate-300 leading-normal" dir="rtl">
-                  تم قفل وترخيص لوحة العميل وتخصيص البوابات والمنتجات تلقائياً لهذا المشروع بالكامل لصالح نشاط: <strong className="text-yellow-400">[{NICHES.find(n => n.id === activeNicheId)?.name || 'النشاط المخصص'}]</strong>. تم إخفاء أي لوحات أو بوابات غير متطابقة من لوحة التحكم بنجاح لمظهر مستقل 100%.
-                </p>
+            {/* SaaS Multi-Niche Active Template Selector - Moved to Developer-Only Control */}
+            <div className="p-5 bg-gradient-to-r from-blue-950/70 to-blue-900/40 border border-blue-500/30 rounded-2xl" id="locked-project-niche-panel">
+              <div className="flex items-center gap-2 mb-2">
+                <Zap className="w-5 h-5 text-yellow-400 animate-bounce" />
+                <h4 className="text-xs font-black text-white">منصة سحابية مستقلة ومخصصة 🔒 (Independent Dedicated Platform)</h4>
               </div>
-            ) : (
-              <div className="p-5 bg-gradient-to-br from-amber-500/10 to-yellow-500/5 border border-yellow-500/20 rounded-2xl">
-                <div className="flex items-center gap-2 mb-2">
-                  <Sparkles className="w-5 h-5 text-yellow-400 animate-bounce" />
-                  <h4 className="text-xs font-black text-white">نظام القوالب والأنشطة الشاملة (Universal SaaS Templates) 🚀</h4>
-                </div>
-                <p className="text-[11px] text-slate-300 leading-normal" dir="rtl">
-                  هذه الميزة الجوهرية تتيح تفعيل قالب النشاط كاملاً مع الألوان المنسقة، والتصنيفات الجاهزة، وأصناف المنتجات الافتراضية المناسبة لكل نوع مشروع.
-                </p>
-
-                <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3" dir="rtl">
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-400 mb-1.5">اختر قالب النشاط السحابي النشط حالياً:</label>
-                    <select
-                      value={activeNicheId}
-                      onChange={(e) => {
-                        const sel = e.target.value as any;
-                        if (onApplyNicheTemplate) {
-                          onApplyNicheTemplate(sel);
-                        }
-                      }}
-                      className="w-full px-3 py-2 bg-[#060b18] border border-blue-900/60 rounded-xl text-xs text-white focus:border-yellow-500/50 outline-none transition-colors"
-                    >
-                      <option value="game">🎮 متجر شحن الألعاب والترفيه (Game Charge)</option>
-                      <option value="pharmacy">🧪 صيدلية ومستلزمات رعاية صحية (Pharmacy)</option>
-                      <option value="supermarket">🛒 سوبر ماركت ومبيعات بقالة (Supermarket)</option>
-                      <option value="school">🏫 مدارس ومؤسسات تعليمية (Educational)</option>
-                      <option value="tailor">🪡 محلات خياطة وتصميم أزياء (Tailoring)</option>
-                      <option value="legal">⚖️ مكتب استشارات قانونية ومحاماة (Legal Office)</option>
-                      <option value="consulting">💼 شركة استشارات إدارية (Corporate Consulting)</option>
-                      <option value="hyper">✨ الهايبر ماركت الشامل (مواد غذائية + ألعاب + خدمات رقمية)</option>
-                    </select>
-                  </div>
-                  <div className="flex flex-col justify-end">
-                    <div className="text-[10px] text-yellow-500 font-bold bg-yellow-500/5 border border-yellow-500/15 p-2 rounded-xl">
-                       💡 القالب النشط حالياً: <span className="underline">{NICHES.find(n => n.id === activeNicheId)?.name || 'غير محدد'}</span>. نقرة واحدة في القائمة لتفعيل الهوية والمحتوى مباشرة.
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
+              <p className="text-[11px] text-slate-300 leading-normal" dir="rtl">
+                تم قفل وترخيص لوحة العميل وتخصيص البوابات والمنتجات تلقائياً لصالح نشاط: <strong className="text-yellow-400">[{NICHES.find(n => n.id === activeNicheId)?.name || 'النشاط المخصص'}]</strong>. تم إخفاء أي لوحات أو بوابات غير متطابقة من لوحة التحكم بنجاح لمظهر مستقل 100%. التغيير متاح فقط للمطور المسؤول عبر مصفوفة التحكم العليا.
+              </p>
+            </div>
 
             <div>
               <h3 className="text-sm font-black text-white">إعدادات هوية {siteName}</h3>
