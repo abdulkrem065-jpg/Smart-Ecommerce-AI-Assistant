@@ -9,8 +9,12 @@ interface ProductCatalogProps {
   categories: StoreCategory[];
   onAddToCart: (product: Product, selectedColor?: string, selectedFlavor?: string, selectedSubOptions?: CartSubOption[], playerId?: string) => void;
   formatPrice?: (price: number) => string;
-  currency?: 'SAR' | 'YER';
+  currency?: string;
   exchangeRate?: number;
+  customCurrencyEnabled?: boolean;
+  customCurrencyCode?: string;
+  customCurrencySymbol?: string;
+  customCurrencyRateToYer?: number;
 }
 
 const highlightText = (text: string, highlight: string) => {
@@ -44,7 +48,7 @@ function ProductCard({
   product: Product; 
   onAddToCart: (product: Product, selectedColor?: string, selectedFlavor?: string, selectedSubOptions?: CartSubOption[], playerId?: string) => void; 
   getProductDisplay: (p: Product) => { mainText: string; subText: string }; 
-  currency?: 'SAR' | 'YER'; 
+  currency?: string; 
   exchangeRate?: number; 
   key?: React.Key;
   searchQuery?: string;
@@ -309,7 +313,18 @@ function ProductCard({
   );
 }
 
-export default function ProductCatalog({ products, categories, onAddToCart, formatPrice, currency, exchangeRate }: ProductCatalogProps) {
+export default function ProductCatalog({ 
+  products, 
+  categories, 
+  onAddToCart, 
+  formatPrice, 
+  currency, 
+  exchangeRate,
+  customCurrencyEnabled,
+  customCurrencyCode,
+  customCurrencySymbol,
+  customCurrencyRateToYer
+}: ProductCatalogProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
@@ -321,7 +336,31 @@ export default function ProductCatalog({ products, categories, onAddToCart, form
   const getProductDisplay = (p: Product) => {
     const rate = exchangeRate || 400;
     
-    if (currency === 'YER') {
+    if (customCurrencyEnabled && currency === customCurrencyCode) {
+      // Custom currency calculation
+      const codeStr = customCurrencyCode ? customCurrencyCode.toLowerCase() : 'usd';
+      const customPriceField = `price_${codeStr}` as any;
+      
+      let mainPrice = 0;
+      if (p[customPriceField] !== undefined && p[customPriceField] !== null && p[customPriceField] !== 0) {
+        mainPrice = p[customPriceField];
+      } else {
+        // Fallback: convert from YER
+        const priceInYer = p.price_yer !== undefined && p.price_yer !== null && p.price_yer !== 0
+          ? p.price_yer
+          : (p.price_sar ?? p.price ?? 0) * rate;
+        mainPrice = priceInYer / (customCurrencyRateToYer || 1500);
+      }
+      
+      const subPriceInYer = p.price_yer !== undefined && p.price_yer !== null && p.price_yer !== 0
+        ? p.price_yer
+        : (p.price_sar ?? p.price ?? 0) * rate;
+        
+      return {
+        mainText: `${mainPrice.toFixed(2)} ${customCurrencySymbol || customCurrencyCode}`,
+        subText: `تعادل بالتقريب: ${Math.round(subPriceInYer).toLocaleString('ar-YE')} ر.ي`
+      };
+    } else if (currency === 'YER') {
       // YER Direct/Manual pricing mode to absolutely terminate discrepancy and overflow
       const mainPrice = p.price_yer !== undefined && p.price_yer !== null ? p.price_yer : (p.price_sar ?? p.price ?? 0) * rate;
       const subPrice = p.price_sar !== undefined && p.price_sar !== null ? p.price_sar : (p.price_yer ?? p.price ?? 0) / rate;

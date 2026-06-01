@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Product, StoreCategory, Order, CarouselSlide, Staff, UserSession } from '../types';
 import { NICHES } from '../data';
-import { isModuleEnabled } from '../core/moduleLoader';
+import { isModuleEnabled, isFeatureEnabled } from '../core/moduleLoader';
 import { DollarExchangePricing } from '../modules/games_hyper/DollarExchangePricing';
 import { 
   Plus, 
@@ -100,8 +100,22 @@ interface AdminDashboardProps {
   onUpdateDeliveryFeeEnabled?: (enabled: boolean) => void;
   deliveryFeeValue?: number;
   onUpdateDeliveryFeeValue?: (newVal: number) => void;
-  currency?: 'SAR' | 'YER';
-  onUpdateCurrency?: (curr: 'SAR' | 'YER') => void;
+  currency?: string;
+  onUpdateCurrency?: (curr: string) => void;
+
+  customCurrencyEnabled?: boolean;
+  onUpdateCustomCurrencyEnabled?: (enabled: boolean) => void;
+  customCurrencyCode?: string;
+  onUpdateCustomCurrencyCode?: (code: string) => void;
+  customCurrencySymbol?: string;
+  onUpdateCustomCurrencySymbol?: (symbol: string) => void;
+  customCurrencyRateToYer?: number;
+  onUpdateCustomCurrencyRateToYer?: (rate: number) => void;
+
+  adminDiscountValue?: number;
+  onUpdateAdminDiscountValue?: (val: number) => void;
+  adminDiscountType?: 'fixed' | 'percent';
+  onUpdateAdminDiscountType?: (type: 'fixed' | 'percent') => void;
 
   taxEnabled?: boolean;
   onUpdateTaxEnabled?: (enabled: boolean) => void;
@@ -191,6 +205,20 @@ export default function AdminDashboard({
   currency = 'SAR',
   onUpdateCurrency,
 
+  customCurrencyEnabled = false,
+  onUpdateCustomCurrencyEnabled,
+  customCurrencyCode = 'USD',
+  onUpdateCustomCurrencyCode,
+  customCurrencySymbol = '$',
+  onUpdateCustomCurrencySymbol,
+  customCurrencyRateToYer = 1500,
+  onUpdateCustomCurrencyRateToYer,
+
+  adminDiscountValue = 0,
+  onUpdateAdminDiscountValue,
+  adminDiscountType = 'fixed',
+  onUpdateAdminDiscountType,
+
   taxEnabled = true,
   onUpdateTaxEnabled,
   taxRate = 15,
@@ -273,7 +301,15 @@ export default function AdminDashboard({
   const [inputExchangeRate, setInputExchangeRate] = useState(exchangeRate);
   const [inputDeliveryFeeEnabled, setInputDeliveryFeeEnabled] = useState(deliveryFeeEnabled);
   const [inputDeliveryFeeValue, setInputDeliveryFeeValue] = useState(deliveryFeeValue);
-  const [inputCurrency, setInputCurrency] = useState<'SAR' | 'YER'>(currency);
+  const [inputCurrency, setInputCurrency] = useState<string>(currency);
+
+  const [inputCustomCurrencyEnabled, setInputCustomCurrencyEnabled] = useState<boolean>(customCurrencyEnabled);
+  const [inputCustomCurrencyCode, setInputCustomCurrencyCode] = useState<string>(customCurrencyCode);
+  const [inputCustomCurrencySymbol, setInputCustomCurrencySymbol] = useState<string>(customCurrencySymbol);
+  const [inputCustomCurrencyRateToYer, setInputCustomCurrencyRateToYer] = useState<number>(customCurrencyRateToYer);
+
+  const [inputAdminDiscountValue, setInputAdminDiscountValue] = useState<number>(adminDiscountValue);
+  const [inputAdminDiscountType, setInputAdminDiscountType] = useState<'fixed' | 'percent'>(adminDiscountType);
   
   // Smart multi-currency input states
   const [inputUsdToSar, setInputUsdToSar] = useState<number>(usdToSar);
@@ -356,6 +392,30 @@ export default function AdminDashboard({
   React.useEffect(() => {
     setInputCurrency(currency);
   }, [currency]);
+
+  React.useEffect(() => {
+    setInputCustomCurrencyEnabled(customCurrencyEnabled);
+  }, [customCurrencyEnabled]);
+
+  React.useEffect(() => {
+    setInputCustomCurrencyCode(customCurrencyCode);
+  }, [customCurrencyCode]);
+
+  React.useEffect(() => {
+    setInputCustomCurrencySymbol(customCurrencySymbol);
+  }, [customCurrencySymbol]);
+
+  React.useEffect(() => {
+    setInputCustomCurrencyRateToYer(customCurrencyRateToYer);
+  }, [customCurrencyRateToYer]);
+
+  React.useEffect(() => {
+    setInputAdminDiscountValue(adminDiscountValue);
+  }, [adminDiscountValue]);
+
+  React.useEffect(() => {
+    setInputAdminDiscountType(adminDiscountType);
+  }, [adminDiscountType]);
 
   React.useEffect(() => {
     setInputTaxEnabled(taxEnabled);
@@ -3121,7 +3181,8 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
             </div>
 
             {/* Game Charging API Integrations Card */}
-            <div className="bg-[#0b1329] p-5 rounded-2xl border border-yellow-500/20 shadow-md space-y-4 w-full">
+            {isModuleEnabled('games_hyper') && (
+              <div className="bg-[#0b1329] p-5 rounded-2xl border border-yellow-500/20 shadow-md space-y-4 w-full">
               <div className="flex items-center justify-between border-b border-blue-900/30 pb-3">
                 <div className="flex items-center gap-1.5">
                   <Sparkles className="w-4 h-4 text-yellow-500 animate-pulse" />
@@ -3257,24 +3318,26 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
                 )}
 
                 {/* Check balance button */}
-                <button
-                  type="button"
-                  disabled={checkingBalance}
-                  onClick={handleCheckApiBalance}
-                  className="w-full bg-[#1e293b]/60 hover:bg-[#334155]/60 border border-blue-900/60 text-slate-200 font-bold py-2 px-3 rounded-xl text-[10px] transition-all cursor-pointer text-center flex items-center justify-center gap-1.5 active:scale-95 disabled:opacity-50"
-                >
-                  {checkingBalance ? (
-                    <>
-                      <div className="w-3.5 h-3.5 border-2 border-t-transparent border-yellow-500 rounded-full animate-spin"></div>
-                      <span>جاري فحص رصيد المفاتيح...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Coins className="w-3.5 h-3.5 text-yellow-500 animate-pulse" />
-                      <span>💳 فحص رصيد البوابة (Check Balance)</span>
-                    </>
-                  )}
-                </button>
+                {isFeatureEnabled('games_hyper', 'balance_check') && (
+                  <button
+                    type="button"
+                    disabled={checkingBalance}
+                    onClick={handleCheckApiBalance}
+                    className="w-full bg-[#1e293b]/60 hover:bg-[#334155]/60 border border-blue-900/60 text-slate-200 font-bold py-2 px-3 rounded-xl text-[10px] transition-all cursor-pointer text-center flex items-center justify-center gap-1.5 active:scale-95 disabled:opacity-50"
+                  >
+                    {checkingBalance ? (
+                      <>
+                        <div className="w-3.5 h-3.5 border-2 border-t-transparent border-yellow-500 rounded-full animate-spin"></div>
+                        <span>جاري فحص رصيد المفاتيح...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Coins className="w-3.5 h-3.5 text-yellow-500 animate-pulse" />
+                        <span>💳 فحص رصيد البوابة (Check Balance)</span>
+                      </>
+                    )}
+                  </button>
+                )}
 
                 {/* Balance results display */}
                 {apiBalanceResult && (
@@ -3301,6 +3364,7 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
                 </p>
               </div>
             </div>
+            )}
 
             {/* Direct Online Payment Gateways APIs Settings Card */}
             <div className="bg-[#0b1329] p-5 rounded-2xl border border-blue-900/40 shadow-lg space-y-4 w-full text-right" dir="rtl">

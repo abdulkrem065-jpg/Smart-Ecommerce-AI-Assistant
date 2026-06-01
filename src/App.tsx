@@ -129,7 +129,7 @@ export default function App() {
     return saved ? Number(saved) : 400; // default 1 SAR = 400 YER
   });
 
-  const [activeNicheId, setActiveNicheId] = useState<'game' | 'pharmacy' | 'supermarket' | 'school' | 'tailor' | 'legal' | 'consulting' | 'hyper'>(() => {
+  const [activeNicheId, setActiveNicheId] = useState<string>(() => {
     // Check if developer session is present in sessionStorage
     let isDeveloper = false;
     const sessionSaved = sessionStorage.getItem("store_admin_session");
@@ -152,12 +152,54 @@ export default function App() {
     return firebaseRef(db, `niche_${activeNicheId}/${path}`);
   };
 
-  const handleApplyNicheTemplate = (nicheId: 'game' | 'pharmacy' | 'supermarket' | 'school' | 'tailor' | 'legal' | 'consulting' | 'hyper') => {
+  const handleApplyNicheTemplate = (nicheId: string) => {
     setActiveNicheId(nicheId);
     localStorage.setItem("store_active_niche", nicheId);
     
     // Find niche config details
-    const targetNiche = NICHES.find(n => n.id === nicheId);
+    let targetNiche = NICHES.find(n => n.id === nicheId) as any;
+    if (!targetNiche) {
+      // Find the name/desc from our localStorage Matrix if it exists
+      const savedMatrix = localStorage.getItem("developer_modules_matrix");
+      let customName = `مشروع ديناميكي [${nicheId}]`;
+      let customDesc = "تم تشييده عبر مصفوفة المطور المطلق";
+      if (savedMatrix) {
+        try {
+          const matrix = JSON.parse(savedMatrix);
+          const foundMat = matrix.find((m: any) => m.id === nicheId);
+          if (foundMat) {
+            customName = foundMat.name;
+            customDesc = foundMat.description;
+          }
+        } catch (e) {}
+      }
+
+      targetNiche = {
+        id: nicheId,
+        name: customName,
+        subtitle: customDesc,
+        themeColor: 'purple',
+        badgeText: 'مشروع مخصص',
+        categories: [
+          { id: `cat-${nicheId}-1`, name: 'منتجات عامة ⚡', englishName: 'general_items' }
+        ],
+        products: [
+          {
+            id: `p-${nicheId}-1`,
+            name: `خدمة تخصيصة أولى لمدير المشروع 🎯`,
+            description: `هذه الخدمة ديناميكية منشأة لنشاط: ${customName}`,
+            category: 'منتجات عامة ⚡',
+            price: 10.0,
+            price_sar: 10.0,
+            price_yer: 4000,
+            image: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=500&q=80",
+            stock: 100,
+            code: 'CUSTOM-MAIN'
+          }
+        ]
+      };
+    }
+
     if (targetNiche) {
       // 1. Set dynamic template categories & products
       setCategories(targetNiche.categories);
@@ -1549,18 +1591,46 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
               onChange={(e) => {
                 const targetNiche = e.target.value as any;
                 handleApplyNicheTemplate(targetNiche);
-                addToast(`🔄 تم تحديث المتجر فوراً لقالب: ${NICHES.find(n => n.id === targetNiche)?.name}`, "success");
+                const matchedNiche = NICHES.find(n => n.id === targetNiche);
+                addToast(`🔄 تم تحديث المتجر فوراً لقالب: ${matchedNiche ? matchedNiche.name : targetNiche}`, "success");
               }}
               className="bg-[#060b18] border border-purple-500/40 focus:border-purple-300 rounded-lg px-2 py-0.5 text-[11px] text-purple-300 font-bold outline-none cursor-pointer"
             >
-              <option value="game">🎮 متجر شحن الألعاب والترفيه (Game Charge)</option>
-              <option value="pharmacy">🧪 صيدلية ومستلزمات رعاية صحية (Pharmacy)</option>
-              <option value="supermarket">🛒 سوبر ماركت ومبيعات بقالة (Supermarket)</option>
-              <option value="school">🏫 مدارس ومؤسسات تعليمية (Educational)</option>
-              <option value="tailor">🪡 محلات خياطة وتصميم أزياء (Tailor)</option>
-              <option value="legal">⚖️ مكتب استشارات قانونية ومحاماة (Legal)</option>
-              <option value="consulting">💼 شركة استشارات إدارية (Consulting)</option>
-              <option value="hyper">✨ الهايبر ماركت الشامل (Hypermarket)</option>
+              {(() => {
+                const savedMatrix = localStorage.getItem("developer_modules_matrix");
+                let list = [];
+                try {
+                  if (savedMatrix) list = JSON.parse(savedMatrix);
+                } catch (e) {}
+
+                const isEnabled = (id: string) => {
+                  if (list.length === 0) return true;
+                  const found = list.find((m: any) => m.id === id);
+                  return found ? found.enabled : true;
+                };
+
+                return (
+                  <>
+                    {isEnabled("games_hyper") && <option value="game">🎮 متجر شحن الألعاب والترفيه (Game Charge)</option>}
+                    {isEnabled("pharmacy") && <option value="pharmacy">🧪 صيدلية ومستلزمات رعاية صحية (Pharmacy)</option>}
+                    <option value="supermarket">🛒 سوبر ماركت ومبيعات بقالة (Supermarket)</option>
+                    <option value="school">🏫 مدارس ومؤسسات تعليمية (Educational)</option>
+                    <option value="tailor">🪡 محلات خياطة وتصميم أزياء (Tailor)</option>
+                    {isEnabled("law_firm") && (
+                      <>
+                        <option value="legal">⚖️ مكتب استشارات قانونية ومحاماة (Legal)</option>
+                        <option value="consulting">💼 شركة استشارات إدارية (Consulting)</option>
+                      </>
+                    )}
+                    <option value="hyper">✨ الهايبر ماركت الشامل (Hypermarket)</option>
+                    
+                    {/* Render dynamic developer custom modules */}
+                    {list.filter((m: any) => m.enabled && !["games_hyper", "pharmacy", "law_firm"].includes(m.id)).map((m: any) => (
+                      <option key={m.id} value={m.id}>⚡ {m.name} ({m.id})</option>
+                    ))}
+                  </>
+                );
+              })()}
             </select>
           </div>
         </div>

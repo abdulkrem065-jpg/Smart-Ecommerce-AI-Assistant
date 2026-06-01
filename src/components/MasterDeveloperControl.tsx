@@ -113,6 +113,164 @@ export const MasterDeveloperControl: React.FC<MasterDeveloperControlProps> = ({
     setTerminalLogs((prev) => [`[${timestamp}] ${msg}`, ...prev.slice(0, 49)]);
   };
 
+  // --- Dynamic control matrix of the absolute developer ---
+  const [matrix, setMatrix] = useState<any[]>(() => {
+    const saved = localStorage.getItem("developer_modules_matrix");
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error("Error parsing developer modules matrix: ", e);
+      }
+    }
+    return [
+      {
+        id: "games_hyper",
+        name: "موديول الألعاب والشحن (Hyper Games)",
+        enabled: true,
+        description: "شحن ومزامنة كروت ومجوهرات الألعاب ومزودي الأكواد مستقلاً بالكامل.",
+        features: [
+          { id: "balance_check", name: "استجابة الرصيد التلقائي للموزع", enabled: true },
+          { id: "game_cards", name: "استعراض وتجهيز الكروت الرقمية", enabled: true }
+        ]
+      },
+      {
+        id: "pharmacy",
+        name: "موديول الصيدلية والرعاية الطبية (Pharmacy)",
+        enabled: true,
+        description: "صيدلية شاملة للاتصال مع أنظمة الأدوية واستشارات الـ AI.",
+        features: [
+          { id: "ai_consultation", name: "محاكاة استشارة الصيدلاني بنظام AI", enabled: true }
+        ]
+      },
+      {
+        id: "law_firm",
+        name: "موديول الاستشارات القانونية والمحاماة (Legal)",
+        enabled: true,
+        description: "مكتب استشارات قضائية للدفاع ومكاتب المحاميين وتخريج العقود.",
+        features: [
+          { id: "legal_consult", name: "تفعيل خدمة استشارات المحامي الفورية", enabled: true }
+        ]
+      }
+    ];
+  });
+
+  useEffect(() => {
+    localStorage.setItem("developer_modules_matrix", JSON.stringify(matrix));
+  }, [matrix]);
+
+  const toggleModule = (id: string) => {
+    setMatrix(prev => prev.map(m => {
+      if (m.id === id) {
+        const nextState = !m.enabled;
+        addLog(`🛠️ مصفوفة المطور: تم ${nextState ? 'تفعيل' : 'تعطيل'} موديول [${m.name}] بالكامل.`);
+        addToast(`🔧 تم ${nextState ? 'تفعيل' : 'تعطيل'} الموديل: ${m.name}`, "info");
+        return { ...m, enabled: nextState };
+      }
+      return m;
+    }));
+  };
+
+  const toggleFeature = (modId: string, featId: string) => {
+    setMatrix(prev => prev.map(m => {
+      if (m.id === modId && m.features) {
+        const updatedFeatures = m.features.map((f: any) => {
+          if (f.id === featId) {
+            const nextState = !f.enabled;
+            addLog(`⚙️ مصفوفة المطور: تم ${nextState ? 'تفعيل' : 'تعطيل'} ميزة [${f.name}] بمشروع [${m.name}].`);
+            addToast(`🔧 ميزة "${f.name}" هي الآن: ${nextState ? 'نشطة' : 'معطلة'}`, "info");
+            return { ...f, enabled: nextState };
+          }
+          return f;
+        });
+        return { ...m, features: updatedFeatures };
+      }
+      return m;
+    }));
+  };
+
+  const [newProjectId, setNewProjectId] = useState("");
+  const [newProjectName, setNewProjectName] = useState("");
+  const [newProjectDesc, setNewProjectDesc] = useState("");
+
+  const handleAddProject = () => {
+    const id = newProjectId.trim().toLowerCase();
+    const name = newProjectName.trim();
+    const desc = newProjectDesc.trim();
+
+    if (!id || !name) {
+      addToast("❌ يرجى ملء معرف المشروع واسم المشروع لتسجيله بالمصفوفة", "error");
+      return;
+    }
+
+    if (matrix.some(m => m.id === id)) {
+      addToast("❌ معرف هذا المشروع مسجل مسبقاً في المصفوفة لضمان التفرد!", "error");
+      return;
+    }
+
+    const newProj = {
+      id,
+      name,
+      enabled: true,
+      description: desc || "مشروع ديناميكي جديد من مصفوفة التحكم",
+      features: []
+    };
+
+    setMatrix(prev => [...prev, newProj]);
+    setNewProjectId("");
+    setNewProjectName("");
+    setNewProjectDesc("");
+    addLog(`➕ مصفوفة المطور: تم تسخير مشروع ديناميكي جديد [${name}] بنجاح.`);
+    addToast(`🚀 تم تضمين مشروعك الجديد "${name}" في مصفوفة السيطرة!`, "success");
+  };
+
+  const [targetModuleId, setTargetModuleId] = useState("");
+  const [newFeatureId, setNewFeatureId] = useState("");
+  const [newFeatureName, setNewFeatureName] = useState("");
+
+  useEffect(() => {
+    if (matrix.length > 0 && !targetModuleId) {
+      setTargetModuleId(matrix[0].id);
+    }
+  }, [matrix, targetModuleId]);
+
+  const handleAddFeature = () => {
+    const modId = targetModuleId;
+    const featId = newFeatureId.trim().toLowerCase();
+    const featName = newFeatureName.trim();
+
+    if (!featId || !featName || !modId) {
+      addToast("❌ يرجى ملء وتحديد الحقول المطلوبة لربط الميزة بالمستهدف", "error");
+      return;
+    }
+
+    setMatrix(prev => prev.map(m => {
+      if (m.id === modId) {
+        const features = m.features || [];
+        if (features.some((f: any) => f.id === featId)) {
+          addToast("❌ معرف الميزة مكرر داخل هذا المشروع!", "error");
+          return m;
+        }
+        const updatedFeatures = [...features, { id: featId, name: featName, enabled: true }];
+        addLog(`⚡ مصفوفة المطور: تم زرع ميزة ديناميكية جديدة [${featName}] بمشروع [${m.name}].`);
+        addToast(`✅ تم زرع الميزة "${featName}" بنجاح!`, "success");
+        return { ...m, features: updatedFeatures };
+      }
+      return m;
+    }));
+
+    setNewFeatureId("");
+    setNewFeatureName("");
+  };
+
+  const handleDeleteModule = (id: string, name: string) => {
+    if (confirm(`هل أنت متأكد من حذف المشروع [${name}] نهائياً من مصفوفة السيطرة؟`)) {
+      setMatrix(prev => prev.filter(m => m.id !== id));
+      addLog(`🗑️ مصفوفة المطور: تم إبادة وحذف مشروع [${name}] من لوحة السلوك.`);
+      addToast(`💥 تم حذف المشروع "${name}" من الذاكرة`, "warning");
+    }
+  };
+
   // Perform developer authentication
   const handleAuthenticate = (e: React.FormEvent) => {
     e.preventDefault();
@@ -563,37 +721,248 @@ export const MasterDeveloperControl: React.FC<MasterDeveloperControlProps> = ({
               {/* Box 2 (Right Side): Local & Global Gateway Balance Audit (8 Columns) */}
               <div className="lg:col-span-8 space-y-6">
 
-                {/* Top Up / Resellers Balance Gateway Check */}
-                <div className="bg-[#070d19] border border-blue-900/30 rounded-3xl p-6 space-y-6" id="dev-topup-gateways-card">
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-blue-950 pb-4">
+                {/* DYNAMIC CONTROL MATRIX OF THE ABSOLUTE DEVELOPER */}
+                <div className="bg-[#070d19] border-2 border-purple-900/50 rounded-3xl p-6 space-y-6 shadow-[0_0_40px_rgba(139,92,246,0.1)] relative text-right" dir="rtl" id="developer-control-matrix-card">
+                  <div className="absolute top-4 left-4 flex gap-1.5 animate-pulse">
+                    <span className="w-2 h-2 rounded-full bg-purple-500" />
+                    <span className="w-2 h-2 rounded-full bg-blue-500" />
+                  </div>
+                  
+                  <div className="border-b border-purple-950 pb-4">
                     <div className="flex items-center gap-2.5">
-                      <div className="p-2.5 bg-blue-500/10 border border-blue-500/30 rounded-2xl">
-                        <Coins className="w-5 h-5 text-blue-400" />
+                      <div className="p-2.5 bg-purple-500/10 border border-purple-500/30 rounded-2xl">
+                        <Cpu className="w-5 h-5 text-purple-400" />
                       </div>
                       <div>
-                        <h3 className="font-extrabold text-sm text-white">بوابات وسيرفرات شحن الألعاب ومزودي الأكواد</h3>
-                        <p className="text-[10px] text-slate-400 mt-0.5">البطاقات الرقمية وشدات فري فاير / كروت شحن الألعاب من بوابات التوريد المعتمدة</p>
+                        <h3 className="font-extrabold text-sm text-transparent bg-clip-text bg-gradient-to-l from-purple-300 via-white to-indigo-300">مصفوفة التحكم المركزية واللانهائية للمطور المطلق ⚡</h3>
+                        <p className="text-[10px] text-purple-300/80 mt-0.5">السيطرة الكاملة لتفعيل، وحظر، وإبادة، وزرع المشاريع والميزات والموديولات سحابياً.</p>
                       </div>
                     </div>
-
-                    <button
-                      onClick={runTopupBalanceCheck}
-                      disabled={topupAuditLoading}
-                      className="bg-blue-500 hover:bg-blue-600 text-blue-950 px-4 py-2 rounded-2xl text-[11px] font-black transition-colors cursor-pointer flex items-center justify-center gap-1.5 shrink-0 self-end sm:self-center"
-                    >
-                      {topupAuditLoading ? (
-                        <>
-                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                          <span>جاري الفحص المباشر...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Radio className="w-3.5 h-3.5" />
-                          <span>فحص واستجواب الرصيد المباشر</span>
-                        </>
-                      )}
-                    </button>
                   </div>
+
+                  {/* Modules list & toggles */}
+                  <div className="space-y-4 max-h-[360px] overflow-y-auto pr-1 scrollbar-thin">
+                    {matrix.map((module) => (
+                      <div key={module.id} className={`p-4 rounded-2xl border transition-all ${
+                        module.enabled 
+                          ? 'bg-purple-950/15 border-purple-900/40 shadow-sm' 
+                          : 'bg-slate-950/40 border-slate-900 opacity-60'
+                      }`}>
+                        <div className="flex flex-col sm:flex-row items-baseline sm:items-start justify-between gap-3">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className={`text-xs font-black ${module.enabled ? 'text-purple-355' : 'text-slate-400'}`}>
+                                {module.name}
+                              </span>
+                              <span className="font-mono text-[9px] bg-black/40 text-purple-405 px-1.5 py-0.5 rounded border border-purple-900/30">
+                                {module.id}
+                              </span>
+                            </div>
+                            <p className="text-[10px] text-slate-400 leading-relaxed font-sans mt-1">
+                              {module.description}
+                            </p>
+                          </div>
+
+                          <div className="flex items-center gap-2.5 self-end sm:self-start shrink-0">
+                            {/* Toggle active / inactive */}
+                            <button
+                              onClick={() => toggleModule(module.id)}
+                              type="button"
+                              className={`px-3 py-1.5 rounded-xl text-[10px] font-black transition-all cursor-pointer ${
+                                module.enabled 
+                                  ? 'bg-purple-600 hover:bg-purple-700 text-white shadow-md shadow-purple-500/10' 
+                                  : 'bg-slate-800 hover:bg-slate-700 text-slate-400'
+                              }`}
+                            >
+                              {module.enabled ? '🟢 نَشِط ومفعّل' : '🔴 مَحْظور ومخفي'}
+                            </button>
+
+                            {/* Delete module */}
+                            <button
+                              onClick={() => handleDeleteModule(module.id, module.name)}
+                              type="button"
+                              className="p-1.5 hover:bg-red-500/10 border border-slate-800 hover:border-red-500/30 text-slate-500 hover:text-red-400 rounded-xl transition-all"
+                              title="حذف المشروع نهائياً"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Module Features Matrix */}
+                        {module.features && module.features.length > 0 && (
+                          <div className="mt-3.5 pt-3 border-t border-purple-950/40 space-y-2">
+                            <div className="text-[9px] text-purple-400 font-extrabold uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                              <span>قنوات التحكم بالخصائص الفرعية للموديل :</span>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                              {module.features.map((feat: any) => (
+                                <div key={feat.id} className="bg-black/30 border border-purple-950/30 rounded-xl px-3 py-2 flex items-center justify-between text-right gap-2">
+                                  <div className="truncate">
+                                    <div className="text-[10px] font-bold text-white truncate">{feat.name}</div>
+                                    <span className="font-mono text-[8px] text-slate-500">{feat.id}</span>
+                                  </div>
+
+                                  <button
+                                    onClick={() => toggleFeature(module.id, feat.id)}
+                                    type="button"
+                                    disabled={!module.enabled}
+                                    className={`px-2 py-1 rounded-lg text-[9px] font-extrabold transition-all disabled:opacity-40 disabled:cursor-not-allowed ${
+                                      feat.enabled && module.enabled
+                                        ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20'
+                                        : 'bg-slate-900 text-slate-500 border border-transparent'
+                                    }`}
+                                  >
+                                    {feat.enabled && module.enabled ? 'مفعّلة ✓' : 'معطلة ✗'}
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                    {matrix.length === 0 && (
+                      <p className="text-center text-xs text-slate-500 py-6">المصفوفة فارغة تماماً. يرجى زرع مشروع جديد أدناه للبدء.</p>
+                    )}
+                  </div>
+
+                  {/* Add New Project & Feature Form */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-purple-950/40 pt-4 text-right">
+                    
+                    {/* Add Project Form */}
+                    <div className="p-4 bg-purple-950/5 border border-purple-900/10 rounded-2xl space-y-3">
+                      <h4 className="text-[11px] font-extrabold text-purple-300">➕ تمديد مصفوفة السيطرة (مشروع جديد)</h4>
+                      
+                      <div className="space-y-1">
+                        <label className="text-[9px] text-slate-400 font-bold">مُعرّف المشروع الفريد (ID - بالإنجليزية)</label>
+                        <input 
+                          type="text"
+                          placeholder="مثال: custom_consulting"
+                          value={newProjectId}
+                          onChange={(e) => setNewProjectId(e.target.value)}
+                          className="w-full px-3 py-2 bg-[#03060c] border border-purple-900/40 rounded-xl text-xs text-white outline-none focus:border-purple-500 font-mono text-left"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[9px] text-slate-400 font-bold">اسم المشروع الشامل (بالعربية)</label>
+                        <input 
+                          type="text"
+                          placeholder="مثال: موديول الاستشارات الخاصة"
+                          value={newProjectName}
+                          onChange={(e) => setNewProjectName(e.target.value)}
+                          className="w-full px-3 py-2 bg-[#03060c] border border-purple-900/40 rounded-xl text-xs text-white outline-none focus:border-purple-500 text-right"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[9px] text-slate-400 font-bold">وصف المشروع</label>
+                        <input 
+                          type="text"
+                          placeholder="توضيح موجز لوظيفة الموديل..."
+                          value={newProjectDesc}
+                          onChange={(e) => setNewProjectDesc(e.target.value)}
+                          className="w-full px-3 py-2 bg-[#03060c] border border-purple-900/40 rounded-xl text-xs text-white outline-none focus:border-purple-500 text-right"
+                        />
+                      </div>
+
+                      <button
+                        onClick={handleAddProject}
+                        type="button"
+                        className="w-full py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-[10px] font-black transition-all cursor-pointer shadow-md shadow-purple-600/15 hover:shadow-purple-600/30"
+                      >
+                        زرع وتعميد المشروع في المصفوفة 🚀
+                      </button>
+                    </div>
+
+                    {/* Add Feature Form */}
+                    <div className="p-4 bg-blue-950/5 border border-blue-900/10 rounded-2xl space-y-3">
+                      <h4 className="text-[11px] font-extrabold text-blue-300">⚡ زرع ميزة فرعية (ميزة جديدة بالمشروع)</h4>
+                      
+                      <div className="space-y-1">
+                        <label className="text-[9px] text-slate-400 font-bold">المشروع المستهدف بالزرع</label>
+                        <select 
+                          value={targetModuleId}
+                          onChange={(e) => setTargetModuleId(e.target.value)}
+                          className="w-full px-3 py-2 bg-[#03060c] border border-blue-900/40 rounded-xl text-xs text-blue-300 outline-none focus:border-blue-500 font-bold cursor-pointer"
+                        >
+                          {matrix.map((m) => (
+                            <option key={m.id} value={m.id}>
+                              {m.name} ({m.id})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[9px] text-slate-400 font-bold">مُعرّف الميزة (ID - بالإنجليزية)</label>
+                        <input 
+                          type="text"
+                          placeholder="مثال: coupon_system"
+                          value={newFeatureId}
+                          onChange={(e) => setNewFeatureId(e.target.value)}
+                          className="w-full px-3 py-2 bg-[#03060c] border border-blue-900/40 rounded-xl text-xs text-white outline-none focus:border-blue-500 font-mono text-left"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[9px] text-slate-400 font-bold">اسم الميزة المعتمد (بالعربية)</label>
+                        <input 
+                          type="text"
+                          placeholder="مثال: نظام الكوبونات والخصومات التفاعلية"
+                          value={newFeatureName}
+                          onChange={(e) => setNewFeatureName(e.target.value)}
+                          className="w-full px-3 py-2 bg-[#03060c] border border-blue-900/40 rounded-xl text-xs text-white outline-none focus:border-blue-500 text-right"
+                        />
+                      </div>
+
+                      <button
+                        onClick={handleAddFeature}
+                        type="button"
+                        className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[10px] font-black transition-all cursor-pointer shadow-md shadow-blue-600/15 hover:shadow-blue-600/30"
+                      >
+                        إدراج الميزة وتثبيتها سحابياً ⚙️
+                      </button>
+                    </div>
+
+                  </div>
+                </div>
+
+                {/* Top Up / Resellers Balance Gateway Check */}
+                {(matrix.find(m => m.id === "games_hyper")?.enabled ?? true) && (
+                  <div className="bg-[#070d19] border border-blue-900/30 rounded-3xl p-6 space-y-6" id="dev-topup-gateways-card">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-blue-950 pb-4">
+                      <div className="flex items-center gap-2.5">
+                        <div className="p-2.5 bg-blue-500/10 border border-blue-500/30 rounded-2xl">
+                          <Coins className="w-5 h-5 text-blue-400" />
+                        </div>
+                        <div>
+                          <h3 className="font-extrabold text-sm text-white">بوابات وسيرفرات شحن الألعاب ومزودي الأكواد</h3>
+                          <p className="text-[10px] text-slate-400 mt-0.5">البطاقات الرقمية وشدات فري فاير / كروت شحن الألعاب من بوابات التوريد المعتمدة</p>
+                        </div>
+                      </div>
+
+                      {(matrix.find(m => m.id === "games_hyper")?.features?.find((f: any) => f.id === "balance_check")?.enabled ?? true) && (
+                        <button
+                          onClick={runTopupBalanceCheck}
+                          disabled={topupAuditLoading}
+                          className="bg-blue-500 hover:bg-blue-600 text-blue-950 px-4 py-2 rounded-2xl text-[11px] font-black transition-colors cursor-pointer flex items-center justify-center gap-1.5 shrink-0 self-end sm:self-center"
+                        >
+                          {topupAuditLoading ? (
+                            <>
+                              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                              <span>جاري الفحص المباشر...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Radio className="w-3.5 h-3.5" />
+                              <span>فحص واستجواب الرصيد المباشر</span>
+                            </>
+                          )}
+                        </button>
+                      )}
+                    </div>
 
                   {/* Config settings context and display result */}
                   <div className="grid grid-cols-1 md:grid-cols-12 gap-5">
@@ -678,6 +1047,7 @@ export const MasterDeveloperControl: React.FC<MasterDeveloperControlProps> = ({
 
                   </div>
                 </div>
+                )}
 
                 {/* Local & Global Payment Gateways check */}
                 <div className="bg-[#070d19] border border-blue-900/30 rounded-3xl p-6 space-y-6" id="dev-payment-gateways-card">
