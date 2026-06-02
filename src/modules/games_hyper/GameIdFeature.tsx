@@ -9,6 +9,7 @@ interface GameIdFeatureProps {
   setPlayerId: (id: string) => void;
   inputError: string;
   setInputError: (e: string) => void;
+  lang?: 'ar' | 'en';
 }
 
 export const GameIdFeature: React.FC<GameIdFeatureProps> = ({
@@ -17,19 +18,20 @@ export const GameIdFeature: React.FC<GameIdFeatureProps> = ({
   setPlayerId,
   inputError,
   setInputError,
+  lang = 'ar',
 }) => {
   if (!product.isApiProduct) return null;
 
   return (
     <div className="space-y-1.5 bg-gradient-to-br from-yellow-500/5 to-amber-500/5 p-3 rounded-2xl border border-yellow-500/15 animate-fade-in" id="game-id-charger-container">
       <label className="block text-[10px] font-bold text-yellow-500 flex items-center gap-1.5 justify-between">
-        <span>🎮 {product.apiRequiredField || "معرف اللاعب (Player ID):"}</span>
+        <span>🎮 {lang === 'en' ? "Player ID / Character Account:" : (product.apiRequiredField || "معرف اللاعب (Player ID):")}</span>
         <span className="text-red-500 font-bold">*</span>
       </label>
       <input
         type="text"
         required
-        placeholder="أدخل المعرّف هنا (مثال: 54682012)..."
+        placeholder={lang === 'en' ? "Enter Player ID here (e.g., 54682012)..." : "أدخل المعرّف هنا (مثال: 54682012)..."}
         value={playerId}
         onChange={(e) => {
           setPlayerId(e.target.value);

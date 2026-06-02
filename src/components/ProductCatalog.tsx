@@ -15,6 +15,7 @@ interface ProductCatalogProps {
   customCurrencyCode?: string;
   customCurrencySymbol?: string;
   customCurrencyRateToYer?: number;
+  lang?: 'ar' | 'en';
 }
 
 const highlightText = (text: string, highlight: string) => {
@@ -37,13 +38,39 @@ const highlightText = (text: string, highlight: string) => {
   );
 };
 
+const translateVariation = (val: string, lang?: string) => {
+  if (lang !== 'en') return val;
+  const m: Record<string, string> = {
+    'أحمر': 'Red',
+    'أزرق': 'Blue',
+    'أسود': 'Black',
+    'ذهبي': 'Gold',
+    'فضي': 'Silver',
+    'أبيض': 'White',
+    'صيفي': 'Summer',
+    'شتوي': 'Winter',
+    'حار': 'Spicy',
+    'بارد': 'Mild',
+    'ملكي': 'Royal',
+    'بصل حامض': 'Sour Onion',
+    'ثوم مكثف': 'Extra Garlic',
+    'خلطة حارة سبيشال': 'Special Spicy Mix',
+    'بدون إضافات': 'Pure Plain',
+    'بدون فلفل': 'No Pepper',
+    'نص بهار': 'Half Spice',
+    'بهار كامل': 'Full Spice'
+  };
+  return m[val.trim()] || val;
+};
+
 function ProductCard({ 
   product, 
   onAddToCart, 
   getProductDisplay, 
   currency, 
   exchangeRate,
-  searchQuery = ''
+  searchQuery = '',
+  lang = 'ar'
 }: { 
   product: Product; 
   onAddToCart: (product: Product, selectedColor?: string, selectedFlavor?: string, selectedSubOptions?: CartSubOption[], playerId?: string) => void; 
@@ -52,6 +79,7 @@ function ProductCard({
   exchangeRate?: number; 
   key?: React.Key;
   searchQuery?: string;
+  lang?: 'ar' | 'en';
 }) {
   const [selectedColor, setSelectedColor] = useState<string>('');
   const [selectedFlavor, setSelectedFlavor] = useState<string>('');
@@ -104,15 +132,27 @@ function ProductCard({
         {/* Badges Overlay */}
         <div className="absolute top-4 right-4 flex flex-col gap-1.5 pointer-events-none">
           <span className="px-2.5 py-0.5 bg-blue-950/85 backdrop-blur-md shadow-sm text-[9px] font-bold text-yellow-400 border border-yellow-500/15 rounded-full">
-            {product.category}
+            {lang === 'en' && product.category === 'شحن فوري بالمعرّف 🎮' ? 'Instant Top-up 🎮' :
+             lang === 'en' && product.category === 'بطاقات الهدايا الرقمية 💳' ? 'Digital Gift Cards 💳' :
+             lang === 'en' && product.category === 'مستلزمات وإكسسوارات الجيمنج ⚡' ? 'Gaming Accessories ⚡' :
+             lang === 'en' && product.category === 'أدوية ووصفات علاجية 💊' ? 'Medications 💊' :
+             lang === 'en' && product.category === 'فيتامينات ومكملات غذائية ✨' ? 'Vitamins ✨' :
+             lang === 'en' && product.category === 'أجهزة فحص ومعدات منزلية 🌡️' ? 'Medical Devices 🌡️' :
+             lang === 'en' && product.category === 'تفصيل وخياطة أثواب مخصصة 🧵' ? 'Bespoke Tailoring 🧵' :
+             lang === 'en' && product.category === 'طاقات وقماش فخم مستورد 🥻' ? 'Fine Fabrics 🥻' :
+             lang === 'en' && product.category === 'مستلزمات وأزرار ملكية فاخرة 🎖️' ? 'Royal Buttons 🎖️' :
+             lang === 'en' && product.category === 'مواد تموينية أساسية 🌾' ? 'Staples 🌾' :
+             lang === 'en' && product.category === 'البان وأجبان ومبردات 🧀' ? 'Dairy 🧀' :
+             lang === 'en' && product.category === 'خضار فواكه ولحوم طازجة 🥩' ? 'Fresh Food & Meats 🥩' :
+             product.category}
           </span>
           {isOutOfStock ? (
             <span className="px-2.5 py-0.5 bg-rose-600/90 shadow-sm text-[9px] font-bold text-white rounded-full">
-              منتهي حالياً
+              {lang === 'en' ? 'Out of Stock' : 'منتهي حالياً'}
             </span>
           ) : isLowStock ? (
             <span className="px-2.5 py-0.5 bg-amber-500 shadow-sm text-[9px] font-bold text-white rounded-full">
-              متبقي {stockVal} قطع فقط!
+              {lang === 'en' ? `Only ${stockVal} left!` : `متبقي ${stockVal} قطع فقط!`}
             </span>
           ) : null}
         </div>
@@ -120,7 +160,7 @@ function ProductCard({
         {product.code && (
           <div className="absolute bottom-2 left-2 pointer-events-none">
             <span className="px-2 py-0.5 bg-slate-900/80 backdrop-blur-md text-[9px] font-mono text-slate-455 rounded-md border border-slate-800/10 dark:border-blue-900/20">
-              كود: {product.code}
+              {lang === 'en' ? 'Code:' : 'كود:'} {product.code}
             </span>
           </div>
         )}
@@ -154,7 +194,7 @@ function ProductCard({
             {highlightText(product.name, searchQuery)}
           </h3>
           <p className="text-[11px] text-slate-400 line-clamp-2 leading-relaxed h-[36px]" title={product.description || product.name}>
-            {product.description ? highlightText(product.description, searchQuery) : 'صنف فاخر بجودة معتمدة ومواصفات مناسبة مجهز للتحميل فوري.'}
+            {product.description ? highlightText(product.description, searchQuery) : (lang === 'en' ? 'Premium hand-picked warehouse item with certified specifications.' : 'صنف فاخر بجودة معتمدة ومواصفات مناسبة مجهز للتحميل فوري.')}
           </p>
         </div>
 
@@ -163,28 +203,28 @@ function ProductCard({
           <div className="grid grid-cols-2 gap-2 bg-[#060b18]/45 p-2 rounded-xl border border-blue-900/25">
             {product.colors && product.colors.length > 0 && (
               <div className="space-y-1">
-                <span className="block text-[8px] font-black text-slate-450">اللون المفضل:</span>
+                <span className="block text-[8px] font-black text-slate-450">{lang === 'en' ? 'Favorite Color:' : 'اللون المفضل:'}</span>
                 <select
                   value={selectedColor}
                   onChange={(e) => setSelectedColor(e.target.value)}
                   className="w-full px-2 py-1 bg-[#060b18] border border-blue-900/40 rounded-lg text-[10px] text-white outline-none focus:border-yellow-500/50 cursor-pointer"
                 >
                   {product.colors.filter(Boolean).map((c, i) => (
-                    <option key={i} value={c}>{c}</option>
+                    <option key={i} value={c}>{translateVariation(c, lang)}</option>
                   ))}
                 </select>
               </div>
             )}
             {product.flavors && product.flavors.length > 0 && (
               <div className="space-y-1">
-                <span className="block text-[8px] font-black text-slate-450">النكهة المفضلة:</span>
+                <span className="block text-[8px] font-black text-slate-450">{lang === 'en' ? 'Favorite Flavor:' : 'النكهة المفضلة:'}</span>
                 <select
                   value={selectedFlavor}
                   onChange={(e) => setSelectedFlavor(e.target.value)}
                   className="w-full px-2 py-1 bg-[#060b18] border border-blue-900/40 rounded-lg text-[10px] text-white outline-none focus:border-yellow-500/50 cursor-pointer"
                 >
                   {product.flavors.filter(Boolean).map((f, i) => (
-                    <option key={i} value={f}>{f}</option>
+                    <option key={i} value={f}>{translateVariation(f, lang)}</option>
                   ))}
                 </select>
               </div>
@@ -194,13 +234,13 @@ function ProductCard({
 
         {product.subOptions && product.subOptions.length > 0 && (
           <div className="space-y-2 bg-[#060b18]/45 p-3 rounded-xl border border-blue-900/25">
-            <span className="block text-[9px] font-black text-slate-400">خيارات وتفضيلات فرعية (مثل البهارات):</span>
+            <span className="block text-[9px] font-black text-slate-400">{lang === 'en' ? 'Sub-options & Preferences:' : 'خيارات وتفضيلات فرعية (مثل البهارات):'}</span>
             <div className="grid grid-cols-2 gap-2 text-[10px]" dir="rtl">
               {product.subOptions.filter(Boolean).map((sub, i) => {
                 const qty = selectedSubOptions[sub] || 0;
                 return (
                   <div key={i} className="flex items-center justify-between text-[10px] text-white bg-slate-900/40 px-2 py-1 rounded-lg border border-blue-900/10">
-                    <span className="font-semibold">{sub}</span>
+                    <span className="font-semibold">{translateVariation(sub, lang)}</span>
                     <div className="flex items-center gap-1.5 leading-none">
                       <button
                         type="button"
@@ -243,22 +283,32 @@ function ProductCard({
         )}
 
         {/* Game ID Player Charge API inputs (Isolated modular feature) */}
-        {isModuleEnabled('games_hyper') && (
-          <GameIdFeature
-            product={product}
-            playerId={playerId}
-            setPlayerId={setPlayerId}
-            inputError={inputError}
-            setInputError={setInputError}
-          />
-        )}
+        {(() => {
+          const isGamingProduct = product.isApiProduct || 
+            product.category?.includes('🎮') || 
+            product.category?.includes('ألعاب') || 
+            product.category?.includes('شحن') ||
+            product.name?.toLowerCase().includes('pubg') ||
+            product.name?.toLowerCase().includes('شحن');
+          
+          return isGamingProduct && (
+            <GameIdFeature
+              product={{ ...product, isApiProduct: true, apiRequiredField: "الآيدي ID أو الحساب المراد شحنه" }}
+              playerId={playerId}
+              setPlayerId={setPlayerId}
+              inputError={inputError}
+              setInputError={setInputError}
+              lang={lang}
+            />
+          );
+        })()}
 
         {/* Price & Add Section */}
         <div className="flex items-center justify-between pt-2.5 border-t border-blue-900/20">
           <div>
-            <span className="text-[9px] text-slate-500 block font-semibold">سعر الصنف النقدي</span>
+            <span className="text-[9px] text-slate-500 block font-semibold">{lang === 'en' ? 'Cash Unit Price' : 'سعر الصنف النقدي'}</span>
             <span className="text-sm font-black text-white">{getProductDisplay(product).mainText}</span>
-            {currency && exchangeRate && (
+            {currency && exchangeRate && getProductDisplay(product).subText && (
               <span className="text-[10px] text-slate-450 block mt-0.5">
                 {getProductDisplay(product).subText}
               </span>
@@ -267,8 +317,15 @@ function ProductCard({
 
           <button
             onClick={() => {
-              if (product.isApiProduct && !playerId.trim()) {
-                setInputError('يرجى كتابة الحقل المطلوب للشحن الفوري!');
+              const isGamingProduct = product.isApiProduct || 
+                product.category?.includes('🎮') || 
+                product.category?.includes('ألعاب') || 
+                product.category?.includes('شحن') ||
+                product.name?.toLowerCase().includes('pubg') ||
+                product.name?.toLowerCase().includes('شحن');
+
+              if (isGamingProduct && !playerId.trim()) {
+                setInputError(lang === 'en' ? 'Please enter a valid Player ID / account first! 🎮' : 'يرجى إدخال رقم الآيدي ID أو الحساب المراد شحنه أولاً! 🎮');
                 return;
               }
               setInputError('');
@@ -281,7 +338,7 @@ function ProductCard({
                 selectedColor || undefined, 
                 selectedFlavor || undefined, 
                 subOptsArray.length > 0 ? subOptsArray : undefined,
-                product.isApiProduct ? playerId.trim() : undefined
+                isGamingProduct ? playerId.trim() : undefined
               );
               // Clean ID on success
               setPlayerId('');
@@ -298,7 +355,7 @@ function ProductCard({
                   ? 'bg-emerald-500 text-white select-none ring-2 ring-emerald-400/55 animate-bounce'
                   : 'bg-gradient-to-r from-yellow-500 to-amber-500 hover:from-yellow-450 hover:to-amber-450 text-blue-950 hover:shadow-yellow-500/15 hover:shadow-lg'
             }`}
-            title={isOutOfStock ? "عذراً انتهت الكمية" : "إضافة إلى سلتك"}
+            title={isOutOfStock ? (lang === 'en' ? "Sorry, Out of Stock" : "عذراً انتهت الكمية") : (lang === 'en' ? "Add to active basket" : "إضافة إلى سلتك")}
             id={`add-to-cart-btn-${product.id}`}
           >
             {isAdded ? (
@@ -323,7 +380,8 @@ export default function ProductCatalog({
   customCurrencyEnabled,
   customCurrencyCode,
   customCurrencySymbol,
-  customCurrencyRateToYer
+  customCurrencyRateToYer,
+  lang = 'ar'
 }: ProductCatalogProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -357,26 +415,32 @@ export default function ProductCatalog({
         : (p.price_sar ?? p.price ?? 0) * rate;
         
       return {
-        mainText: `${mainPrice.toFixed(2)} ${customCurrencySymbol || customCurrencyCode}`,
-        subText: `تعادل بالتقريب: ${Math.round(subPriceInYer).toLocaleString('en-US')} ريال يمني`
+        mainText: lang === 'en'
+          ? `${mainPrice.toFixed(2)} ${customCurrencySymbol || customCurrencyCode} (${Math.round(subPriceInYer).toLocaleString('en-US')} YER)`
+          : `${mainPrice.toFixed(2)} ${customCurrencySymbol || customCurrencyCode} (${Math.round(subPriceInYer).toLocaleString('en-US')} ريال يمني)`,
+        subText: ""
       };
     } else if (currency === 'YER') {
       // YER Direct/Manual pricing mode to absolutely terminate discrepancy and overflow
-      const mainPrice = p.price_yer !== undefined && p.price_yer !== null ? p.price_yer : (p.price_sar ?? p.price ?? 0) * rate;
-      const subPrice = p.price_sar !== undefined && p.price_sar !== null ? p.price_sar : (p.price_yer ?? p.price ?? 0) / rate;
+      const mainPrice = p.price_yer !== undefined && p.price_yer !== null && p.price_yer !== 0 ? p.price_yer : (p.price_sar ?? p.price ?? 0) * rate;
+      const subPrice = p.price_sar !== undefined && p.price_sar !== null && p.price_sar !== 0 ? p.price_sar : mainPrice / rate;
       
       return {
-        mainText: `${Math.round(mainPrice).toLocaleString('en-US')} ريال يمني`,
-        subText: `تعادل بالتقريب: ${subPrice.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 1 })} ر.س`
+        mainText: lang === 'en'
+          ? `${Math.round(mainPrice).toLocaleString('en-US')} YER (${subPrice.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 1 })} SAR)`
+          : `${Math.round(mainPrice).toLocaleString('en-US')} ريال يمني (${subPrice.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 1 })} ر.س)`,
+        subText: ""
       };
     } else {
       // SAR Direct/Manual pricing mode
-      const mainPrice = p.price_sar !== undefined && p.price_sar !== null ? p.price_sar : (p.price_yer !== undefined && p.price_yer !== null ? p.price_yer / rate : p.price ?? 0);
-      const subPrice = p.price_yer !== undefined && p.price_yer !== null ? p.price_yer : mainPrice * rate;
+      const mainPrice = p.price_sar !== undefined && p.price_sar !== null && p.price_sar !== 0 ? p.price_sar : (p.price_yer !== undefined && p.price_yer !== null && p.price_yer !== 0 ? p.price_yer / rate : p.price ?? 0);
+      const subPrice = p.price_yer !== undefined && p.price_yer !== null && p.price_yer !== 0 ? p.price_yer : mainPrice * rate;
       
       return {
-        mainText: `${mainPrice.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 1 })} ر.س`,
-        subText: `تعادل بالتقريب: ${Math.round(subPrice).toLocaleString('en-US')} ريال يمني`
+        mainText: lang === 'en'
+          ? `${mainPrice.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 1 })} SAR (${Math.round(subPrice).toLocaleString('en-US')} YER)`
+          : `${mainPrice.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 1 })} ر.س (${Math.round(subPrice).toLocaleString('en-US')} ريال يمني)`,
+        subText: ""
       };
     }
   };
@@ -391,23 +455,23 @@ export default function ProductCatalog({
   });
 
   return (
-    <div className="space-y-8" dir="rtl" id="product-catalog-root">
+    <div className="space-y-8" dir={lang === 'en' ? "ltr" : "rtl"} id="product-catalog-root">
       
       {/* SEARCH AND FILTER CRITERIA */}
-      <div className="flex flex-col xl:flex-row gap-4 items-stretch xl:items-center justify-between" id="catalog-controls">
+      <div className={`flex flex-col xl:flex-row gap-4 items-stretch xl:items-center justify-between ${lang === 'en' ? 'text-left' : 'text-right'}`} id="catalog-controls">
         
         {/* Search Input bar */}
         <div className="relative flex-1 max-w-xl flex flex-col gap-1.5">
           <div className="relative w-full">
-            <span className="absolute right-4 top-3 text-slate-400">
+            <span className={`absolute ${lang === 'en' ? 'left-4' : 'right-4'} top-3 text-slate-400`}>
               <Search className="w-4 h-4" />
             </span>
             <input
               type="text"
-              placeholder="ابحث عن شدات ببجي، تفعيل ألعاب، بهارات أو إلكترونيات..."
+              placeholder={lang === 'en' ? "Search for instant gaming top-ups, cards, spices or accessories..." : "ابحث عن شدات ببجي، تفعيل ألعاب، بهارات أو إلكترونيات..."}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-11 py-2.5 bg-[#0b1329] border border-blue-900/60 rounded-xl text-base md:text-xs text-white placeholder:text-slate-550 outline-none focus:border-yellow-500/50 transition-all font-sans"
+              className={`w-full ${lang === 'en' ? 'pl-11 pr-10' : 'pl-10 pr-11'} py-2.5 bg-[#0b1329] border border-blue-900/60 rounded-xl text-base md:text-xs text-white placeholder:text-slate-550 outline-none focus:border-yellow-500/50 transition-all font-sans`}
               id="catalog-search-input"
               onFocus={(e) => {
                 setTimeout(() => {
@@ -419,9 +483,9 @@ export default function ProductCatalog({
               <button
                 type="button"
                 onClick={() => setSearchQuery('')}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors cursor-pointer p-1"
+                className={`absolute ${lang === 'en' ? 'right-3' : 'left-3'} top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors cursor-pointer p-1`}
                 id="clear-search-btn"
-                title="مسح البحث"
+                title={lang === 'en' ? "Clear Search" : "مسح البحث"}
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -431,9 +495,11 @@ export default function ProductCatalog({
             <div className="flex items-center justify-between text-[10px] text-yellow-405 bg-yellow-500/5 px-3 py-1.5 rounded-lg border border-yellow-500/15 animate-fade-in font-sans">
               <span className="flex items-center gap-1 font-extrabold text-[10px]">
                 <Sparkles className="w-3.5 h-3.5 text-yellow-500 animate-pulse" />
-                <span>تصفية فورية تلقائية نشطة</span>
+                <span>{lang === 'en' ? "Active Live Auto Filter" : "تصفية فورية تلقائية نشطة"}</span>
               </span>
-              <strong className="text-[10px] bg-yellow-500/10 px-2 py-0.5 rounded border border-yellow-500/10">وجدنا ({filteredProducts.length}) صنف مطابق</strong>
+              <strong className="text-[10px] bg-yellow-500/10 px-2 py-0.5 rounded border border-yellow-500/10">
+                {lang === 'en' ? `Found (${filteredProducts.length}) matching items` : `وجدنا (${filteredProducts.length}) صنف مطابق`}
+              </strong>
             </div>
           )}
         </div>
@@ -449,7 +515,7 @@ export default function ProductCatalog({
             }`}
             id="cat-pill-all"
           >
-            جميع بضائع المستودع
+            {lang === 'en' ? "All Warehouse Goods" : "جميع بضائع المستودع"}
           </button>
           
           {categories.map((cat) => (
@@ -463,7 +529,7 @@ export default function ProductCatalog({
               }`}
               id={`cat-pill-${cat.id}`}
             >
-              {cat.name}
+              {lang === 'en' && cat.englishName ? cat.englishName : cat.name}
             </button>
           ))}
         </div>
@@ -474,8 +540,10 @@ export default function ProductCatalog({
         {filteredProducts.length === 0 ? (
           <div className="col-span-full bg-[#0b1329] p-16 rounded-3xl border border-blue-900/40 text-center text-slate-500 space-y-3" id="catalog-empty-state">
             <ShoppingBag className="w-12 h-12 mx-auto opacity-30 text-yellow-500" />
-            <h4 className="text-sm font-bold text-slate-350">لا تتوفر أصناف حالياً</h4>
-            <p className="text-xs text-slate-500">جرب مراجعة البحث أو اختيار فئة بضائع أخرى للاطلاع عليها.</p>
+            <h4 className="text-sm font-bold text-slate-350">{lang === 'en' ? "No items available now" : "لا تتوفر أصناف حالياً"}</h4>
+            <p className="text-xs text-slate-500">
+              {lang === 'en' ? "Try checking your query or select a different category option." : "جرب مراجعة البحث أو اختيار فئة بضائع أخرى للاطلاع عليها."}
+            </p>
           </div>
         ) : (
           filteredProducts.map((p) => (
@@ -487,6 +555,7 @@ export default function ProductCatalog({
               currency={currency}
               exchangeRate={exchangeRate}
               searchQuery={searchQuery}
+              lang={lang}
             />
           ))
         )}

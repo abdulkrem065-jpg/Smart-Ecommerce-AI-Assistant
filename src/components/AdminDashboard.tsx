@@ -289,16 +289,35 @@ export default function AdminDashboard({
   
   const getProductPriceInSAR = (p: any) => {
     if (!p) return 0;
-    if (p.price_sar !== undefined && p.price_sar !== null && p.price_sar !== 0) {
-      return p.price_sar;
+    const rate = exchangeRate || 400;
+    if (currency === 'YER') {
+      // If store currency is YER, prioritize the actual native YER price to prevent lossy conversions
+      if (p.price_yer !== undefined && p.price_yer !== null && p.price_yer !== 0) {
+        return p.price_yer / rate;
+      }
+      if (p.currency === 'YER' && p.price !== undefined && p.price !== null && p.price !== 0) {
+        return p.price / rate;
+      }
+      if (p.price_sar !== undefined && p.price_sar !== null && p.price_sar !== 0) {
+        return p.price_sar;
+      }
+      return p.price ?? 0;
+    } else {
+      // If store currency is SAR, prioritize the actual native SAR price
+      if (p.price_sar !== undefined && p.price_sar !== null && p.price_sar !== 0) {
+        return p.price_sar;
+      }
+      if (p.currency === 'SAR' && p.price !== undefined && p.price !== null && p.price !== 0) {
+        return p.price;
+      }
+      if (p.price_yer !== undefined && p.price_yer !== null && p.price_yer !== 0) {
+        return p.price_yer / rate;
+      }
+      if (p.currency === 'YER' && p.price !== undefined && p.price !== null && p.price !== 0) {
+        return p.price / rate;
+      }
+      return p.price ?? 0;
     }
-    if (p.price_yer !== undefined && p.price_yer !== null && p.price_yer !== 0) {
-      return p.price_yer / (exchangeRate || 400);
-    }
-    if (p.currency === 'YER') {
-      return p.price / (exchangeRate || 400);
-    }
-    return p.price || 0;
   };
 
   const getOrderTotalPrice = (order: any) => {

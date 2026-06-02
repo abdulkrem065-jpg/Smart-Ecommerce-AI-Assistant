@@ -1,6 +1,13 @@
 import React, { useState, useEffect } from "react";
 import { Product, StoreCategory, CartItem, OrderDetails, Order, CarouselSlide, UserSession } from "./types";
 import { NICHES } from "./data";
+
+// =========================================================================
+// ⚠️ مُتغيّرات أسعار الصرف الرسمية للمتجر (يمكنك تعديلها يدوياً في ثوانٍ أدناه)
+// =========================================================================
+const EXCHANGE_RATE_SAR = 140; // سعر صرف الـ 1 ريال سعودي مقابل الريال اليمني (مثال: 140 ريال يمني)
+const EXCHANGE_RATE_USD = 530; // سعر صرف الـ 1 دولار أمريكي مقابل الريال اليمني (مثال: 530 ريال يمني)
+// =========================================================================
 import { isModuleEnabled } from "./core/moduleLoader";
 import { ManualRemittance } from "./modules/games_hyper/ManualRemittance";
 import ProductCatalog from "./components/ProductCatalog";
@@ -120,14 +127,109 @@ export default function App() {
   // Navigation State
   const [currentTab, setCurrentTab] = useState<"store" | "ai" | "admin" | "tracking">("store");
 
+  // Portal selection state (none = gate selector, gaming = games, grocery = mart)
+  const [selectedPortal, setSelectedPortal] = useState<'none' | 'gaming' | 'grocery'>('none');
+
   // Currency & Exchange Rate State
   const [currency, setCurrency] = useState<'SAR' | 'YER'>(() => {
-    return (localStorage.getItem("store_currency") as 'SAR' | 'YER') || "SAR";
+    return (localStorage.getItem("store_currency") as 'SAR' | 'YER') || "YER";
   });
   const [exchangeRate, setExchangeRate] = useState<number>(() => {
     const saved = localStorage.getItem("store_exchange_rate");
-    return saved ? Number(saved) : 400; // default 1 SAR = 400 YER
+    return saved ? Number(saved) : EXCHANGE_RATE_SAR; // Use EXCHANGE_RATE_SAR by default
   });
+
+  // Language State (ar: Arabic, en: English)
+  const [lang, setLang] = useState<'ar' | 'en'>(() => {
+    return (localStorage.getItem("store_lang") as 'ar' | 'en') || "ar";
+  });
+
+  const translations = {
+    ar: {
+      store: "المتجر الإلكتروني",
+      ai: "المساعد الذكي AI",
+      tracking: "تتبع الطلبات",
+      admin: "لوحة الإدارة",
+      currencyTitle: "عملة المتجر:",
+      langTitle: "اللغة:",
+      gatesTitle: "بوابات مستودع ومتجر الذيباني VIP الشامل 🔱",
+      gatesSubtitle: "مرحباً بكم في المتجر الهجين الأول في الشرق الأوسط. اختر وجهتك للتسوق المباشر والآمن والسريع من مستودعاتنا الفورية:",
+      gamingGateTitle: "بوابة شحن الألعاب والبطاقات",
+      gamingGateBadge: "شحن فوري ثواني ⚡",
+      gamingGateDesc: "اشحن شدات PUBG Mobile و Free Fire فورا، بطاقات جوجل وآيتونز، ومحفظة الجيمنج ومفاتيح التفعيل مع دعم فني متين.",
+      gamingGateButton: "دخول قسم شحن الألعاب",
+      groceryGateTitle: "هايبرماركت آل ذيبان للتموين",
+      groceryGateBadge: "تجهيز آمن 🚛",
+      groceryGateDesc: "البهارات والتوابل والخلطات اليمنية والمواد التموينية عالية الجودة المجهزة والمعبأة بعناية لحساب احتياجاتك لتصل لباب منزلك.",
+      groceryGateButton: "تصفح هايبرماركت المواد التموينية",
+      backToGates: "العودة للبوابات (الأقسام)",
+      gamingHeader: "🎮 بوابة شحن الألعاب والترفيه",
+      groceryHeader: "🌾 هايبرماركت التموين والخلطات",
+      matchingItems: "صنف متطابق",
+      technicalSupport: "مساعدة الكادر الفني",
+      activeBasket: "سلة الذيباني النشطة 🛒",
+      reservedItems: "قطعة محجوزة",
+      emptyBasketTitle: "سلتك خالية من البضائع حالياً",
+      emptyBasketDesc: "اختر ما يناسبك من الأصناف المعروضة ليقوم مساعدنا الذكي بتجهيز وتأكيد الطلب لك",
+      flavor: "النكهة:",
+      color: "اللون:",
+      options: "الخيارات:",
+      playerId: "حساب اللاعب ID:",
+      itemsTotal: "مجموع قيمة الأصناف",
+      deliveryFee: "رسوم الشحن والتوصيل",
+      taxAndService: "الضرائب المضافة والخدمة",
+      instantShipping: "تجهيز وشحن فوري ثواني ⚡",
+      freeForVip: "مجاني للمستويات VIP",
+      includingTax: "شامل الضريبة",
+      totalDue: "المبلغ الإجمالي المستحق",
+      proceedCheckout: "متابعة تجهيز وحجز الطلب",
+      clearCart: "إخلاء وتصفية السلة",
+    },
+    en: {
+      store: "Online Store",
+      ai: "AI Assistant",
+      tracking: "Order Tracking",
+      admin: "Admin Control",
+      currencyTitle: "Store Currency:",
+      langTitle: "Language:",
+      gatesTitle: "Dheebani VIP Integrated Gateway 🔱",
+      gatesSubtitle: "Welcome to our premium multi-niche trading platform. Choose your destination below to start browsing:",
+      gamingGateTitle: "Gaming & Card Top-up Portal",
+      gamingGateBadge: "Instant Top-up ⚡",
+      gamingGateDesc: "Instantly recharge PUBG Mobile UC, Free Fire Diamonds, Google Play, iTunes, and software activation keys.",
+      gamingGateButton: "Enter Gaming Portal",
+      groceryGateTitle: "Al-Dheebani Mart & Spices",
+      groceryGateBadge: "Safe Courier 🚛",
+      groceryGateDesc: "Original Yemeni herbs, premium custom spice blends, and kitchen staples packed with care and delivered to your doorstep.",
+      groceryGateButton: "Browse Food & Mart",
+      backToGates: "Back to Main Portals",
+      gamingHeader: "🎮 Gaming & Cards Top-up Portal",
+      groceryHeader: "🌾 Wholesale Mart & Spice Blends",
+      matchingItems: "matching items",
+      technicalSupport: "Technical Assistance",
+      activeBasket: "Active Shopping Basket 🛒",
+      reservedItems: "reserved items",
+      emptyBasketTitle: "Your shopping basket is empty",
+      emptyBasketDesc: "Select high-quality products from the catalog to build your instant custom delivery order.",
+      flavor: "Flavor:",
+      color: "Color:",
+      options: "Options:",
+      playerId: "Player ID:",
+      itemsTotal: "Items Subtotal",
+      deliveryFee: "Shipping & Handling",
+      taxAndService: "Taxes & Service Surcharge",
+      instantShipping: "Instant lightning delivery ⚡",
+      freeForVip: "Free for authorized VIPs",
+      includingTax: "Inc. local taxes",
+      totalDue: "Total Amount Due",
+      proceedCheckout: "Proceed to Checkout Setup",
+      clearCart: "Clear Shopping Basket",
+    }
+  };
+
+  const t = (key: keyof typeof translations['ar']) => {
+    return translations[lang][key] || translations['ar'][key] || "";
+  };
 
   const [activeNicheId, setActiveNicheId] = useState<string>(() => {
     // Check if developer session is present in sessionStorage
@@ -293,11 +395,14 @@ export default function App() {
   });
 
   const formatPrice = (priceInSAR: number) => {
+    const rate = exchangeRate || 400;
     if (currency === 'YER') {
-      const priceInYER = Math.round(priceInSAR * exchangeRate);
-      return `${priceInYER.toLocaleString('en-US')} ريال يمني`;
+      const priceInYER = Math.round(priceInSAR * rate);
+      return `${priceInYER.toLocaleString('en-US')} ريال يمني (${priceInSAR.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 1 })} ر.س)`;
+    } else {
+      const priceInYER = Math.round(priceInSAR * rate);
+      return `${priceInSAR.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 1 })} ر.س (${priceInYER.toLocaleString('en-US')} ريال يمني)`;
     }
-    return `${priceInSAR.toFixed(1)} ر.س`;
   };
 
   // Admin security credentials & states for strict segregation 
@@ -522,6 +627,8 @@ export default function App() {
               description: p.description || p.name || "",
               category: p.category || "عام",
               price: Number(p.price) || 0,
+              price_sar: p.price_sar !== undefined && p.price_sar !== null && p.price_sar !== "" ? Number(p.price_sar) : undefined,
+              price_yer: p.price_yer !== undefined && p.price_yer !== null && p.price_yer !== "" ? Number(p.price_yer) : undefined,
               image: p.image && String(p.image).startsWith("http") ? p.image : "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=500&q=80",
               stock: p.stock !== undefined ? Number(p.stock) : 99,
               code: code,
@@ -945,6 +1052,30 @@ export default function App() {
     localStorage.setItem("store_categories", JSON.stringify(categories));
   }, [categories]);
 
+  // Synchronize cart items if currency, exchangeRate or products changes
+  useEffect(() => {
+    setCart((prev) => {
+      let changed = false;
+      const updated = prev.map((item) => {
+        // Find fresh product info from products state to ensure we have the latest price details
+        const freshProd = products.find(p => p.id === item.product.id) || item.product;
+        const currentPrice = getProductPrice(freshProd, currency);
+        if (item.unitPrice !== currentPrice || item.currency !== currency || item.productId !== item.product.id) {
+          changed = true;
+          return {
+            ...item,
+            productId: item.product.id,
+            product: freshProd,
+            unitPrice: currentPrice,
+            currency: currency
+          };
+        }
+        return item;
+      });
+      return changed ? updated : prev;
+    });
+  }, [currency, exchangeRate, products]);
+
   useEffect(() => {
     localStorage.setItem("store_cart", JSON.stringify(cart));
   }, [cart]);
@@ -1086,12 +1217,43 @@ export default function App() {
            item.selectedFlavor === selectedFlavor &&
            item.playerId === playerId &&
            matchSubOptions(item.selectedSubOptions, selectedSubOptions)) 
-            ? { ...item, quantity: item.quantity + 1 } 
+            ? { 
+                ...item, 
+                quantity: item.quantity + 1,
+                unitPrice: getProductPrice(product, currency),
+                currency: currency
+              } 
             : item
         );
       }
       addedNew = true;
-      return [...prev, { product, quantity: 1, selectedColor, selectedFlavor, selectedSubOptions, playerId }];
+      const unitPrice = getProductPrice(product, currency);
+
+      // Console Debug Log for addition (goal 4)
+      console.log("=== [DEBUG CART ADD] ===");
+      console.log("- Product Name:", product.name);
+      console.log("- Selected store currency:", currency);
+      console.log("- Product price in catalog display (estimated):", product.price_yer || (product.price * exchangeRate));
+      console.log("- Price stored in cart (unitPrice):", unitPrice);
+      console.log("- Cart item object created:", {
+        productId: product.id,
+        quantity: 1,
+        currency: currency,
+        unitPrice: unitPrice
+      });
+      console.log("=========================");
+
+      return [...prev, { 
+        product, 
+        productId: product.id, 
+        quantity: 1, 
+        selectedColor, 
+        selectedFlavor, 
+        selectedSubOptions, 
+        playerId,
+        currency: currency,
+        unitPrice: unitPrice
+      }];
     });
 
     if (limitReached) {
@@ -1139,7 +1301,12 @@ export default function App() {
               limitReached = true;
               return item;
             }
-            return { ...item, quantity: nextQty };
+            return { 
+              ...item, 
+              quantity: nextQty,
+              unitPrice: getProductPrice(item.product, currency),
+              currency: currency
+            };
           }
           return item;
         })
@@ -1186,17 +1353,27 @@ export default function App() {
     }
   };
 
+  const getProductPrice = (p: Product, selectedCurrency: 'SAR' | 'YER'): number => {
+    const rate = exchangeRate || 140;
+    if (selectedCurrency === 'YER') {
+      if (p.price_yer !== undefined && p.price_yer !== null && p.price_yer !== 0) {
+        return p.price_yer;
+      }
+      const sarPrice = p.price_sar !== undefined && p.price_sar !== null && p.price_sar !== 0 ? p.price_sar : (p.price ?? 0);
+      return Math.round(sarPrice * rate);
+    } else {
+      if (p.price_sar !== undefined && p.price_sar !== null && p.price_sar !== 0) {
+        return p.price_sar;
+      }
+      if (p.price_yer !== undefined && p.price_yer !== null && p.price_yer !== 0) {
+        return p.price_yer / rate;
+      }
+      return p.price ?? 0;
+    }
+  };
+
   const getProductPriceInSAR = (p: Product) => {
-    if (p.price_sar !== undefined && p.price_sar !== null && p.price_sar !== 0) {
-      return p.price_sar;
-    }
-    if (p.price_yer !== undefined && p.price_yer !== null && p.price_yer !== 0) {
-      return p.price_yer / (exchangeRate || 400);
-    }
-    if (p.currency === 'YER') {
-      return p.price / (exchangeRate || 400);
-    }
-    return p.price;
+    return getProductPrice(p, 'SAR');
   };
 
   const getOrderTotalPrice = (order: Order) => {
@@ -1249,12 +1426,68 @@ export default function App() {
   };
 
   // Pricing calculations
-  const totalPriceOfCart = cart.reduce((sum, item) => sum + getProductPriceInSAR(item.product) * item.quantity, 0);
+  const totalPriceOfCart = cart.reduce((sum, item) => {
+    const rate = exchangeRate || 140;
+    // Fallback if item.unitPrice wasn't populated yet
+    const storedUnitPrice = item.unitPrice !== undefined && item.unitPrice !== null ? item.unitPrice : getProductPrice(item.product, currency);
+    const storedCurrency = item.currency || currency;
+
+    // Convert storedUnitPrice back to SAR format since totalPriceOfCart is stored in raw SAR equivalents
+    const itemSarPrice = storedCurrency === 'YER' ? (storedUnitPrice / rate) : storedUnitPrice;
+
+    // Console Debug Log for calculations (goal 4)
+    console.log("=== [DEBUG CART CALCULATION] ===");
+    console.log("- Product Name:", item.product.name);
+    console.log("- Active Store Currency:", currency);
+    console.log("- Cart Item Currency:", storedCurrency);
+    console.log("- Cart Item Stored Unit Price:", storedUnitPrice);
+    console.log("- Exchange Rate used:", rate);
+    console.log("- Converted SAR Price:", itemSarPrice);
+    console.log("- Quantity:", item.quantity);
+    console.log("- Item Subtotal SAR:", itemSarPrice * item.quantity);
+    console.log("===============================");
+
+    return sum + itemSarPrice * item.quantity;
+  }, 0);
   const deliveryFee = deliveryFeeEnabled ? deliveryFeeValue : 0;
   const taxAmount = taxEnabled ? (totalPriceOfCart * (taxRate / 100)) : 0;
   const taxToSum = (taxEnabled && taxInTotal) ? taxAmount : 0;
   const deliveryToSum = (deliveryFeeEnabled && deliveryInTotal) ? deliveryFee : 0;
   const finalBillAmount = totalPriceOfCart + taxToSum + deliveryToSum;
+
+  // Hybrid Dynamic Category & Product Router
+  const gamingKeywords = ["🎮", "ألعاب", "شحن", "🔌", "إلكترونيات", "games", "charge", "electronics"];
+  const isGamingCategory = (catName: string) => {
+    return gamingKeywords.some(keyword => catName.toLowerCase().includes(keyword));
+  };
+
+  const getFilteredCategories = () => {
+    if (selectedPortal === 'gaming') {
+      return categories.filter(c => isGamingCategory(c.name));
+    }
+    if (selectedPortal === 'grocery') {
+      return categories.filter(c => !isGamingCategory(c.name));
+    }
+    return categories;
+  };
+
+  const getFilteredProducts = () => {
+    if (selectedPortal === 'gaming') {
+      return products.filter(p => p.isApiProduct || isGamingCategory(p.category || '') || p.name?.toLowerCase().includes('pubg') || p.name?.toLowerCase().includes('شحن'));
+    }
+    if (selectedPortal === 'grocery') {
+      return products.filter(p => !p.isApiProduct && !isGamingCategory(p.category || '') && !p.name?.toLowerCase().includes('pubg') && !p.name?.toLowerCase().includes('شحن'));
+    }
+    return products;
+  };
+
+  const activeCategories = getFilteredCategories();
+  const activeProducts = getFilteredProducts();
+
+  // Multi-Currency Math Engine (Calculated on the fly in milliseconds)
+  const finalBillInYER = Math.round(finalBillAmount * exchangeRate);
+  const finalBillInSAR = Math.round(finalBillInYER / EXCHANGE_RATE_SAR);
+  const finalBillInUSD = Math.round(finalBillInYER / EXCHANGE_RATE_USD);
 
   // Formatting order to WhatsApp API URL Redirection
   const handleProcessCheckout = (e: React.FormEvent) => {
@@ -1307,7 +1540,7 @@ export default function App() {
         optionDetails.push(`خيارات فرعية: ${subStrs.join(' - ')}`);
       }
       const optionsLabel = optionDetails.length > 0 ? ` [${optionDetails.join(' / ')}]` : '';
-      return `${idx + 1}. *🔑 ${item.product.name}${optionsLabel}*\n   الكمية: (${item.quantity})\n   رمز الصنف: [${item.product.code || item.product.id}]\n   السعر: ${formatPrice(getProductPriceInSAR(item.product) * item.quantity)}\n`;
+      return `${idx + 1}. *🔑 ${item.product.name}${optionsLabel}*\n   الكمية: (${item.quantity})\n   رمز الصنف: [${item.product.code || item.product.id}]\n   السعر: ${formatPrice((item.currency === 'YER' ? item.unitPrice / (exchangeRate || 140) : item.unitPrice) * item.quantity)}\n`;
     }).join("\n");
 
     const fullMsg = 
@@ -1324,7 +1557,10 @@ ${itemsText}
 ======================
 *قيمة السلة الأساسي:* ${formatPrice(totalPriceOfCart)}
 ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate}%)${!taxInTotal ? " (غير مضافة على الإجمالي)" : ""}:* ${formatPrice(taxAmount)}\n` : ""}${(deliveryFeeEnabled && deliveryVisible) ? `*رسوم الخدمة وتوصيل الشحنة${!deliveryInTotal ? " (غير مضافة على الإجمالي)" : ""}:* ${deliveryFee === 0 ? "مجاني" : formatPrice(deliveryFee)}\n` : ""}======================
-*المبلغ الكلي الكلي:* *${formatPrice(finalBillAmount)}* 💵
+*المبلغ الكلي الكلي (الريال اليمني):* *${Math.round(finalBillAmount * exchangeRate).toLocaleString('en-US')} ريال يمني* 🇾🇪
+*المبلغ الكلي الكلي (الريال السعودي):* *${Math.round((finalBillAmount * exchangeRate) / EXCHANGE_RATE_SAR).toLocaleString('en-US')} ريال سعودي* 🇸🇦
+*المبلغ الكلي الكلي (الدولار الأمريكي):* *${Math.round((finalBillAmount * exchangeRate) / EXCHANGE_RATE_USD).toLocaleString('en-US')} دولار أمريكي* 🇺🇸
+======================
 
 ✨ _تم إعداد وتجهيز الطلب بنجاح عبر النظام الذكي ومساعد الـ AI_ 🤖`;
 
@@ -1695,45 +1931,85 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
             </div>
           </div>
 
-          {/* Currency Toggle */}
-          <div className="flex items-center gap-1.5 bg-[#060b18] p-1 rounded-2xl border border-blue-900/40" id="currency-toggle-wrapper" dir="rtl">
-            <span className="text-[10px] text-slate-400 font-bold px-2 hidden sm:inline">تحديد العملة:</span>
-            <button
-              onClick={() => {
-                setCurrency('SAR');
-                localStorage.setItem("store_currency", "SAR");
-                addToast("🇸🇦 تم تغيير عملة المتجر إلى الريال السعودي (ر.س)", "info");
-              }}
-              className={`px-3 py-1.5 rounded-xl text-[11px] font-black transition-all flex items-center gap-1 cursor-pointer select-none ${
-                currency === 'SAR'
-                  ? 'bg-gradient-to-r from-yellow-500 to-amber-500 text-blue-950 shadow-md transform hover:scale-105'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-              id="currency-sar-btn"
-            >
-              <span>🇸🇦</span>
-              <span>سعودي</span>
-            </button>
-            <button
-              onClick={() => {
-                setCurrency('YER');
-                localStorage.setItem("store_currency", "YER");
-                addToast("🇾🇪 تم تغيير عملة المتجر إلى الريال اليمني", "info");
-              }}
-              className={`px-3 py-1.5 rounded-xl text-[11px] font-black transition-all flex items-center gap-1 cursor-pointer select-none ${
-                currency === 'YER'
-                  ? 'bg-gradient-to-r from-yellow-500 to-amber-500 text-blue-950 shadow-md transform hover:scale-105'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-              id="currency-yer-btn"
-            >
-              <span>🇾🇪</span>
-              <span>يمني</span>
-            </button>
+          {/* Currency & Language Toggles Grid/Flex Container */}
+          <div className="flex flex-wrap items-center gap-2" id="header-toggles-container">
+            {/* Currency Toggle */}
+            <div className="flex items-center gap-1.5 bg-[#060b18] p-1 rounded-2xl border border-blue-900/40" id="currency-toggle-wrapper" dir={lang === 'en' ? 'ltr' : 'rtl'}>
+              <span className="text-[10px] text-slate-400 font-bold px-2 hidden sm:inline">{lang === 'en' ? 'Currency:' : 'تحديد العملة:'}</span>
+              <button
+                onClick={() => {
+                  setCurrency('SAR');
+                  localStorage.setItem("store_currency", "SAR");
+                  addToast(lang === 'en' ? "Currency set to Saudi Riyal (SAR) 🇸🇦" : "🇸🇦 تم تغيير عملة المتجر إلى الريال السعودي (ر.س)", "info");
+                }}
+                className={`px-3 py-1 rounded-xl text-[11px] font-black transition-all flex items-center gap-1 cursor-pointer select-none ${
+                  currency === 'SAR'
+                    ? 'bg-gradient-to-r from-yellow-500 to-amber-500 text-blue-950 shadow-md'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+                id="currency-sar-btn"
+              >
+                <span>🇸🇦</span>
+                <span>{lang === 'en' ? 'SAR' : 'سعودي'}</span>
+              </button>
+              <button
+                onClick={() => {
+                  setCurrency('YER');
+                  localStorage.setItem("store_currency", "YER");
+                  addToast(lang === 'en' ? "Currency set to Yemeni Riyal (YER) 🇾🇪" : "🇾🇪 تم تغيير عملة المتجر إلى الريال اليمني", "info");
+                }}
+                className={`px-3 py-1 rounded-xl text-[11px] font-black transition-all flex items-center gap-1 cursor-pointer select-none ${
+                  currency === 'YER'
+                    ? 'bg-gradient-to-r from-yellow-500 to-amber-500 text-blue-950 shadow-md'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+                id="currency-yer-btn"
+              >
+                <span>🇾🇪</span>
+                <span>{lang === 'en' ? 'YER' : 'يمني'}</span>
+              </button>
+            </div>
+
+            {/* Language Toggle */}
+            <div className="flex items-center gap-1.5 bg-[#060b18] p-1 rounded-2xl border border-blue-900/40" id="language-toggle-wrapper" dir={lang === 'en' ? 'ltr' : 'rtl'}>
+              <span className="text-[10px] text-slate-400 font-bold px-2 hidden sm:inline">{lang === 'en' ? 'Language:' : 'اللغة:'}</span>
+              <button
+                onClick={() => {
+                  setLang('ar');
+                  localStorage.setItem("store_lang", "ar");
+                  addToast("تم تحويل لغة الواجهة إلى العربية", "info");
+                }}
+                className={`px-3 py-1 rounded-xl text-[11px] font-black transition-all flex items-center justify-center gap-1 cursor-pointer select-none ${
+                  lang === 'ar'
+                    ? 'bg-gradient-to-r from-yellow-500 to-amber-500 text-blue-950 shadow-md font-bold'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+                id="lang-ar-btn"
+              >
+                <span>🇾🇪</span>
+                <span>عربي</span>
+              </button>
+              <button
+                onClick={() => {
+                  setLang('en');
+                  localStorage.setItem("store_lang", "en");
+                  addToast("Interface language switched to English", "info");
+                }}
+                className={`px-3 py-1 rounded-xl text-[11px] font-black transition-all flex items-center justify-center gap-1 cursor-pointer select-none ${
+                  lang === 'en'
+                    ? 'bg-gradient-to-r from-yellow-500 to-amber-500 text-blue-950 shadow-md font-bold'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+                id="lang-en-btn"
+              >
+                <span>🇺🇸</span>
+                <span>EN</span>
+              </button>
+            </div>
           </div>
 
           {/* Dynamic Navigation Selectors */}
-          <nav className="flex bg-[#060b18] p-1 rounded-2xl border border-blue-900/40 w-full md:w-auto overflow-x-auto sm:overflow-x-visible scrollbar-none gap-1" id="main-navigation-tabs" dir="rtl">
+          <nav className="flex bg-[#060b18] p-1 rounded-2xl border border-blue-900/40 w-full md:w-auto overflow-x-auto sm:overflow-x-visible scrollbar-none gap-1" id="main-navigation-tabs" dir={lang === 'en' ? 'ltr' : 'rtl'}>
             <button
               onClick={() => setCurrentTab("store")}
               className={`flex-1 md:flex-none px-2.5 sm:px-4 py-2 rounded-xl text-[11px] sm:text-xs md:text-sm font-black flex items-center justify-center gap-1.5 transition-all cursor-pointer whitespace-nowrap select-none ${
@@ -1745,8 +2021,8 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
             >
               <Store className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
               <span>
-                <span className="inline md:hidden">المعرض</span>
-                <span className="hidden md:inline">🐺 المعرض والمعروضات</span>
+                <span className="inline md:hidden">{t('store')}</span>
+                <span className="hidden md:inline">🐺 {lang === 'en' ? 'Warehouse Catalog' : 'المعرض والمعروضات'}</span>
               </span>
             </button>
 
@@ -1761,8 +2037,8 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
             >
               <Bot className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-500 animate-pulse shrink-0" />
               <span>
-                <span className="inline md:hidden">مستشار AI</span>
-                <span className="hidden md:inline">💬 مستشارك الذكي AI</span>
+                <span className="inline md:hidden">{lang === 'en' ? 'AI Bot' : 'مستشار AI'}</span>
+                <span className="hidden md:inline">💬 {t('ai')}</span>
               </span>
             </button>
 
@@ -1777,8 +2053,8 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
             >
               <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-500 animate-pulse shrink-0" />
               <span>
-                <span className="inline md:hidden">تتبع الطلب</span>
-                <span className="hidden md:inline">🚚 تتبع الطلبات</span>
+                <span className="inline md:hidden">{lang === 'en' ? 'Tracking' : 'تتبع الطلب'}</span>
+                <span className="hidden md:inline">🚚 {t('tracking')}</span>
               </span>
             </button>
 
@@ -1794,8 +2070,8 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
               >
                 <Settings className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-yellow-405 animate-spin duration-[10000ms] shrink-0" />
                 <span>
-                  <span className="inline md:hidden">الإدارة</span>
-                  <span className="hidden md:inline">⚙️ لوحة إدارة المخزن</span>
+                  <span className="inline md:hidden">{lang === 'en' ? 'Admin' : 'الإدارة'}</span>
+                  <span className="hidden md:inline">⚙️ {lang === 'en' ? 'Admin Dashboard' : 'لوحة إدارة المخزن'}</span>
                 </span>
               </button>
             )}
@@ -1807,68 +2083,161 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
       <main className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 transition-all duration-300 ${isAnyInputFocused ? 'py-1 md:py-8' : 'py-8'}`} id="main-body-container">
         
         {currentTab === "store" && (
-          <div className="space-y-8">
+          <div className="space-y-8 animate-fade-in">
             {/* Promo / Advertisements Carousel Slide Banner Area */}
             <PromoCarousel slides={carouselSlides} onSetActiveTab={setCurrentTab} activeNicheId={activeNicheId} />
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8" id="store-view-grid">
-            
-            {/* Products grid block */}
-            <div className="lg:col-span-2 space-y-6">
-              <div className="bg-[#0b1329] p-5 rounded-3xl border border-blue-900/40" dir="rtl">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                  <div>
-                    <h2 className="text-xl font-extrabold text-yellow-400 flex items-center gap-2">
-                      <span>💎 الأصناف الفاخرة للذيباني</span>
-                      <span className="text-[11px] bg-yellow-400/10 text-yellow-400 border border-yellow-400/20 font-bold px-2.5 py-1 rounded-full">
-                        {products.length} صنف متوفر بالمستودع
-                      </span>
-                    </h2>
-                    <p className="text-xs text-slate-400 mt-1">
-                      {NICHES.find(n => n.id === activeNicheId)?.subtitle || "أصناف فخمة وحصرية متوفرة للتسجيل المباشر فورياً"}
-                    </p>
+            {/* Main Hybrid Gate Selection Dashboard */}
+            {selectedPortal === 'none' ? (
+              <div className="space-y-8 animate-fade-in py-4 border-t border-b border-blue-900/20" id="portals-selector" dir={lang === 'en' ? "ltr" : "rtl"}>
+                <div className="text-center py-4 space-y-3">
+                  <h2 className="text-2xl sm:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-amber-200 to-yellow-500 tracking-tight" id="main-gates-title">
+                     {t('gatesTitle')}
+                  </h2>
+                  <p className="text-xs sm:text-sm text-slate-400 max-w-xl mx-auto leading-relaxed px-4">
+                     {t('gatesSubtitle')}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto px-2">
+                  {/* GATE 1: Gaming Portal */}
+                  <div 
+                    onClick={() => setSelectedPortal('gaming')}
+                    className="group relative cursor-pointer bg-gradient-to-br from-[#121026] via-[#0c0a1b] to-[#16122d] border-2 border-purple-500/35 hover:border-purple-400 rounded-3xl p-6 sm:p-8 transition-all duration-300 transform hover:-translate-y-1.5 hover:shadow-[0_15px_30px_rgba(168,85,247,0.2)] flex flex-col justify-between overflow-hidden"
+                    id="gaming-gate"
+                  >
+                    <div className="absolute -right-12 -top-12 w-28 h-28 bg-purple-500/10 rounded-full blur-3xl group-hover:bg-purple-500/20 transition-all duration-300"></div>
+                    
+                    <div className="space-y-4 relative z-10">
+                      <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-purple-950/40">
+                        <span className="text-3xl text-white">🎮</span>
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="text-xl font-black text-white group-hover:text-purple-400 transition-colors">
+                            {t('gamingGateTitle')}
+                          </h3>
+                          <span className="animate-pulse px-2 py-0.5 bg-purple-500/20 text-purple-300 border border-purple-500/30 text-[9px] font-black rounded-full">
+                            {t('gamingGateBadge')}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-350 leading-relaxed pt-1">
+                          {t('gamingGateDesc')}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className={`mt-6 flex items-center gap-1.5 text-purple-400 font-extrabold text-xs justify-end relative z-10 group-hover:${lang === 'en' ? 'translate-x-[4px]' : 'translate-x-[4px]'} transition-transform`}>
+                      <span>{t('gamingGateButton')}</span>
+                      <span className="text-sm">{lang === 'en' ? '▶' : '◀'}</span>
+                    </div>
                   </div>
 
-                  {/* direct support info buttons */}
-                  <div className="flex gap-2 flex-wrap">
-                    <a 
-                      href={`https://wa.me/${whatsappNumber}`} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="px-3 py-1.5 bg-emerald-550/10 hover:bg-emerald-600/20 rounded-xl text-xs border border-emerald-500/20 flex items-center gap-1.5 transition-all"
-                    >
-                      <MessageSquare className="w-3.5 h-3.5 text-emerald-400 animate-bounce" />
-                      <span className="text-emerald-400 font-bold">تواصل واتساب الكادر</span>
-                    </a>
+                  {/* GATE 2: Grocery Portal */}
+                  <div 
+                    onClick={() => setSelectedPortal('grocery')}
+                    className="group relative cursor-pointer bg-gradient-to-br from-[#071912] via-[#05110d] to-[#0a1e16] border-2 border-emerald-500/35 hover:border-emerald-400 rounded-3xl p-6 sm:p-8 transition-all duration-300 transform hover:-translate-y-1.5 hover:shadow-[0_15px_30px_rgba(16,185,129,0.2)] flex flex-col justify-between overflow-hidden"
+                    id="grocery-gate"
+                  >
+                    <div className="absolute -right-12 -top-12 w-28 h-28 bg-emerald-500/10 rounded-full blur-3xl group-hover:bg-emerald-500/20 transition-all duration-300"></div>
+
+                    <div className="space-y-4 relative z-10">
+                      <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-650 flex items-center justify-center shadow-lg shadow-emerald-950/50">
+                        <span className="text-3xl">🌾</span>
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="text-xl font-black text-white group-hover:text-emerald-400 transition-colors">
+                            {t('groceryGateTitle')}
+                          </h3>
+                          <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[9px] font-black rounded-full">
+                            {t('groceryGateBadge')}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-350 leading-relaxed pt-1">
+                          {t('groceryGateDesc')}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className={`mt-6 flex items-center gap-1.5 text-emerald-400 font-extrabold text-xs justify-end relative z-10 group-hover:${lang === 'en' ? 'translate-x-[4px]' : 'translate-x-[-4px]'} transition-transform`}>
+                      <span>{t('groceryGateButton')}</span>
+                      <span className="text-sm">{lang === 'en' ? '▶' : '◀'}</span>
+                    </div>
                   </div>
                 </div>
               </div>
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8" id="store-view-grid">
+              
+              {/* Products grid block */}
+              <div className="lg:col-span-2 space-y-6">
+                
+                {/* Active Gate Header with Clear Back Button */}
+                <div className="bg-gradient-to-r from-[#0b1329] to-[#060b18] p-4 sm:p-5 rounded-3xl border border-blue-900/40" dir={lang === 'en' ? 'ltr' : 'rtl'}>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => setSelectedPortal('none')}
+                        className="px-3.5 py-1.5 bg-red-500/10 hover:bg-red-500/20 border border-red-550/30 text-red-400 hover:text-red-350 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 shrink-0"
+                        id="back-to-gates-inline-btn"
+                      >
+                        <span>{lang === 'en' ? '←' : '➔'}</span>
+                        <span>{t('backToGates')}</span>
+                      </button>
+                      
+                      <div className="h-4 w-[1px] bg-slate-800 shrink-0"></div>
+                      
+                      <div>
+                        <h2 className="text-sm sm:text-base font-extrabold text-yellow-400 flex items-center gap-1.5 flex-wrap">
+                          <span>{selectedPortal === 'gaming' ? t('gamingHeader') : t('groceryHeader')}</span>
+                          <span className="text-[10px] bg-yellow-400/10 text-yellow-400 border border-yellow-400/20 font-bold px-2 py-0.5 rounded-full">
+                            {activeProducts.length} {lang === 'en' ? 'items' : 'صنف متطابق'}
+                          </span>
+                        </h2>
+                      </div>
+                    </div>
 
-              {/* Product catalog display */}
-              <div className="bg-[#111a2e]/55 p-6 rounded-3xl border border-blue-900/30">
-                <ProductCatalog
-                  products={products}
-                  categories={categories}
-                  onAddToCart={handleAddToCart}
-                  formatPrice={formatPrice}
-                  currency={currency}
-                  exchangeRate={exchangeRate}
-                />
+                    {/* support helper contact */}
+                    <div className="flex gap-2">
+                      <a 
+                        href={`https://wa.me/${whatsappNumber}`} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="px-3 py-1 bg-emerald-550/10 hover:bg-emerald-600/20 rounded-xl text-[11px] border border-emerald-500/20 flex items-center gap-1.5 transition-all"
+                      >
+                        <MessageSquare className="w-3.5 h-3.5 text-emerald-400" />
+                        <span className="text-emerald-400 font-bold">{t('technicalSupport')}</span>
+                      </a>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Product catalog display */}
+                <div className="bg-[#111a2e]/55 p-6 rounded-3xl border border-blue-900/30">
+                  <ProductCatalog
+                    products={activeProducts}
+                    categories={activeCategories}
+                    onAddToCart={handleAddToCart}
+                    formatPrice={formatPrice}
+                    currency={currency}
+                    exchangeRate={exchangeRate}
+                  />
+                </div>
               </div>
-            </div>
 
-            {/* Shopping cart sidebar layout */}
-            <div className="lg:col-span-1" id="sticky-cart-sidebar">
-              <div className="bg-[#0b1329] rounded-3xl border border-yellow-500/20 p-6 shadow-2xl sticky top-28 space-y-6" dir="rtl">
+              {/* Shopping cart sidebar layout */}
+              <div className="lg:col-span-1" id="sticky-cart-sidebar">
+              <div className="bg-[#0b1329] rounded-3xl border border-yellow-500/20 p-6 shadow-2xl sticky top-28 space-y-6" dir={lang === 'en' ? 'ltr' : 'rtl'}>
                 
                 {/* Header of Sidebar */}
                 <div className="flex items-center justify-between border-b border-blue-900/40 pb-4">
                   <div className="flex items-center gap-2">
                     <ShoppingBag className="w-5 h-5 text-yellow-400" />
-                    <h3 className="font-extrabold text-white text-sm">سلة الذيباني النشطة 🛒</h3>
+                    <h3 className="font-extrabold text-white text-sm">{t('activeBasket')}</h3>
                   </div>
                   <span className="bg-yellow-400 text-blue-950 text-[10px] font-black px-2.5 py-0.5 rounded-full">
-                    {cart.reduce((s, i) => s + i.quantity, 0)} قطعة محجوزة
+                    {cart.reduce((s, i) => s + i.quantity, 0)} {lang === 'en' ? t('reservedItems') : 'قطعة محجوزة'}
                   </span>
                 </div>
 
@@ -1877,9 +2246,9 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
                   {cart.length === 0 ? (
                     <div className="text-center py-12 text-slate-500 space-y-3">
                       <ShoppingBag className="w-10 h-10 mx-auto text-yellow-400 opacity-20 animate-pulse" />
-                      <p className="text-xs font-semibold">سلتك خالية من البضائع حالياً</p>
+                      <p className="text-xs font-semibold">{t('emptyBasketTitle')}</p>
                       <p className="text-[10px] text-slate-500 max-w-[200px] mx-auto leading-relaxed">
-                        اختر ما يناسبك من الأصناف المعروضة ليقوم مساعدنا الذكي بتجهيز وتأكيد الطلب لك
+                        {t('emptyBasketDesc')}
                       </p>
                     </div>
                   ) : (
@@ -1905,12 +2274,12 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
                                   ))}
                                   {item.selectedColor && (
                                     <span className="px-1.5 py-0.5 bg-yellow-500/10 border border-yellow-500/20 text-[8px] font-bold text-yellow-450 rounded">
-                                      اللون: {item.selectedColor}
+                                      {t('color')} {item.selectedColor}
                                     </span>
                                   )}
                                   {item.selectedFlavor && (
                                     <span className="px-1.5 py-0.5 bg-emerald-500/10 border border-emerald-500/20 text-[8px] font-bold text-emerald-400 rounded">
-                                      النكهة: {item.selectedFlavor}
+                                      {t('flavor')} {item.selectedFlavor}
                                     </span>
                                   )}
                                   {item.playerId && (
@@ -1921,7 +2290,9 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
                                   )}
                                 </div>
                               )}
-                              <p className="text-[10px] text-yellow-400 font-bold">{formatPrice(getProductPriceInSAR(item.product) * item.quantity)}</p>
+                              <p className="text-[10px] text-yellow-400 font-bold">
+                                {formatPrice((item.currency === 'YER' ? item.unitPrice / (exchangeRate || 140) : item.unitPrice) * item.quantity)}
+                              </p>
                             </div>
 
                             <div className="flex items-center justify-between mt-1">
@@ -1945,7 +2316,7 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
                               <button
                                 onClick={() => handleRemoveFromCart(item.product.id, item.selectedColor, item.selectedFlavor, item.selectedSubOptions, item.playerId)}
                                 className="text-slate-500 hover:text-red-400 p-1.5 transition-colors cursor-pointer"
-                                title="إزالة هذا الصنف من السلة"
+                                title={lang === 'en' ? 'Remove item' : 'إزالة هذا الصنف من السلة'}
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
                               </button>
@@ -1960,24 +2331,24 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
                 {/* Subtotals & checkout trigger */}
                 {cart.length > 0 && (
                   <div className="space-y-3 pt-4 border-t border-blue-900/40">
-                    <div className="flex justify-between text-[11px] text-slate-400">
-                      <span>إجمالي بنود البضائع:</span>
-                      <span className="font-bold text-white">{formatPrice(totalPriceOfCart)}</span>
+                    <div className="flex justify-between items-center gap-4 text-[11px] text-slate-400">
+                      <span>{t('itemsTotal')}:</span>
+                      <span className="font-bold text-white text-right leading-tight">{formatPrice(totalPriceOfCart)}</span>
                     </div>
 
                     {taxEnabled && taxVisible && (
-                      <div className="flex justify-between text-[11px] text-slate-400">
-                        <span>ضريبة القيمة المضافة ({taxRate}%){!taxInTotal && " (غير مضافة للإجمالي)"}:</span>
-                        <span className="font-bold text-white">{formatPrice(taxAmount)}</span>
+                      <div className="flex justify-between items-center gap-4 text-[11px] text-slate-400">
+                        <span>{t('taxAndService')} ({taxRate}%){!taxInTotal && (lang === 'en' ? " (not inc. in total)" : " (غير مضافة للإجمالي)")}:</span>
+                        <span className="font-bold text-white text-right leading-tight">{formatPrice(taxAmount)}</span>
                       </div>
                     )}
 
                     {deliveryFeeEnabled && deliveryVisible && (
-                      <div className="flex justify-between text-[11px] text-slate-400">
-                        <span>رسوم خدمة الشحن والتوصيل الفوري{!deliveryInTotal && " (غير مضافة للإجمالي)"}:</span>
-                        <span className="font-bold">
+                      <div className="flex justify-between items-center gap-4 text-[11px] text-slate-405">
+                        <span>{t('deliveryFee')}{!deliveryInTotal && (lang === 'en' ? " (not inc. in total)" : " (غير مضافة للإجمالي)")}:</span>
+                        <span className="font-bold text-right leading-tight">
                           {deliveryFee === 0 ? (
-                            <span className="text-emerald-450 font-bold bg-emerald-500/10 px-2 py-0.5 rounded text-[10px]">مجاني VIP ✨</span>
+                            <span className="text-emerald-450 font-bold bg-emerald-500/10 px-2 py-0.5 rounded text-[10px]">{lang === 'en' ? 'Free VIP ✨' : 'مجاني VIP ✨'}</span>
                           ) : (
                             formatPrice(deliveryFee)
                           )}
@@ -1985,9 +2356,9 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
                       </div>
                     )}
 
-                    <div className="flex justify-between items-center text-xs font-bold text-white bg-[#060b18] p-3.5 rounded-2xl border border-yellow-500/20 mt-1">
-                      <span className="text-slate-300 font-extrabold text-xs">المبلغ الكلي المطلوب بالعملة المختارة:</span>
-                      <span className="text-yellow-455 text-base font-black">{formatPrice(finalBillAmount)}</span>
+                    <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-2 bg-[#060b18] p-3.5 rounded-2xl border border-yellow-500/20 mt-1">
+                      <span className="text-slate-350 font-extrabold text-[11px] sm:text-xs">{t('totalDue')}:</span>
+                      <span className="text-yellow-455 text-[11px] sm:text-xs font-black text-right sm:text-left leading-normal">{formatPrice(finalBillAmount)}</span>
                     </div>
 
                     {/* Check out button */}
@@ -2007,17 +2378,17 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
                       id="initiate-checkout-btn"
                     >
                       <CreditCard className="w-4 h-4 text-blue-950" />
-                      <span>إكمال الطلب وحجز المنتجات</span>
+                      <span>{t('proceedCheckout')}</span>
                     </button>
                   </div>
                 )}
 
               </div>
             </div>
-
-          </div>
           </div>
         )}
+      </div>
+    )}
 
         {/* Tab 1.5: Customer Order Tracking Tab */}
         {currentTab === "tracking" && (
@@ -2255,7 +2626,9 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
                                         </div>
                                       )}
                                     </div>
-                                    <span className="font-mono flex-shrink-0">({item.quantity} حبة) x {formatPrice(getProductPriceInSAR(item.product))}</span>
+                                    <span className="font-mono flex-shrink-0">
+                                      ({item.quantity} حبة) x {formatPrice(item.currency === 'YER' ? item.unitPrice / (exchangeRate || 140) : item.unitPrice)}
+                                    </span>
                                   </div>
                                 ))}
                               </div>
@@ -2916,12 +3289,16 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
                       )}
 
                       {/* Summary recap block inside step 3 */}
-                      <div className="bg-yellow-500/5 border border-yellow-500/10 p-3 rounded-xl text-[10px] text-slate-350 leading-relaxed space-y-1">
-                        <div className="flex justify-between">
-                          <span>المشتريات لـ <strong className="text-slate-205">{customerName}</strong></span>
-                          <span>المجموع الكلي: <strong className="text-yellow-400 font-bold">{formatPrice(finalBillAmount)}</strong></span>
+                      <div className="bg-yellow-500/5 border border-yellow-500/10 p-4 rounded-xl text-[10px] text-slate-350 leading-relaxed space-y-2">
+                        <div className="flex flex-col gap-1.5 text-right">
+                          <p>المشترِي لـ <strong className="text-slate-200">{customerName}</strong></p>
+                          <div className="flex flex-col gap-1 text-[11px] font-black text-yellow-400 mt-1 border-t border-yellow-500/10 pt-1.5">
+                            <span className="text-slate-300 font-extrabold text-[10px]">القيمة الكلية المفوترة:</span>
+                            <span className="text-yellow-455 font-black text-xs leading-normal">{formatPrice(finalBillAmount)}</span>
+                            <span className="text-slate-450 font-medium text-[9px] mt-0.5">تعادل بالدولار: {finalBillInUSD.toLocaleString('en-US')} دولار أمريكي 🇺🇸</span>
+                          </div>
                         </div>
-                        <p className="text-[9px] text-slate-450 mt-1">
+                        <p className="text-[9px] text-slate-450 mt-1 bg-[#060b18]/45 p-2 rounded border border-blue-900/10">
                           💡 بمجرد الحجز وتأكيد الفاتورة سوف تحصل فورا على الرابط الفوري لإرسال الطلب مباشر لواتساب الإدارة وتأكيد الشحن!
                         </p>
                       </div>
@@ -2990,9 +3367,24 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
                   </a>
                 </div>
 
-                <div className="bg-[#060b18] p-4 rounded-2xl border border-blue-900/40 text-right text-[10px] space-y-1 text-slate-400">
-                  <p>قيمة عناصر السلة: <strong>{formatPrice(totalPriceOfCart)}</strong></p>
-                  <p>المبلغ الإجمالي الكلي للفاتورة: <strong className="text-yellow-400">{formatPrice(finalBillAmount)}</strong></p>
+                <div className="bg-[#060b18] p-5 rounded-2xl border border-blue-900/40 text-right text-[11px] space-y-3 text-slate-300">
+                  <div className="flex justify-between items-center bg-[#0b1329]/50 p-2.5 rounded-xl border border-blue-900/15">
+                    <span>قيمة عناصر السلة الأساسي:</span>
+                    <strong className="text-white text-xs leading-none">{formatPrice(totalPriceOfCart)}</strong>
+                  </div>
+                  <div className="pt-3 border-t border-blue-900/30 space-y-2">
+                    <p className="font-extrabold text-yellow-455 text-xs">القيمة الكلية المفوترة لمستودع الذيباني VIP:</p>
+                    <div className="bg-[#0b1329]/65 p-3 rounded-xl border border-yellow-500/10 space-y-2.5">
+                      <div className="flex justify-between items-center text-xs text-slate-205">
+                        <span className="font-semibold text-slate-300">إجمالي الفاتورة المفوترة:</span>
+                        <strong className="text-yellow-455 font-black text-xs leading-normal">{formatPrice(finalBillAmount)}</strong>
+                      </div>
+                      <div className="flex justify-between items-center text-[10px] text-cyan-400 border-t border-blue-900/25 pt-2">
+                        <span>التعادل بالدولار الأمريكي:</span>
+                        <strong className="font-mono">{finalBillInUSD.toLocaleString('en-US')} دولار أمريكي 🇺🇸</strong>
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
                 <button
@@ -3020,7 +3412,7 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
                 <div className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></div>
                 <h4 className="text-sm font-black text-white flex items-center gap-1.5 font-sans">
                   <CreditCard className="w-4 h-4 text-emerald-400" />
-                  <span>بوابة السداد الإلكتروني المستقلة 💳</span>
+                  <span>بوابة السداد الإلكتروني الفوري 💳</span>
                 </h4>
               </div>
               <div className="bg-emerald-950/80 px-2.5 py-1 rounded-lg border border-emerald-500/20 text-[9px] font-sans font-bold text-emerald-400">
@@ -3039,7 +3431,7 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
                 </div>
                 <div className="flex justify-between items-center text-[11px] text-slate-400">
                   <span>المستفيد:</span>
-                  <span className="text-white font-bold">{siteName} 🐺</span>
+                  <span className="text-white font-bold">{siteName}</span>
                 </div>
                 <div className="pt-2 border-t border-blue-900/20 flex justify-between items-center">
                   <span className="text-xs font-black text-slate-300">مبلغ الفاتورة المطلوب دفعها:</span>
@@ -3070,7 +3462,7 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
                       addToast("🔒 تم التحقق المبدئي! جارِ إرسال رقم التأكيد الرقمي OTP...", "info");
                     }, 2200);
                   }}
-                  className="space-y-4"
+                  className="space-y-4 font-sans text-right"
                 >
                   <p className="text-[10px] text-slate-400 leading-relaxed font-semibold">
                     🔑 يرجى كتابة تفاصيل فيزا أو مدى أو ماستر كارد لإرسال الطلب لغرفة المقاصة والخصم التلقائي:
@@ -3098,7 +3490,6 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
                       onChange={(e) => {
                         let value = e.target.value.replace(/\D/g, "");
                         if (value.length > 16) value = value.slice(0, 16);
-                        // Add spaces every 4 digits
                         const formatted = value.replace(/(\d{4})(?=\d)/g, "$1 ");
                         setOnlineCardNumber(formatted);
                       }}
@@ -3177,7 +3568,6 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
                       type="submit"
                       className="col-span-2 bg-gradient-to-r from-emerald-500 to-teal-500 text-blue-950 font-black py-2.5 rounded-xl text-[11px] cursor-pointer text-center shadow-lg shadow-emerald-500/10 flex items-center justify-center gap-1.5"
                     >
-                      <CheckCircle2 className="w-3.5 h-3.5 text-blue-950" />
                       <span>دفع وتأكيد السداد الآمن 💳</span>
                     </button>
                   </div>
@@ -3186,7 +3576,7 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
 
               {/* SUBMITTING STATE: Transaction Loader */}
               {onlinePaymentProcessingState === "submitting" && (
-                <div className="py-8 text-center space-y-4 animate-pulse">
+                <div className="space-y-4 text-center animate-pulse">
                   <div className="w-12 h-12 border-4 border-t-transparent border-emerald-500 rounded-full animate-spin mx-auto"></div>
                   <div className="space-y-1.5">
                     <p className="text-xs font-black text-white">جاري توجيه طلب الخصم لشبكة المصرف والتحقق...</p>
