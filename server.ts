@@ -717,7 +717,7 @@ ${productListSummary}
 
       const clientToken = authHeader.split(" ")[1];
       // Handled with environment variables decrypted safely in Vercel
-      if (process.env.VERCEL_API_TOKEN && clientToken !== process.env.VERCEL_API_TOKEN) {
+      if (process.env.STORE_ROUTER_AUTH_TOKEN && clientToken !== process.env.STORE_ROUTER_AUTH_TOKEN) {
         return res.status(403).json({
           success: false,
           error: "رمز المصادقة المرفق غير صالح أو منتهي الصلاحية!"
