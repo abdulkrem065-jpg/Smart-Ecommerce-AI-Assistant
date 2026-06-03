@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Product, StoreCategory, CartSubOption } from '../types';
-import { Search, ShoppingBag, ShoppingCart, X, Sparkles, Check as CheckIcon, Plus as PlusIcon } from 'lucide-react';
+import { Search, ShoppingBag, ShoppingCart, X, Sparkles, Check as CheckIcon, Plus as PlusIcon, Mic, Languages } from 'lucide-react';
 import { isModuleEnabled } from '../core/moduleLoader';
 import { GameIdFeature } from '../modules/games_hyper/GameIdFeature';
 
@@ -386,6 +386,88 @@ export default function ProductCatalog({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
+  // --- Voice Search / Speech Recognition States & Logic ---
+  const [isListening, setIsListening] = useState(false);
+  const [voiceStatus, setVoiceStatus] = useState<string | null>(null);
+  const [voiceLang, setVoiceLang] = useState<'ar' | 'en'>(lang);
+
+  React.useEffect(() => {
+    setVoiceLang(lang);
+  }, [lang]);
+
+  const handleVoiceSearch = () => {
+    // @ts-ignore
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      setVoiceStatus(lang === 'en' 
+        ? "Voice search is not supported in this browser. Please use Chrome/Edge." 
+        : "البحث الصوتي غير مدعوم في هذا المتصفح. يرجى استخدام متصفح كروم أو إيدج."
+      );
+      return;
+    }
+
+    if (isListening) {
+      setIsListening(false);
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = voiceLang === 'en' ? 'en-US' : 'ar-YE';
+    recognition.continuous = false;
+    recognition.interimResults = false;
+
+    recognition.onstart = () => {
+      setIsListening(true);
+      setVoiceStatus(voiceLang === 'en' 
+        ? "Listening... Speak in English now 🎙️" 
+        : "جاري الاستماع... تحدث باللغة العربية الآن 🎙️"
+      );
+    };
+
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      if (transcript) {
+        setSearchQuery(transcript);
+        setVoiceStatus(voiceLang === 'en' 
+          ? `Searching for: "${transcript}"` 
+          : `تم التعرف على: "${transcript}"`
+        );
+      }
+    };
+
+    recognition.onerror = (event: any) => {
+      console.error("Speech Recognition Error", event.error);
+      if (event.error === 'not-allowed') {
+        setVoiceStatus(lang === 'en' 
+          ? "Microphone access denied. Please enable microphone permission in your browser." 
+          : "لم يتم السماح بالوصول للميكروفون. يرجى تفعيل إذن استخدام الميكروفون من إعدادات المتصفح."
+        );
+      } else if (event.error === 'no-speech') {
+        setVoiceStatus(lang === 'en' 
+          ? "No speech detected. Please try speaking again." 
+          : "لم يتم الكشف عن صوت بوضوح. يرجى المحاولة مرة أخرى."
+        );
+      } else {
+        setVoiceStatus(lang === 'en' 
+          ? `Speech error: ${event.error}` 
+          : `قناة الصوت: ${event.error}`
+        );
+      }
+      setIsListening(false);
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+    };
+
+    try {
+      recognition.start();
+    } catch (err) {
+      console.error(err);
+      setIsListening(false);
+    }
+  };
+
   const resolvePrice = (price: number) => {
     if (formatPrice) return formatPrice(price);
     return `${price.toFixed(1)} ريال`;
@@ -462,16 +544,21 @@ export default function ProductCatalog({
         
         {/* Search Input bar */}
         <div className="relative flex-1 max-w-xl flex flex-col gap-1.5">
-          <div className="relative w-full">
-            <span className={`absolute ${lang === 'en' ? 'left-4' : 'right-4'} top-3 text-slate-400`}>
+          <div className="relative w-full flex items-center">
+            <span className={`absolute ${lang === 'en' ? 'left-4' : 'right-4'} top-1/2 -translate-y-1/2 text-slate-400 z-10`}>
               <Search className="w-4 h-4" />
             </span>
             <input
               type="text"
               placeholder={lang === 'en' ? "Search for instant gaming top-ups, cards, spices or accessories..." : "ابحث عن شدات ببجي، تفعيل ألعاب، بهارات أو إلكترونيات..."}
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className={`w-full ${lang === 'en' ? 'pl-11 pr-10' : 'pl-10 pr-11'} py-2.5 bg-[#0b1329] border border-blue-900/60 rounded-xl text-base md:text-xs text-white placeholder:text-slate-550 outline-none focus:border-yellow-500/50 transition-all font-sans`}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                if (voiceStatus && !e.target.value) {
+                  setVoiceStatus(null);
+                }
+              }}
+              className={`w-full ${lang === 'en' ? 'pl-11 pr-28' : 'pl-28 pr-11'} py-2.5 bg-[#0b1329] border border-blue-900/60 rounded-xl text-base md:text-xs text-white placeholder:text-slate-550 outline-none focus:border-yellow-500/50 transition-all font-sans`}
               id="catalog-search-input"
               onFocus={(e) => {
                 setTimeout(() => {
@@ -479,18 +566,84 @@ export default function ProductCatalog({
                 }, 250);
               }}
             />
-            {searchQuery && (
+            {/* Absolute Controls inside Search (Clear and Mic Control) */}
+            <div className={`absolute ${lang === 'en' ? 'right-2' : 'left-2'} top-1/2 -translate-y-1/2 flex items-center gap-1.5 z-20`}>
+              {/* Language change indicator */}
               <button
                 type="button"
-                onClick={() => setSearchQuery('')}
-                className={`absolute ${lang === 'en' ? 'right-3' : 'left-3'} top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors cursor-pointer p-1`}
-                id="clear-search-btn"
-                title={lang === 'en' ? "Clear Search" : "مسح البحث"}
+                onClick={() => {
+                  setVoiceLang(prev => prev === 'ar' ? 'en' : 'ar');
+                  setVoiceStatus(null);
+                }}
+                className="bg-blue-950/60 text-[10px] font-black text-slate-350 border border-blue-900/40 px-2 py-1 rounded-lg hover:text-white hover:bg-blue-900/60 transition-all cursor-pointer"
+                title={lang === 'en' ? "Change speech input language" : "تغيير لغة البحث الصوتي"}
               >
-                <X className="w-3.5 h-3.5" />
+                {voiceLang === 'ar' ? 'العربية 🇸🇦' : 'English 🇺🇸'}
               </button>
-            )}
+
+              {/* Mic Icon Trigger */}
+              <button
+                type="button"
+                onClick={handleVoiceSearch}
+                className={`relative p-1.5 rounded-lg border transition-all cursor-pointer flex items-center justify-center ${
+                  isListening
+                    ? "bg-red-500/20 text-red-400 border-red-500/30 animate-pulse scale-105 shadow-[0_0_12px_rgba(239,68,68,0.3)]"
+                    : "bg-[#050917] hover:bg-blue-900/30 text-slate-350 border-blue-900/40 hover:text-white"
+                }`}
+                id="mic-search-btn"
+                title={lang === 'en' ? "Voice Search (Arabic/English)" : "البحث الصوتي (عربي/إنجليزي)"}
+              >
+                {isListening ? (
+                  <>
+                    <span className="absolute -top-1 -right-1 flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                    </span>
+                    <Mic className="w-4 h-4 text-red-400 animate-bounce" />
+                  </>
+                ) : (
+                  <Mic className="w-4 h-4" />
+                )}
+              </button>
+
+              {/* Clear field button if exists */}
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchQuery('');
+                    setVoiceStatus(null);
+                  }}
+                  className="p-1 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                  id="clear-search-btn"
+                  title={lang === 'en' ? "Clear Search" : "مسح البحث"}
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
           </div>
+
+          {/* Voice Prompt Status Banner */}
+          {voiceStatus && (
+            <div className={`p-2 text-xs rounded-lg border flex items-center justify-between gap-2.5 animate-slide-in font-sans ${
+              isListening 
+                ? "bg-red-500/5 text-red-400 border-red-500/10" 
+                : "bg-blue-950/30 text-slate-300 border-blue-900/20"
+            }`}>
+              <div className="flex items-center gap-2">
+                <span className={`w-1.5 h-1.5 rounded-full ${isListening ? 'bg-red-405 animate-pulse' : 'bg-blue-400'}`} />
+                <span className="font-extrabold text-[10px]">{voiceStatus}</span>
+              </div>
+              <button 
+                onClick={() => setVoiceStatus(null)}
+                className="text-[9px] text-slate-400 hover:text-white font-bold underline"
+              >
+                {lang === 'en' ? 'Close' : 'إغلاق'}
+              </button>
+            </div>
+          )}
+
           {searchQuery.trim() && (
             <div className="flex items-center justify-between text-[10px] text-yellow-405 bg-yellow-500/5 px-3 py-1.5 rounded-lg border border-yellow-500/15 animate-fade-in font-sans">
               <span className="flex items-center gap-1 font-extrabold text-[10px]">

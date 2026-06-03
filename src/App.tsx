@@ -576,12 +576,14 @@ export default function App() {
   const [createdOrderLink, setCreatedOrderLink] = useState("");
   const [isAnyInputFocused, setIsAnyInputFocused] = useState(false);
 
-  // Hidden Master Developer Control pathname check state & popstate listener
-  const [isMasterPath, setIsMasterPath] = useState(() => window.location.pathname === "/master-developer-control");
+  // Master SaaS Console v3 is defined as the central cloud nucleus of the application (Default View)
+  const [isMasterPath, setIsMasterPath] = useState(true);
 
   useEffect(() => {
     const handleLocationChange = () => {
-      setIsMasterPath(window.location.pathname === "/master-developer-control");
+      if (window.location.pathname === "/preview-store") {
+        setIsMasterPath(false);
+      }
     };
     window.addEventListener("popstate", handleLocationChange);
     return () => {
@@ -1775,6 +1777,20 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
                 Key: "adminPassword",
                 Type: "adminPassword",
                 Value: "1122",
+                Link_or_Status: "نشط"
+              });
+            } catch (e) {
+              console.error(e);
+            }
+          }}
+          onUpdateAdminPassword={(newPass) => {
+            setAdminPassword(newPass);
+            localStorage.setItem("store_admin_password", newPass);
+            try {
+              set(getNRef("settings/adminPassword"), {
+                Key: "adminPassword",
+                Type: "adminPassword",
+                Value: newPass,
                 Link_or_Status: "نشط"
               });
             } catch (e) {
@@ -3758,6 +3774,16 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
               className="px-2.5 py-1 bg-yellow-500/10 hover:bg-yellow-500/25 text-yellow-500 hover:text-yellow-400 border border-yellow-500/20 rounded-xl transition-all cursor-pointer font-bold inline-flex items-center gap-1"
             >
               <span>لوحة الإدارة الفنية والتحكم 🔐</span>
+            </button>
+            <span>•</span>
+            <button
+              onClick={() => {
+                setIsMasterPath(true);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              className="px-2.5 py-1 bg-purple-500/10 hover:bg-purple-500/25 text-purple-400 hover:text-purple-350 border border-purple-500/20 rounded-xl transition-all cursor-pointer font-bold inline-flex items-center gap-1"
+            >
+              <span>منصة السيطرة السحابية SaaS V3 💻</span>
             </button>
           </div>
         </div>

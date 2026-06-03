@@ -1,6 +1,6 @@
 {
   "name": "Smart E-Commerce & AI Assistant",
   "description": "منصة متجر متكاملة تدعم القوالب البيئية المخصصة (صيدلية، ألعاب، بقالة، مدارس، هايبرماركت شامل) مع لوحة تحكم ذكية متكيفة مع العتاد ومساعد ذكي للتواصل.",
-  "requestFramePermissions": [],
+  "requestFramePermissions": ["microphone"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
