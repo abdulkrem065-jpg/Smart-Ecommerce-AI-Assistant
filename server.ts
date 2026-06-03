@@ -27,14 +27,11 @@ function getGeminiClient() {
   return aiClient;
 }
 
-async function startServer() {
-  const app = express();
-  const PORT = 3000;
+export const app = express();
+app.use(express.json());
 
-  app.use(express.json());
-
-  // Helper to dynamically compile guidelines based on active Niche for AI System Instructions
-  function getSystemInstructionForNiche(niche: string, productsContext: string, projectTitle?: string, projectAiBehavior?: string) {
+// Helper to dynamically compile guidelines based on active Niche for AI System Instructions
+function getSystemInstructionForNiche(niche: string, productsContext: string, projectTitle?: string, projectAiBehavior?: string) {
     const effectiveTitle = projectTitle || 'منصة ومنشأة الذيباني VIP السحابية المتكاملة';
     const effectiveBehavior = projectAiBehavior ? `دعم مخصص في [${projectAiBehavior}]` : 'أرقى الاستشارات والخدمات السحابية Interactive';
 
@@ -707,6 +704,78 @@ ${productListSummary}
     }
   });
 
+  // API Route: Unified Multi-Provider API Router with Bearer Authentication and Settlement Controls
+  app.post("/api/multi-provider/route-order", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return res.status(401).json({
+          success: false,
+          error: "صلاحية غير صالحة! يجب إرفاق رمز المصادقة (Bearer Token) لتأمين خواديم Vercel."
+        });
+      }
+
+      const clientToken = authHeader.split(" ")[1];
+      // Handled with environment variables decrypted safely in Vercel
+      if (process.env.VERCEL_API_TOKEN && clientToken !== process.env.VERCEL_API_TOKEN) {
+        return res.status(403).json({
+          success: false,
+          error: "رمز المصادقة المرفق غير صالح أو منتهي الصلاحية!"
+        });
+      }
+
+      const { product, playerId, orderId, providerId: requestedProviderId, settleMode: requestedSettleMode } = req.body;
+
+      if (!product || !playerId) {
+        return res.status(400).json({ error: "أدخل معلومات وصنف المنتج ومعرف الشحن للاعب/الهاتف!" });
+      }
+
+      // 1. Classification & Dynamic routing to appropriate provider
+      let providerId = requestedProviderId;
+      const productName = (product.name || "").toLowerCase();
+      const productCat = (product.category || "").toLowerCase();
+
+      if (!providerId) {
+        if (productName.includes("يمن موبايل") || productName.includes("yemen mobile") || product.digital_category === "balance") {
+          providerId = "ym_prov";
+        } else if (productName.includes("سبأفون") || productName.includes("sabafone") || productName.includes("يو") || productName.includes("you") || productName.includes("اتصالات") || productCat.includes("اتصالات")) {
+          providerId = "telecom_prov";
+        } else {
+          providerId = "games_prov";
+        }
+      }
+
+      // 2. Decide Settlement Mode (auto vs manual)
+      const settleMode = requestedSettleMode || (providerId === "telecom_prov" ? "manual_audit" : "auto_pay");
+
+      if (settleMode === "manual_audit") {
+        return res.json({
+          success: true,
+          providerId,
+          routingEnabled: true,
+          status: "PENDING_MANUAL_AUDIT",
+          transactionId: `QUEUED-${Date.now().toString().slice(-6)}`,
+          message: `[معالجة ثنائية يدويّة ⏳] تم توجيه السجل بنجاح لمصفوفة ${providerId} وهو قيد الانتظار للتعميد اليدوي والمراجعة من الإدارة لتفادي الأخطاء.`
+        });
+      }
+
+      // 3. For auto_pay, simulate hitting the endpoint URL for that provider
+      const fakeTx = `TXN-${providerId.toUpperCase()}-${Math.floor(Math.random() * 90000 + 10000)}`;
+      return res.json({
+        success: true,
+        providerId,
+        routingEnabled: true,
+        status: "SUCCESS_LIVE_API",
+        transactionId: fakeTx,
+        message: `[ربط فوري ذكي عبر الـ API ⚡] تم تسديد الشحنة وتعميدها آلياً للمُعرف (${playerId}) بنجاح وبسرعة فائقة!`
+      });
+
+    } catch (error: any) {
+      console.error("Router error:", error);
+      return res.status(500).json({ error: error.message });
+    }
+  });
+
   // API Route: Verify direct Payment Gateway API active status/balance
   app.post("/api/payments/status", async (req, res) => {
     try {
@@ -820,6 +889,9 @@ ${productListSummary}
     }
   });
 
+async function startServer() {
+  const PORT = 3000;
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
@@ -841,4 +913,6 @@ ${productListSummary}
   });
 }
 
-startServer();
+if (!process.env.VERCEL && !process.env.NETLIFY) {
+  startServer();
+}

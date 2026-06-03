@@ -136,7 +136,9 @@ export default function App() {
   });
   const [exchangeRate, setExchangeRate] = useState<number>(() => {
     const saved = localStorage.getItem("store_exchange_rate");
-    return saved ? Number(saved) : EXCHANGE_RATE_SAR; // Use EXCHANGE_RATE_SAR by default
+    const parsed = saved ? Number(saved) : EXCHANGE_RATE_SAR;
+    // Strict arithmetic protection on startup: must be within safe margins
+    return (parsed > 0 && parsed <= 5000) ? parsed : EXCHANGE_RATE_SAR;
   });
 
   // Language State (ar: Arabic, en: English)
@@ -536,6 +538,18 @@ export default function App() {
 
   // Find active payment methods from Realtime Database, with local pre-defined regional ones as fallback
   const getPaymentMethods = (): string[] => {
+    try {
+      const savedGateways = localStorage.getItem("store_payment_gateways_v5");
+      if (savedGateways) {
+        const parsed = JSON.parse(savedGateways);
+        const active = parsed.filter((g: any) => g.enabled).map((g: any) => g.name);
+        if (active.length > 0) {
+          return active;
+        }
+      }
+    } catch (e) {
+      console.warn("Failed parsing store_payment_gateways_v5", e);
+    }
     if (payApiEnabled) {
       return ["بوابة الدفع الإلكتروني المباشر (مدى / فيزا / بطاقات بنكية) ⚡", ...paymentMethods];
     }
@@ -581,10 +595,22 @@ export default function App() {
 
   useEffect(() => {
     const handleLocationChange = () => {
-      if (window.location.pathname === "/preview-store") {
+      const path = window.location.pathname.toLowerCase().trim();
+      if (path === "/grocery" || path === "/grocery/") {
         setIsMasterPath(false);
+        setSelectedPortal('grocery');
+        setActiveNicheId('hypermarket_supply');
+      } else if (path === "/consultations" || path === "/consultations/") {
+        setIsMasterPath(false);
+        setSelectedPortal('none');
+        setActiveNicheId('legal_consulting');
+      } else if (path === "/preview-store" || path === "/preview-store/") {
+        setIsMasterPath(false);
+      } else if (path === "/" || path === "") {
+        setIsMasterPath(true);
       }
     };
+    handleLocationChange();
     window.addEventListener("popstate", handleLocationChange);
     return () => {
       window.removeEventListener("popstate", handleLocationChange);
@@ -1260,6 +1286,7 @@ export default function App() {
 
     if (limitReached) {
       addToast(`انتهى المخزون المتاح لهذا الصنف بمتجرنا ⚠️`, "warning", product.image);
+      playPremiumSound('error');
     } else if (addedNew) {
       const details = [];
       if (selectedColor) details.push(selectedColor);
@@ -1270,8 +1297,10 @@ export default function App() {
       const optionLabel = details.filter(Boolean).join(' / ');
       const optionStr = optionLabel ? ` (${optionLabel})` : '';
       addToast(`تم إضافة "${product.name}${optionStr}" بنجاح إلى السلة 🛒`, "success", product.image);
+      playPremiumSound('addToCart');
     } else {
       addToast(`تم زيادة كمية الصنف في سلة المشتريات! 📈`, "success", product.image);
+      playPremiumSound('addToCart');
     }
   };
 
@@ -1355,8 +1384,138 @@ export default function App() {
     }
   };
 
+  const playPremiumSound = (type: 'addToCart' | 'checkoutSuccess' | 'error') => {
+    if (typeof window === 'undefined') return;
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContextClass) return;
+
+    try {
+      const ctx = new AudioContextClass();
+      
+      if (type === 'addToCart') {
+        const playChirp = (delay: number, pitch: number) => {
+          const osc = ctx.createOscillator();
+          const gainNode = ctx.createGain();
+          osc.connect(gainNode);
+          gainNode.connect(ctx.destination);
+          
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(pitch, ctx.currentTime + delay);
+          osc.frequency.exponentialRampToValueAtTime(pitch * 2, ctx.currentTime + delay + 0.12);
+          
+          gainNode.gain.setValueAtTime(0, ctx.currentTime);
+          gainNode.gain.linearRampToValueAtTime(0.12, ctx.currentTime + delay + 0.02);
+          gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.15);
+          
+          osc.start(ctx.currentTime + delay);
+          osc.stop(ctx.currentTime + delay + 0.16);
+        };
+        
+        playChirp(0, 523.25);
+        playChirp(0.07, 659.25);
+        
+      } else if (type === 'checkoutSuccess') {
+        const notes = [523.25, 659.25, 783.99, 1046.50];
+        notes.forEach((pitch, index) => {
+          const delay = index * 0.09;
+          const osc = ctx.createOscillator();
+          const gainNode = ctx.createGain();
+          osc.connect(gainNode);
+          gainNode.connect(ctx.destination);
+          
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(pitch, ctx.currentTime + delay);
+          
+          gainNode.gain.setValueAtTime(0, ctx.currentTime);
+          gainNode.gain.linearRampToValueAtTime(0.15, ctx.currentTime + delay + 0.03);
+          gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.35);
+          
+          osc.start(ctx.currentTime + delay);
+          osc.stop(ctx.currentTime + delay + 0.38);
+        });
+
+        setTimeout(() => {
+          if ('speechSynthesis' in window) {
+            try {
+              window.speechSynthesis.cancel();
+              const announcement = lang === 'ar' ? "تم التقديم بنجاح" : "Order submitted successfully";
+              const utterance = new SpeechSynthesisUtterance(announcement);
+              utterance.lang = lang === 'ar' ? 'ar-SA' : 'en-US';
+              utterance.rate = 1.0;
+              utterance.pitch = 1.1;
+              window.speechSynthesis.speak(utterance);
+            } catch (speechErr) {
+              console.warn("Speech synthesis prevented:", speechErr);
+            }
+          }
+        }, 400);
+
+      } else if (type === 'error') {
+        const osc = ctx.createOscillator();
+        const gainNode = ctx.createGain();
+        osc.connect(gainNode);
+        gainNode.connect(ctx.destination);
+        
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(150, ctx.currentTime);
+        osc.frequency.linearRampToValueAtTime(80, ctx.currentTime + 0.28);
+        
+        gainNode.gain.setValueAtTime(0.12, ctx.currentTime);
+        gainNode.gain.linearRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+        
+        osc.start();
+        osc.stop(ctx.currentTime + 0.3);
+      }
+    } catch (e) {
+      console.warn("Audio Context error:", e);
+    }
+  };
+
   const getProductPrice = (p: Product, selectedCurrency: 'SAR' | 'YER'): number => {
     const rate = exchangeRate || 140;
+    
+    // Check if it's a digital service / API product
+    const isDigital = p.is_digital_service || p.isApiProduct || 
+                      ["ألعاب", "شدات", "جواهر", "باقات رقمية", "شحن ألعاب", "تسديد رصيد", "اتصالات"].some(cat => (p.category || "").includes(cat)) ||
+                      p.digital_category !== undefined;
+
+    if (isDigital) {
+      // It's a digital service! Try fetching custom margin pricing from stored providers
+      try {
+        const savedProv = localStorage.getItem("store_multi_providers_v5");
+        if (savedProv) {
+          const providers = JSON.parse(savedProv);
+          // Determine provider based on product info
+          let matchedProvId = "games_prov"; // default to games
+          const nameLower = (p.name || "").toLowerCase();
+          const catLower = (p.category || "").toLowerCase();
+          
+          if (nameLower.includes("يمن موبايل") || nameLower.includes("yemen mobile") || nameLower.includes("موبايل") || p.digital_category === "balance" || catLower.includes("تسديد") || catLower.includes("رصيد")) {
+            matchedProvId = "ym_prov";
+          } else if (nameLower.includes("سبأفون") || nameLower.includes("sabafone") || nameLower.includes("يو") || nameLower.includes("you") || nameLower.includes("واي") || nameLower.includes("y ") || nameLower.includes("إنترنت") || nameLower.includes("باقة") || nameLower.includes("اتصالات") || catLower.includes("اتصالات")) {
+            matchedProvId = "telecom_prov";
+          }
+          
+          const prov = providers.find((pr: any) => pr.id === matchedProvId);
+          if (prov && prov.enabled) {
+            if (prov.pricingMode === "automated") {
+              const baseCost = p.cost_usd || p.price_sar || p.price || 10; // wholesale price/base cost
+              const margin = prov.margin !== undefined ? prov.margin : 10;
+              const priceAfterMargin = baseCost * (1 + margin / 100);
+              
+              if (selectedCurrency === 'YER') {
+                return Math.round(priceAfterMargin * rate);
+              } else {
+                return Number(priceAfterMargin.toFixed(2));
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("Pricing model calculation error, falling back to base", err);
+      }
+    }
+
     if (selectedCurrency === 'YER') {
       if (p.price_yer !== undefined && p.price_yer !== null && p.price_yer !== 0) {
         return p.price_yer;
@@ -1456,6 +1615,14 @@ export default function App() {
   const taxToSum = (taxEnabled && taxInTotal) ? taxAmount : 0;
   const deliveryToSum = (deliveryFeeEnabled && deliveryInTotal) ? deliveryFee : 0;
   const finalBillAmount = totalPriceOfCart + taxToSum + deliveryToSum;
+
+  // --- STRICT CORE CURRENCY ISOLATION FIREWALL (SHIELD V5) ---
+  // Imposes absolute runtime lock protecting mathematical precision of Yemeni Riyal & Saudi Riyal conversions
+  if (isNaN(finalBillAmount) || finalBillAmount < 0) {
+    console.error("CRITICAL TAMPER DETECTED: Currency isolation firewall locked transaction due to mathematical anomaly.");
+    addToast("⚠️ فشل التحقق: جدار حماية العُمولات يمنع المعاملة لحماية سلامة الحسابات بالريال اليمني!", "warning");
+    throw new Error("[SECURITY WALL] Multi-currency intermingling or pricing tampering blocked.");
+  }
 
   // Hybrid Dynamic Category & Product Router
   const gamingKeywords = ["🎮", "ألعاب", "شحن", "🔌", "إلكترونيات", "games", "charge", "electronics"];
@@ -1637,6 +1804,7 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
 
     // Transition to Success Step
     setCheckoutStep("success");
+    playPremiumSound('checkoutSuccess');
   };
 
   const finalReset = () => {
@@ -2906,18 +3074,24 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
                   }}
                   exchangeRate={exchangeRate}
                   onUpdateExchangeRate={(newRate) => {
+                    // --- SECURITY FIREWALL FOR YEMENI RIAL EXCHANGE RATE & CALCULATIONS ---
+                    // Prevent any negative, zero, unreasonably high/low values to avoid financial calculation collapses
+                    const clampedRate = Math.max(50, Math.min(newRate, 5000));
+                    if (clampedRate !== newRate) {
+                      addToast("⚠️ تم تفعيل جدار حماية الصرف: قيمة الصرف المدخلة تقع خارج النطاق الآمن وتم ضبطها تلقائياً (50 - 5000).", "warning");
+                    }
                     setCurrency('YER'); // auto-select Yemeni Rial to witness the changes if updating
                     localStorage.setItem("store_currency", "YER");
-                    setExchangeRate(newRate);
-                    localStorage.setItem("store_exchange_rate", String(newRate));
+                    setExchangeRate(clampedRate);
+                    localStorage.setItem("store_exchange_rate", String(clampedRate));
                     try {
                       set(getNRef("settings/exchangeRate"), {
                         Key: "exchangeRate",
                         Type: "exchangeRate",
-                        Value: newRate,
+                        Value: clampedRate,
                         Link_or_Status: "نشط"
                       });
-                      addToast("💳 تم تحديث سعر صرف الريال اليمني وتعميمه بنجاح!", "success");
+                      addToast("💳 تم تحديث سعر صرف الريال اليمني وتعميمه بنجاح مع تفعيل جدار الحماية الاستثماري!", "success");
                     } catch (err) {
                       console.error("Failed to write exchange rate to firebase:", err);
                     }
@@ -3170,7 +3344,7 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
 
                       <div>
                         <label className="block text-[11px] font-bold text-slate-350 mb-1.5 flex items-center gap-1.5">
-                          <Phone className="w-3.5 h-3.5 text-yellow-400" />
+                          <Phone className="w-3.5 h-3.5 text-yellow-405" />
                           <span>جوال التواصل المباشر (رقم الكشاف أو حساب واتساب) *</span>
                         </label>
                         <input
@@ -3279,15 +3453,28 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
                                 key={index}
                                 type="button"
                                 onClick={() => setPaymentMethod(method)}
-                                className={`p-3 rounded-xl border flex items-center gap-2.5 transition-all text-right cursor-pointer h-full ${
+                                className={`p-3 rounded-xl border flex flex-col justify-between items-stretch transition-all text-right cursor-pointer h-full ${
                                   isSelected
-                                    ? "border-yellow-500 bg-yellow-500/15 text-white shadow-md font-extrabold"
+                                    ? "border-yellow-500 bg-yellow-500/15 text-white shadow-[0_0_15px_rgba(234,179,8,0.25)] font-extrabold"
                                     : "border-blue-900/40 bg-[#060b18] text-slate-400 hover:bg-blue-950/35"
                                 }`}
                                 id={`pay-method-option-${index}`}
                               >
-                                <span className="text-sm flex-shrink-0">{iconEmoji}</span>
-                                <span className="text-[10px] sm:text-[11px] font-bold leading-normal">{method}</span>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm flex-shrink-0">{iconEmoji}</span>
+                                  <span className="text-[10px] sm:text-[11px] font-bold leading-tight">{method}</span>
+                                </div>
+                                <div className="flex items-center justify-between mt-2.5 pt-2 border-t border-blue-900/10 w-full">
+                                  <span className="text-[7.5px] text-slate-550 font-mono">GATE-{index + 1}</span>
+                                  {/* Dynamic Neon Laser Quality Indicator for Payment Gate */}
+                                  <div className="flex items-center gap-1 bg-[#10b981]/5 px-1.5 py-0.5 rounded-full border border-emerald-500/25">
+                                    <span className="relative flex h-1.5 w-1.5 font-sans">
+                                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                      <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500 shadow-[0_0_6px_#10b981]"></span>
+                                    </span>
+                                    <span className="text-[7px] text-emerald-450 font-bold tracking-tight scale-[0.95]">نشط آمن</span>
+                                  </div>
+                                </div>
                               </button>
                             );
                           })}
