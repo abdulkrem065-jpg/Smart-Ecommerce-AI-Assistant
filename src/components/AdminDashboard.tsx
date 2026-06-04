@@ -471,10 +471,13 @@ export default function AdminDashboard({
     localStorage.setItem("store_payment_gateways_v5", JSON.stringify(paymentGateways));
     // Synced with parent payment list
     const activeMethods = paymentGateways.filter(g => g.enabled).map(g => g.name);
-    if (activeMethods.length > 0) {
+    const isDifferent = activeMethods.length !== paymentMethods.length ||
+      activeMethods.some((m, idx) => m !== paymentMethods[idx]);
+
+    if (isDifferent && activeMethods.length > 0) {
       onUpdatePaymentMethods(activeMethods);
     }
-  }, [paymentGateways, onUpdatePaymentMethods]);
+  }, [paymentGateways, paymentMethods, onUpdatePaymentMethods]);
 
   // Settle local states in sync when props loaded
   React.useEffect(() => {

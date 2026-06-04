@@ -17,7 +17,7 @@ export interface Product {
   isApiProduct?: boolean;
   apiProductId?: string;
   apiRequiredField?: string;
-  apiProvider?: 'likecard' | 'cardstore' | 'smm' | 'custom';
+  apiProvider?: 'likecard' | 'cardstore' | 'smm' | 'custom' | 'etisalatonline';
   cost_usd?: number;
   profit_margin_usd?: number;
   is_digital_service?: boolean;

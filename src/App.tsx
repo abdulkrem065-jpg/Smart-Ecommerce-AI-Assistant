@@ -2115,11 +2115,18 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
             setCurrentTab("store");
             handleLogoClick();
           }} id="brand-logo-panel" title="بوابة الإدارة انقر 5 مرات متتالية">
-            <div className={`bg-gradient-to-tr from-yellow-500 via-amber-500 to-yellow-600 text-blue-950 p-1.5 rounded-2xl shadow-lg border border-yellow-400 font-extrabold items-center justify-center transform hover:rotate-3 transition-all duration-300 overflow-hidden ${isAnyInputFocused ? 'hidden md:flex w-10 h-10' : 'flex w-13 h-13'}`}>
+            <div className={`bg-gradient-to-tr from-yellow-500 via-[#111a2f] to-yellow-600 text-blue-950 p-1.5 rounded-2xl shadow-lg border border-yellow-400 font-extrabold items-center justify-center transform hover:rotate-3 transition-all duration-300 overflow-hidden ${isAnyInputFocused ? 'hidden md:flex w-10 h-10' : 'flex w-13 h-13'}`}>
               {logoUrl ? (
                 <img src={logoUrl} alt="الذيباني" referrerPolicy="no-referrer" className="w-full h-full object-cover rounded-xl" />
               ) : (
-                <span className="text-xl">🐺</span>
+                <span className="text-xl">
+                  {activeNicheId === 'smart_pharmacy' ? '🧪' :
+                   activeNicheId === 'luxury_tailoring' ? '🪡' :
+                   activeNicheId === 'hyper_games' || activeNicheId === 'game' ? '🎮' :
+                   activeNicheId === 'hypermarket_supply' || activeNicheId === 'supermarket' ? '🌟' :
+                   activeNicheId === 'school' ? '🏫' :
+                   activeNicheId === 'legal_consulting' ? '⚖️' : '🐺'}
+                </span>
               )}
             </div>
             <div className="text-right">

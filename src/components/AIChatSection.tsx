@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Message, Product } from '../types';
-import { Send, Bot, Sparkles, User, RefreshCw, Cpu, AlertCircle, Trash2 } from 'lucide-react';
+import { Send, Bot, Sparkles, User, RefreshCw, Cpu, AlertCircle, Trash2, Volume2, VolumeX, Mic, MicOff } from 'lucide-react';
 
 interface AIChatSectionProps {
   products: Product[];
@@ -8,6 +8,26 @@ interface AIChatSectionProps {
 }
 
 export default function AIChatSection({ products, activeNicheId = "game" }: AIChatSectionProps) {
+  // TTS (Text-to-Speech) & STT (Speech-to-Text) Audio states
+  const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null);
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef<any>(null);
+
+  // Dynamic Yemen network-specific or general niche key standardizer
+  const resolveNicheKey = (id: string): string => {
+    const clean = id.toLowerCase().trim();
+    if (clean.includes('pharmacy') || clean.includes('medicine')) return 'pharmacy';
+    if (clean.includes('tailor')) return 'tailor';
+    if (clean.includes('game') || clean.includes('charge')) return 'game';
+    if (clean.includes('school') || clean.includes('education')) return 'school';
+    if (clean.includes('legal') || clean.includes('law')) return 'legal';
+    if (clean.includes('consulting') || clean.includes('corporate')) return 'consulting';
+    if (clean.includes('supermarket') || clean.includes('grocery') || clean.includes('hyper')) return 'supermarket';
+    return clean;
+  };
+
+  const currentResolvedNiche = resolveNicheKey(activeNicheId);
+
   // Support fully customizable dynamic titles & behaviors from localStorage
   const [editableNiches, setEditableNiches] = useState<any[]>(() => {
     if (typeof window === 'undefined') return [];
@@ -51,18 +71,19 @@ export default function AIChatSection({ products, activeNicheId = "game" }: AICh
       return `مرحباً بك ${displayName} في ${activeConf.name}! 👑 أنا مستشارك الذكي المخصص لـ [${activeConf.aiBehavior || 'أرقى الاستشارات والخدمات السحابية Interactive'}]. اسألني عن أي تفاصيل أو أي تساؤل علمي أو إداري أو استشاري عام - وسأجيبك فوراً وبكل ودية وسرور تليق بعميل VIP! ✨`;
     }
 
-    switch (niche) {
+    const resolved = resolveNicheKey(niche);
+
+    switch (resolved) {
       case 'pharmacy':
-      case 'smart_pharmacy':
         return `مرحباً بك ${displayName} في الصيدلية ومخازن الرعاية الطبية! 💊🧪 أنا مستشارك الطبي والدوائي الذكي. اسألني عن استخدامات ووصفات الفيتامينات والمكملات والأجهزة الطبية المتوفرة، أو أي تساؤل صحي عام - وأنا دائماً في خدمتك بكفاءة ورعاية تامة. 🩺✨`;
       case 'tailor':
-      case 'luxury_tailoring':
         return `مرحباً بك ${displayName} في دار الخياطة وتصميم الأزياء الراقية! 🪡🧵 أنا مستشارك الذكي المتخصص في تفصيل الملابس، اقتراح أحدث الموديلات، ونمذجة المقاسات المثالية لك. تفضل بطلب تصميم أو استشارة، وسأقوم بجدولتها لكم فوراً. 👑👕`;
       case 'game':
-      case 'hyper_games':
         return `مرحباً بك دكتور ${displayName} في بوابة شحن الألعاب الفورية والاتصالات! 🎮⚡ أنا مستشارك التقني الذكي لشحن جواهر فري فاير، شدات ببجي، بطاقات الهدايا، وباقات الإنترنت. اسألني عن عروض الشحن التلقائي، أسعار البطاقات، أو كيفية تفعيل البوابة وسأجيبك فوراً! 🔫💳`;
       case 'school':
         return `مرحباً بك ${displayName} في المنظومة التعليمية والأكاديمية! 🏫📚 أنا موجهك الدراسي ومعلمك الذكي لمراجعة المواد وصياغة التحديات التفاعلية وبث الدافعية والنشاط. تفضل بطرح مسألتك أو طلب كويز سريع! 🎓✨`;
+      case 'supermarket':
+        return `مرحباً بك ${displayName} في الهايبر الهجين المتكامل ومستودعات الذيباني VIP! 🛒⚡ أنا مستشارك الفني ومسؤول الفواتير الذكي. تفضل بالسؤال عن السلع والمواد الغذائية الفاخرة 🌾، الأجهزة الإلكترونية وملحقات الشبكات 🔌، شحن باقات وشدات الألعاب الكودية والمباشرة 🎮، أو كروت رصيد اتصالات وفواتير يمن موبايل الفورية 📱. سأوضح لك مستويات المخزون والأسعار بالريال اليمني والدفع الذكي بنقرة واحدة! 💳⚙️`;
       default:
         return `مرحباً بك ${displayName} في منصة مستشاري الذكي لمجموعة الذيباني! 🌐✨ كيف يمكنني تقديم المساعدة الفورية أو الاستشارية في كافة الفروع اليوم؟`;
     }
@@ -283,13 +304,84 @@ export default function AIChatSection({ products, activeNicheId = "game" }: AICh
     }
   };
 
-  const rawTheme = getThemeConfig(activeNicheId);
+  const handleSpeak = (text: string, msgId: string) => {
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      if (speakingMessageId === msgId) {
+        window.speechSynthesis.cancel();
+        setSpeakingMessageId(null);
+      } else {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(text.replace(/[*#]/g, ''));
+        utterance.lang = 'ar-YE'; // Yemen-localized Arabic voice
+        utterance.rate = 1.05;
+        utterance.onend = () => setSpeakingMessageId(null);
+        utterance.onerror = () => setSpeakingMessageId(null);
+        setSpeakingMessageId(msgId);
+        window.speechSynthesis.speak(utterance);
+      }
+    }
+  };
+
+  const handleToggleListen = () => {
+    if (typeof window === 'undefined') return;
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert("عذراً، متصفحك الحالي لا يدعم ميزة الإدخال الصوتي.");
+      return;
+    }
+
+    if (isListening) {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
+      setIsListening(false);
+    } else {
+      setIsListening(true);
+      const recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.lang = 'ar-YE'; // Yemeni Arabic dialect localized
+
+      recognition.onresult = (event: any) => {
+        const speechToText = event.results[0][0].transcript;
+        if (speechToText) {
+          setInputValue((prev) => (prev ? prev + ' ' + speechToText : speechToText));
+        }
+      };
+
+      recognition.onend = () => {
+        setIsListening(false);
+      };
+
+      recognition.onerror = (err: any) => {
+        console.warn("Speech recognition error:", err);
+        setIsListening(false);
+      };
+
+      recognitionRef.current = recognition;
+      recognition.start();
+    }
+  };
+
+  // Cleanup speechSynthesis and SpeechRecognition on unmount
+  useEffect(() => {
+    return () => {
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
+    };
+  }, []);
+
+  const rawTheme = getThemeConfig(currentResolvedNiche);
   const theme = {
     ...rawTheme,
     title: activeConf?.name || rawTheme.title,
     subtitle: activeConf?.subtitle || rawTheme.subtitle
   };
-  const suggestionPrompts = getDynamicSuggestions(activeNicheId);
+  const suggestionPrompts = getDynamicSuggestions(currentResolvedNiche);
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
@@ -305,11 +397,11 @@ export default function AIChatSection({ products, activeNicheId = "game" }: AICh
       {
         id: 'welcome',
         sender: 'ai',
-        text: getInitialWelcomeMessage(customerName, activeNicheId),
+        text: getInitialWelcomeMessage(customerName, currentResolvedNiche),
         timestamp: new Date()
       }
     ]);
-  }, [customerName, activeNicheId]);
+  }, [customerName, currentResolvedNiche]);
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -457,13 +549,28 @@ export default function AIChatSection({ products, activeNicheId = "game" }: AICh
                 {isUser ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
               </div>
 
-              <div className="space-y-1 font-sans text-right">
-                <div className={`p-3 rounded-2xl whitespace-pre-wrap text-xs md:text-sm leading-relaxed shadow-sm transition-all ${
+              <div className="space-y-1 font-sans text-right relative group">
+                <div className={`p-3 rounded-2xl whitespace-pre-wrap text-xs md:text-sm leading-relaxed shadow-sm transition-all relative pr-3 pl-8 pb-4 ${
                   isUser 
                     ? `${theme.userBubble} rounded-tr-none font-semibold text-right` 
                     : `${theme.aiBubble} rounded-tl-none font-medium text-right`
                 }`}>
                   {m.text}
+
+                  {/* Speak volume button - Only for AI messages */}
+                  {!isUser && (
+                    <button
+                      onClick={() => handleSpeak(m.text, m.id)}
+                      className="absolute left-2 bottom-1.5 p-1 rounded-md bg-black/40 hover:bg-black/60 text-slate-300 hover:text-white transition-all cursor-pointer flex items-center justify-center border border-white/5 opacity-80 md:opacity-0 group-hover:opacity-100 focus:opacity-100"
+                      title={speakingMessageId === m.id ? "إيقاف الصوت" : "تشغيل نطق الرسالة"}
+                    >
+                      {speakingMessageId === m.id ? (
+                        <VolumeX className="w-3.5 h-3.5 text-yellow-400 animate-pulse" />
+                      ) : (
+                        <Volume2 className="w-3.5 h-3.5" />
+                      )}
+                    </button>
+                  )}
                 </div>
                 <div className={`text-[9px] text-slate-500 px-1 font-mono ${isUser ? 'text-left' : 'text-right'}`}>
                   {m.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -556,6 +663,28 @@ export default function AIChatSection({ products, activeNicheId = "game" }: AICh
               }, 220);
             }}
           />
+
+          {/* Microphone dictate STT Button */}
+          {!waitingForName && (
+            <button
+              type="button"
+              onClick={handleToggleListen}
+              disabled={isSending}
+              className={`p-2 rounded-lg transition-all flexitems-center justify-center cursor-pointer ${
+                isListening 
+                  ? 'bg-red-500 text-white animate-pulse' 
+                  : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-white'
+              }`}
+              title={isListening ? "إيقاف الاستماع الصوتي" : "تحدث لإدخال رسالة صوتياً (STT)"}
+              id="voice-mic-btn"
+            >
+              {isListening ? (
+                <MicOff className="w-3.5 h-3.5" />
+              ) : (
+                <Mic className="w-3.5 h-3.5" />
+              )}
+            </button>
+          )}
 
           <button
             type="submit"
