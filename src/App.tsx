@@ -1979,6 +1979,17 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
             window.history.pushState({}, "", "/");
             setIsMasterPath(false);
           }}
+          onDeveloperLogin={(session) => {
+            setAdminSession(session);
+            setIsAdminLoggedIn(true);
+            sessionStorage.setItem("is_admin_vip_logged", "true");
+            sessionStorage.setItem("store_admin_session", JSON.stringify(session));
+          }}
+          onGoToAdmin={() => {
+            window.history.pushState({}, "", "/");
+            setIsMasterPath(false);
+            setCurrentTab("admin");
+          }}
         />
         {/* Render Toast Notifications container to ensure toasts work in developer panel */}
         <div className="fixed bottom-5 left-5 z-50 flex flex-col gap-2 pointer-events-none" id="developer-toasts-root">
@@ -2027,6 +2038,14 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
             </p>
           </div>
           <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+            <button
+              onClick={() => {
+                setIsMasterPath(true);
+              }}
+              className="bg-purple-900/60 hover:bg-purple-800/80 hover:text-white border border-purple-500/50 text-[10px] text-purple-200 font-extrabold px-3 py-1 rounded-xl transition-all cursor-pointer select-none"
+            >
+              🔁 بوابة المطور السحابية (SaaS Console)
+            </button>
             <label className="text-[10px] text-purple-200 font-bold whitespace-nowrap">التحول السريع لقوالب المشاريع:</label>
             <select
               value={activeNicheId}
@@ -2242,23 +2261,21 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
               </span>
             </button>
 
-            {isAdminLoggedIn && (
-              <button
-                onClick={() => setCurrentTab("admin")}
-                className={`flex-1 md:flex-none px-2.5 sm:px-4 py-2 rounded-xl text-[11px] sm:text-xs md:text-sm font-black flex items-center justify-center gap-1.5 transition-all cursor-pointer whitespace-nowrap select-none ${
-                  currentTab === "admin"
-                    ? "bg-gradient-to-r from-yellow-500 to-amber-500 text-blue-950 shadow-lg font-extrabold"
-                    : "text-slate-405 hover:text-white"
-                }`}
-                id="nav-admin-btn"
-              >
-                <Settings className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-yellow-405 animate-spin duration-[10000ms] shrink-0" />
-                <span>
-                  <span className="inline md:hidden">{lang === 'en' ? 'Admin' : 'الإدارة'}</span>
-                  <span className="hidden md:inline">⚙️ {lang === 'en' ? 'Admin Dashboard' : 'لوحة إدارة المخزن'}</span>
-                </span>
-              </button>
-            )}
+            <button
+              onClick={() => setCurrentTab("admin")}
+              className={`flex-1 md:flex-none px-2.5 sm:px-4 py-2 rounded-xl text-[11px] sm:text-xs md:text-sm font-black flex items-center justify-center gap-1.5 transition-all cursor-pointer whitespace-nowrap select-none ${
+                currentTab === "admin"
+                  ? "bg-gradient-to-r from-yellow-500 to-amber-500 text-blue-950 shadow-lg font-extrabold"
+                  : "text-slate-405 hover:text-white"
+              }`}
+              id="nav-admin-btn"
+            >
+              <Settings className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-yellow-405 animate-spin duration-[10000ms] shrink-0" />
+              <span>
+                <span className="inline md:hidden">{lang === 'en' ? 'Admin' : 'الإدارة'}</span>
+                <span className="hidden md:inline">⚙️ {lang === 'en' ? 'Admin Dashboard' : 'لوحة إدارة المخزن'}</span>
+              </span>
+            </button>
           </nav>
         </div>
       </header>
@@ -2862,6 +2879,22 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
           <div className="space-y-6" id="admin-tab-wrapper">
             {!isAdminLoggedIn || !adminSession ? (
               <AdminLoginGate 
+                correctPassword={adminPassword}
+                onResetPassword={(newPass) => {
+                  setAdminPassword(newPass);
+                  localStorage.setItem("store_admin_password", newPass);
+                  try {
+                    set(getNRef("settings/adminPassword"), {
+                      Key: "adminPassword",
+                      Type: "adminPassword",
+                      Value: newPass,
+                      Link_or_Status: "نشط"
+                    });
+                  } catch (e) {
+                    console.error(e);
+                  }
+                  addToast(`🔐 تم تحديث وحفظ الرمز السري لمالك النظام بنجاح إلى: ${newPass}`, "success");
+                }}
                 onSuccess={(session) => {
                   setAdminSession(session);
                   setIsAdminLoggedIn(true);

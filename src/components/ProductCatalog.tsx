@@ -3,6 +3,7 @@ import { Product, StoreCategory, CartSubOption } from '../types';
 import { Search, ShoppingBag, ShoppingCart, X, Sparkles, Check as CheckIcon, Plus as PlusIcon, Mic, Languages } from 'lucide-react';
 import { isModuleEnabled } from '../core/moduleLoader';
 import { GameIdFeature } from '../modules/games_hyper/GameIdFeature';
+import { motion, AnimatePresence } from 'motion/react';
 
 interface ProductCatalogProps {
   products: Product[];
@@ -88,6 +89,14 @@ function ProductCard({
   const [playerId, setPlayerId] = useState<string>('');
   const [inputError, setInputError] = useState<string>('');
   const [isAdded, setIsAdded] = useState<boolean>(false);
+  const [showTooltip, setShowTooltip] = useState<boolean>(false);
+  const tooltipTimeoutRef = React.useRef<any>(null);
+
+  React.useEffect(() => {
+    return () => {
+      if (tooltipTimeoutRef.current) clearTimeout(tooltipTimeoutRef.current);
+    };
+  }, []);
 
   const stockVal = product.stock !== undefined ? product.stock : 99;
   const isOutOfStock = stockVal === 0;
@@ -115,11 +124,11 @@ function ProductCard({
 
   return (
     <div
-      className="bg-[#0b1329] rounded-3xl border border-blue-900/35 overflow-hidden flex flex-col hover:border-yellow-450/45 group transition-all duration-300 shadow-xl"
+      className="bg-[#0b1329] rounded-3xl border border-blue-900/35 flex flex-col hover:border-yellow-450/45 group transition-all duration-300 shadow-xl relative"
       id={`product-card-${product.id}`}
     >
       {/* Product Image Component */}
-      <div className="relative aspect-video w-full bg-[#060b18] overflow-hidden border-b border-blue-900/25">
+      <div className="relative aspect-video w-full bg-[#060b18] overflow-hidden border-b border-blue-900/25 rounded-t-3xl">
         <img
           src={activeImage || product.image}
           alt={product.name}
@@ -315,55 +324,138 @@ function ProductCard({
             )}
           </div>
 
-          <button
-            onClick={() => {
-              const isGamingProduct = product.isApiProduct || 
-                product.category?.includes('🎮') || 
-                product.category?.includes('ألعاب') || 
-                product.category?.includes('شحن') ||
-                product.name?.toLowerCase().includes('pubg') ||
-                product.name?.toLowerCase().includes('شحن');
+          <div className="relative">
+            <button
+              onClick={() => {
+                const isGamingProduct = product.isApiProduct || 
+                  product.category?.includes('🎮') || 
+                  product.category?.includes('ألعاب') || 
+                  product.category?.includes('شحن') ||
+                  product.name?.toLowerCase().includes('pubg') ||
+                  product.name?.toLowerCase().includes('شحن');
 
-              if (isGamingProduct && !playerId.trim()) {
-                setInputError(lang === 'en' ? 'Please enter a valid Player ID / account first! 🎮' : 'يرجى إدخال رقم الآيدي ID أو الحساب المراد شحنه أولاً! 🎮');
-                return;
-              }
-              setInputError('');
-              const subOptsArray = Object.entries(selectedSubOptions)
-                .filter(([_, q]) => (q as number) > 0)
-                .map(([name, quantity]) => ({ name, quantity: quantity as number }));
-              
-              onAddToCart(
-                product, 
-                selectedColor || undefined, 
-                selectedFlavor || undefined, 
-                subOptsArray.length > 0 ? subOptsArray : undefined,
-                isGamingProduct ? playerId.trim() : undefined
-              );
-              // Clean ID on success
-              setPlayerId('');
-              
-              // Animated checkmark transition
-              setIsAdded(true);
-              setTimeout(() => setIsAdded(false), 1500);
-            }}
-            disabled={isOutOfStock}
-            className={`p-2.5 rounded-xl cursor-pointer shadow-md flex items-center justify-center btn-add-pulse ${
-              isOutOfStock 
-                ? 'bg-[#121c33] text-slate-500 cursor-not-allowed' 
-                : isAdded
-                  ? 'bg-emerald-500 text-white select-none ring-2 ring-emerald-400/55 animate-bounce'
-                  : 'bg-gradient-to-r from-yellow-500 to-amber-500 hover:from-yellow-450 hover:to-amber-450 text-blue-950 hover:shadow-yellow-500/15 hover:shadow-lg'
-            }`}
-            title={isOutOfStock ? (lang === 'en' ? "Sorry, Out of Stock" : "عذراً انتهت الكمية") : (lang === 'en' ? "Add to active basket" : "إضافة إلى سلتك")}
-            id={`add-to-cart-btn-${product.id}`}
-          >
-            {isAdded ? (
-              <CheckIcon className="w-4 h-4 text-white font-black animate-scaleIn" />
-            ) : (
-              <PlusIcon className="w-4 h-4 text-blue-950 font-black" />
-            )}
-          </button>
+                if (isGamingProduct && !playerId.trim()) {
+                  setInputError(lang === 'en' ? 'Please enter a valid Player ID / account first! 🎮' : 'يرجى إدخال رقم الآيدي ID أو الحساب المراد شحنه أولاً! 🎮');
+                  return;
+                }
+                setInputError('');
+                const subOptsArray = Object.entries(selectedSubOptions)
+                  .filter(([_, q]) => (q as number) > 0)
+                  .map(([name, quantity]) => ({ name, quantity: quantity as number }));
+                
+                if (tooltipTimeoutRef.current) {
+                  clearTimeout(tooltipTimeoutRef.current);
+                }
+
+                onAddToCart(
+                  product, 
+                  selectedColor || undefined, 
+                  selectedFlavor || undefined, 
+                  subOptsArray.length > 0 ? subOptsArray : undefined,
+                  isGamingProduct ? playerId.trim() : undefined
+                );
+                // Clean ID on success
+                setPlayerId('');
+                
+                // Animated checkmark and tooltip trigger
+                setIsAdded(true);
+                setShowTooltip(true);
+                setTimeout(() => setIsAdded(false), 1500);
+
+                tooltipTimeoutRef.current = setTimeout(() => {
+                  setShowTooltip(false);
+                }, 3500);
+              }}
+              disabled={isOutOfStock}
+              className={`p-2.5 rounded-xl cursor-pointer shadow-md flex items-center justify-center btn-add-pulse ${
+                isOutOfStock 
+                  ? 'bg-[#121c33] text-slate-500 cursor-not-allowed' 
+                  : isAdded
+                    ? 'bg-emerald-500 text-white select-none ring-2 ring-emerald-400/55 animate-bounce'
+                    : 'bg-gradient-to-r from-yellow-500 to-amber-500 hover:from-yellow-450 hover:to-amber-450 text-blue-950 hover:shadow-yellow-500/15 hover:shadow-lg'
+              }`}
+              title={isOutOfStock ? (lang === 'en' ? "Sorry, Out of Stock" : "عذراً انتهت الكمية") : (lang === 'en' ? "Add to active basket" : "إضافة إلى سلتك")}
+              id={`add-to-cart-btn-${product.id}`}
+            >
+              {isAdded ? (
+                <CheckIcon className="w-4 h-4 text-white font-black animate-scaleIn" />
+              ) : (
+                <PlusIcon className="w-4 h-4 text-blue-950 font-black" />
+              )}
+            </button>
+
+            {/* Interactive Tooltip (Micro-modal Card) */}
+            <AnimatePresence>
+              {showTooltip && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9, y: 15 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.9, y: 15 }}
+                  transition={{ type: "spring", stiffness: 380, damping: 24 }}
+                  className="absolute bottom-full right-0 mb-4 z-40 w-64 bg-[#080d21]/95 backdrop-blur-md border border-yellow-500/40 rounded-2xl p-3.5 shadow-[0_10px_35px_rgba(0,0,0,0.85)]"
+                  dir={lang === 'en' ? 'ltr' : 'rtl'}
+                  style={{ transformOrigin: "bottom right" }}
+                >
+                  {/* Arrow Pointing Down */}
+                  <div className={`absolute -bottom-1.5 w-3 h-3 bg-[#080d21] border-r border-b border-yellow-500/40 rotate-45 ${lang === 'en' ? 'left-4' : 'right-4'}`} />
+
+                  {/* Icon & Confirmation Header */}
+                  <div className={`flex items-center gap-2 font-black text-[11px] text-emerald-400 ${lang === 'en' ? 'justify-start' : 'justify-start'}`}>
+                    <CheckIcon className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>{lang === 'en' ? 'Added Successfully! 🛒' : 'تم إضافة الصنف للسلة بنجاح! 🛒'}</span>
+                  </div>
+
+                  <div className="border-t border-slate-800/60 my-2" />
+
+                  {/* Thumbnail and Title */}
+                  <div className="flex items-center gap-2">
+                    <img 
+                      src={activeImage || product.image}
+                      alt=""
+                      className="w-10 h-10 object-cover rounded-lg border border-slate-800 shrink-0"
+                      referrerPolicy="no-referrer"
+                    />
+                    <div className="flex-1 min-w-0 text-right">
+                      <h5 className="text-[11px] font-extrabold text-white truncate text-right">
+                        {product.name}
+                      </h5>
+                      <span className="text-[10px] font-mono text-yellow-400 font-bold block mt-0.5 text-right">
+                        {getProductDisplay(product).mainText}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Product options checklist if added / relevant */}
+                  {(selectedColor || selectedFlavor || (selectedSubOptions && Object.values(selectedSubOptions).some(q => (q as number) > 0)) || playerId) && (
+                    <div className="mt-2 pt-1.5 border-t border-slate-800/40 space-y-0.5 text-[9px] text-slate-400 text-right">
+                      {selectedColor && (
+                        <div className="flex items-center gap-1">
+                          <span className="text-slate-500">{lang === 'en' ? 'Color:' : 'اللون:'}</span>
+                          <span className="text-slate-300 font-extrabold">{translateVariation(selectedColor, lang)}</span>
+                        </div>
+                      )}
+                      {selectedFlavor && (
+                        <div className="flex items-center gap-1">
+                          <span className="text-slate-500">{lang === 'en' ? 'Flavor:' : 'النكهة:'}</span>
+                          <span className="text-slate-300 font-extrabold">{translateVariation(selectedFlavor, lang)}</span>
+                        </div>
+                      )}
+                      {playerId && (
+                        <div className="flex items-center gap-1 truncate">
+                          <span className="text-slate-500">{lang === 'en' ? 'ID:' : 'المعرّف:'}</span>
+                          <span className="text-blue-450 font-mono font-extrabold">{playerId}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="mt-2.5 pt-1 border-t border-slate-800/20 text-[8px] text-slate-500 font-extrabold text-left block select-none">
+                    {lang === 'en' ? '✓ Click outside to keep browsing' : '✓ انقر خارج الصفحة للمتابعة'}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
       </div>
     </div>

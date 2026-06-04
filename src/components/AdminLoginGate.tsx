@@ -6,10 +6,11 @@ interface AdminLoginGateProps {
   correctPassword?: string;
   onSuccess: (session: UserSession) => void;
   onCancel: () => void;
+  onResetPassword?: (newPassword: string) => void;
 }
 
-export default function AdminLoginGate({ correctPassword = "1122", onSuccess, onCancel }: AdminLoginGateProps) {
-  const [activeTab, setActiveTab] = useState<"owner" | "staff">("owner");
+export default function AdminLoginGate({ correctPassword = "1122", onSuccess, onCancel, onResetPassword }: AdminLoginGateProps) {
+  const [activeTab, setActiveTab] = useState<"owner" | "staff" | "recovery">("owner");
   
   // Owner passcode (numpad) state
   const [pin, setPin] = useState("");
@@ -22,6 +23,11 @@ export default function AdminLoginGate({ correctPassword = "1122", onSuccess, on
   // Staff login state
   const [staffUsername, setStaffUsername] = useState("");
   const [staffPassword, setStaffPassword] = useState("");
+
+  // Password Recovery States
+  const [recoveryEmail, setRecoveryEmail] = useState("");
+  const [recoveryDevPassword, setRecoveryDevPassword] = useState("");
+  const [newOwnerPin, setNewOwnerPin] = useState("");
 
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
@@ -178,6 +184,43 @@ export default function AdminLoginGate({ correctPassword = "1122", onSuccess, on
     }
   };
 
+  // 4. Handle secure owner password recovery
+  const handleRecoverAndPasswordReset = (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage("");
+    setSuccessMessage("");
+
+    const targetEmail = recoveryEmail.trim().toLowerCase();
+    if (targetEmail !== "abdulkrem065@gmail.com") {
+      setErrorMessage("عذراً، البريد الإلكتروني المدخل غير مسجل كمطور أو مالك معتمد لاستعادة الرمز السري!");
+      return;
+    }
+
+    if (recoveryDevPassword !== "dev777" && recoveryDevPassword !== "1122" && recoveryDevPassword !== correctPassword) {
+      setErrorMessage("كلمة المرور الخاصة بالمطور/المالك والمستخدمة كرمز مرور أمني لتأكيد الاستعادة غير صحيحة!");
+      return;
+    }
+
+    if (!newOwnerPin.trim() || !/^\d+$/.test(newOwnerPin.trim()) || newOwnerPin.trim().length < 4) {
+      setErrorMessage("الرجاء إدخال رمز سري جديد لمالك النظام يتكون من أرقام فقط (على الأقل 4 أرقام)!");
+      return;
+    }
+
+    const cleanedPin = newOwnerPin.trim();
+    if (onResetPassword) {
+      onResetPassword(cleanedPin);
+    } else {
+      localStorage.setItem("store_admin_password", cleanedPin);
+    }
+
+    setSuccessMessage(`تمت استعادة لوحة التحكم وتعديل الرمز السري لمالك النظام بنجاح إلى (${cleanedPin})! 🎉`);
+    setNewOwnerPin("");
+    setTimeout(() => {
+      setSuccessMessage("");
+      setActiveTab("owner");
+    }, 2000);
+  };
+
   return (
     <div className="max-w-md mx-auto bg-[#0b1329] border border-yellow-500/20 rounded-3xl p-6 md:p-8 shadow-2xl relative overflow-hidden" dir="rtl" id="login-gate-card">
       <div className="absolute top-0 left-0 w-32 h-32 bg-yellow-500/5 rounded-full blur-3xl pointer-events-none" />
@@ -295,8 +338,21 @@ export default function AdminLoginGate({ correctPassword = "1122", onSuccess, on
               <Play className="w-3 h-3 fill-current transform rotate-180 ml-1" />
             </button>
           </div>
-          <div className="text-center text-[10px] text-slate-400 mt-2">
-            تم ضبط الرمز الافتراضي لمالك النظام ليكون (<strong>1122</strong>) للمحاكاة والتبسيط.
+          <div className="flex flex-col gap-2.5 items-center text-center text-[10px] text-slate-400 mt-2">
+            <div>
+              تم ضبط الرمز الافتراضي لمالك النظام ليكون (<strong>{correctPassword}</strong>) للمحاكاة والتبسيط.
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab("recovery");
+                setErrorMessage("");
+                setSuccessMessage("");
+              }}
+              className="text-yellow-450 hover:text-yellow-300 font-bold underline cursor-pointer transition-colors pt-1.5 flex items-center gap-1.5"
+            >
+              🔑 هل نسيت رمز مالك المنشأة؟ اضغط هنا للاستعادة الفورية للرمز
+            </button>
           </div>
         </div>
       )}
@@ -349,6 +405,82 @@ export default function AdminLoginGate({ correctPassword = "1122", onSuccess, on
             >
               <Users className="w-4 h-4" />
               <span>دخول ككادر مساعد</span>
+            </button>
+          </div>
+        </form>
+      )}
+
+      {/* TAB 4: SECURE SECURITY PASSWORD RECOVERY */}
+      {activeTab === "recovery" && (
+        <form onSubmit={handleRecoverAndPasswordReset} className="space-y-4 text-right animate-fade-in" dir="rtl">
+          <div className="bg-amber-500/10 border border-amber-500/20 px-3.5 py-2.5 rounded-2xl text-[10px] text-amber-300 leading-relaxed font-bold">
+            🔒 مرحباً بك في كابينة استعادة الرمز السري! بصفتك مطور المنصة الرئيسي المعتمد، يمكنك استعادة وتصحيح الرمز السري لمالك المنشأة في أي وقت مدعوماً بحساب بريدك الإلكتروني والرموز الأمنية.
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-[11px] font-black text-slate-350 block">البريد الإلكتروني المسجل للمطور أو المالك: *</label>
+            <div className="relative">
+              <Mail className="w-4 h-4 text-slate-500 absolute top-3.5 right-3.5" />
+              <input
+                type="email"
+                placeholder="أدخل بريدك المعتمد (مثال: abdulkrem065@gmail.com)"
+                value={recoveryEmail}
+                onChange={(e) => setRecoveryEmail(e.target.value)}
+                required
+                className="w-full bg-[#060b18] border border-blue-900/60 focus:border-yellow-550 focus:ring-1 focus:ring-yellow-550 rounded-xl py-3 text-xs text-white placeholder-slate-600 font-bold outline-none font-mono"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-[11px] font-black text-slate-350 block">رمز التحقق الأمني للمطور (Dev Security Code): *</label>
+            <div className="relative">
+              <Lock className="w-4 h-4 text-slate-500 absolute top-3.5 right-3.5" />
+              <input
+                type="password"
+                placeholder="أدخل رمز المطور الأمني (الافتراضي: dev777 أو 1122)"
+                value={recoveryDevPassword}
+                onChange={(e) => setRecoveryDevPassword(e.target.value)}
+                required
+                className="w-full bg-[#060b18] border border-blue-900/60 focus:border-yellow-550 focus:ring-1 focus:ring-yellow-550 rounded-xl py-3 text-xs text-white placeholder-slate-600 font-bold outline-none"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1.5 pb-1">
+            <label className="text-[11px] font-black text-yellow-450 block">اكتب الرمز السري الجديد لمالك المنشأة (New Passcode): *</label>
+            <div className="relative">
+              <Keyboard className="w-4 h-4 text-yellow-500 absolute top-3.5 right-3.5" />
+              <input
+                type="text"
+                placeholder="رقم سري جديد للمالك مكون من أرقام فقط (مثال: 5566)"
+                value={newOwnerPin}
+                onChange={(e) => setNewOwnerPin(e.target.value)}
+                required
+                className="w-full bg-[#060b18] border border-yellow-550 focus:border-yellow-500 rounded-xl py-3 text-xs text-white placeholder-slate-600 font-extrabold outline-none font-mono text-center tracking-widest text-sm"
+              />
+            </div>
+          </div>
+
+          <div className="flex gap-3 pt-2">
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab("owner");
+                setErrorMessage("");
+                setSuccessMessage("");
+              }}
+              className="flex-1 py-3 bg-slate-800/45 hover:bg-slate-800 rounded-xl text-xs font-bold text-slate-300 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>الغاء</span>
+            </button>
+            <button
+              type="submit"
+              className="flex-1.5 py-3 bg-yellow-500 hover:bg-yellow-600 text-blue-950 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 shadow-lg shadow-yellow-500/15 cursor-pointer"
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              <span>تأكيد واستعادة الرمز</span>
             </button>
           </div>
         </form>

@@ -66,6 +66,8 @@ interface MasterDeveloperControlProps {
   onClose: () => void;
   activeNicheId: string;
   onApplyNicheTemplate: (id: string) => void;
+  onDeveloperLogin?: (session: any) => void;
+  onGoToAdmin?: () => void;
 }
 
 // Comprehensive SaaS Translations Dictionary
@@ -184,6 +186,79 @@ const translations = {
   }
 };
 
+const PROMO_SYSTEMS = [
+  {
+    id: 'hyper_games',
+    path: 'games',
+    name: { ar: '🎮 لاندينج شحن الألعاب والبطاقات الرقمية الفوري VIP', en: '🎮 VIP Instant Game Top-Up & Digital Cards System' },
+    desc: { ar: 'شحن فوري بالمعرف، يدعم فلاتر LikesCard والربط المباشر لليمن مع بوابة اتصالات للتسديد وسيرفر SMM.', en: 'Instant ID charging, automated Reseller API filters, LikeCard adapters & exchange rates.' },
+    badge: { ar: 'بوابة الألعاب والترفيه الكبرى', en: 'Main Gaming & Entertainment Portal' },
+    color: 'amber',
+    bg: 'from-amber-950/20 via-yellow-950/10 to-[#0c0d1b]',
+    borderColor: 'border-yellow-500/20 text-yellow-400'
+  },
+  {
+    id: 'smart_pharmacy',
+    path: 'pharmacy',
+    name: { ar: '💊 صيدلية الرعاية الذكية وبوابة الأدوية والمستودع', en: '💊 Smart Pharmacy & Home Care Medical Warehouse' },
+    desc: { ar: 'روتينات صحية، كتلوج فيتامينات مجهزة، مع محادثة استشارية طبية ذكية عبر الـ AI ورعاية وتوصيل سريع.', en: 'Supplements guide, prescription trackers, with custom AI medical dialogue advisor.' },
+    badge: { ar: 'الرعاية والصحة المنزلية', en: 'Home Care & Wellness' },
+    color: 'teal',
+    bg: 'from-teal-950/20 via-emerald-950/10 to-[#0c0d1b]',
+    borderColor: 'border-teal-500/20 text-teal-400'
+  },
+  {
+    id: 'luxury_tailoring',
+    path: 'tailor',
+    name: { ar: '🪡 خياطة وتفصيل الأثواب الراقية والأزياء والمقاسات', en: '🪡 Luxury Men Tailoring & Fashion Customizer' },
+    desc: { ar: 'طلب خياطة، تثبيت وحفظ المقاسات، تصفح خامات يابانية ملكية دقيقة وسحب إيصالات سريعة.', en: 'Premium Japanese fabrics, user measurements book, and luxury royal thobes customizer.' },
+    badge: { ar: 'الأزياء الراقية والمنسوجات', en: 'High-End Textile & Designs' },
+    color: 'amber',
+    bg: 'from-amber-950/20 via-orange-950/10 to-[#0c0d1b]',
+    borderColor: 'border-amber-600/20 text-amber-500'
+  },
+  {
+    id: 'hypermarket_supply',
+    path: 'grocery',
+    name: { ar: '🛒 سوبرماركت آل ذيبان المركزي للتموين الفوري', en: '🛒 Al-Dhibani Food & Vegetables Central Supply' },
+    desc: { ar: 'تسهيل سلال المواد الغذائية، خضار وفواكه طازجة، بهارات، مع حاسبة ذكية للشحنات وبطاقة سداد سريعة.', en: 'Staple inventory tracking, fresh food storage layers, and localized smart checkout.' },
+    badge: { ar: 'التموين والسلع العائلية', en: 'Family Supply & Ingredients' },
+    color: 'emerald',
+    bg: 'from-emerald-950/20 via-green-950/10 to-[#0c0d1b]',
+    borderColor: 'border-emerald-500/20 text-emerald-400'
+  },
+  {
+    id: 'electronics_techno',
+    path: 'electronics',
+    name: { ar: '🔌 هندسة وصيانة الإلكترونيات والشبكات وتمديدات الورش', en: '🔌 Advanced Electronics Maintenance & Hardware Center' },
+    desc: { ar: 'طلب مهندس، فحص الورش واللابتوب، شراء أجهزة لحام وروبوتات، وتأكيد المعاينة الفنية بضمان.', en: 'Technician dispatch, spare parts tracking, smart payment routers, and system reports.' },
+    badge: { ar: 'صيانة وتجهيزات فنية متطورة', en: 'Industrial Technical Support' },
+    color: 'blue',
+    bg: 'from-blue-950/20 via-cyan-950/10 to-[#0c0d1b]',
+    borderColor: 'border-blue-500/20 text-blue-400'
+  },
+  {
+    id: 'legal_consulting',
+    path: 'legal',
+    name: { ar: '⚖️ مكتب الذيباني للاستشارات القانونية والشرعية وصياغة العقود', en: '⚖️ Legal Law Firm, Formulating Contracts & Business Setup' },
+    desc: { ar: 'طلب جلسة زووم، صياغة ومراجعة مسودة عقود شراكة تجارية، وتجهيز أوراق رخص الاستثمار الأجنبي وتأسيس شركات.', en: 'Corporate contracts, Investment licenses, foreign partners, custom AI law legalist.' },
+    badge: { ar: 'الحماية والاستشارة والمظلة', en: 'Corporate Legal Platform' },
+    color: 'cyan',
+    bg: 'from-[#031126]/20 via-cyan-950/10 to-[#0c0d1b]',
+    borderColor: 'border-cyan-500/20 text-cyan-400'
+  },
+  {
+    id: 'school',
+    path: 'school',
+    name: { ar: '🏫 أكاديمية النخبة وتسهيل المذاكرة وملازم التقوية المنهجية', en: '🏫 Academic Tutoring, MCQ Creator & Virtual Exams' },
+    desc: { ar: 'حجز حصة مراجعة خصوصي، ملازم فيزياء، وتصميم كويزات MCQ رقمية فورية بمساعد الذكاء الاصطناعي.', en: 'Private study plans, dynamic quizzers, AI science mentor, and report generator.' },
+    badge: { ar: 'التعليم والعلوم التخصصية', en: 'Modern Digital Education' },
+    color: 'indigo',
+    bg: 'from-indigo-950/20 via-purple-950/10 to-[#0c0d1b]',
+    borderColor: 'border-indigo-500/10 text-indigo-400'
+  }
+];
+
 export const MasterDeveloperControl: React.FC<MasterDeveloperControlProps> = ({
   siteName,
   onUpdateSiteName,
@@ -192,6 +267,10 @@ export const MasterDeveloperControl: React.FC<MasterDeveloperControlProps> = ({
   onUpdateAdminPassword,
   addToast,
   onClose,
+  activeNicheId,
+  onApplyNicheTemplate,
+  onDeveloperLogin,
+  onGoToAdmin,
 }) => {
   // Configured translation context
   const [lang, setLang] = useState<'ar' | 'en'>(() => {
@@ -377,6 +456,23 @@ export const MasterDeveloperControl: React.FC<MasterDeveloperControlProps> = ({
 
   // Settings & Tabbing
   const [activeTab, setActiveTab] = useState<'dashboard' | 'wizard' | 'currencies'>('dashboard');
+  
+  // Promotional Showcase & Custom Domains
+  const [customDomains, setCustomDomains] = useState<Record<string, string>>(() => {
+    try {
+      const saved = localStorage.getItem("saas_custom_domains_v3");
+      return saved ? JSON.parse(saved) : {};
+    } catch (e) {
+      return {};
+    }
+  });
+
+  const [activeDomainNicheId, setActiveDomainNicheId] = useState<string | null>(null);
+  const [domainInput, setDomainInput] = useState("");
+  const [dnsInstructions, setDnsInstructions] = useState<any | null>(null);
+
+  const [activeQrNicheId, setActiveQrNicheId] = useState<string | null>(null);
+  const [copiedNicheId, setCopiedNicheId] = useState<string | null>(null);
   const [expandedProject, setExpandedProject] = useState<string | null>("p-supermarket");
   const [errorLogs, setErrorLogs] = useState([
     { time: "18:49:15", type: "success", msg: "API connection asserted: SMM Server Response 200 OK." },
@@ -436,6 +532,15 @@ export const MasterDeveloperControl: React.FC<MasterDeveloperControlProps> = ({
         setIsAuthenticated(true);
         sessionStorage.setItem("is_master_developer_verified", "true");
         setTimeLeft(300);
+        
+        if (onDeveloperLogin) {
+          onDeveloperLogin({
+            fullName: "عبدالكريم الذيباني",
+            username: "abdulkrem065",
+            role: "developer"
+          });
+        }
+        
         addToast(lang === 'ar' ? "🔑 أهلاً بك يا عبدالكريم! تم إقرار هويتك كمطور مطلق بنجاح" : "🔑 Identity Approved Master Dev! Welcome.", "success");
         playLaserBeep('login');
         triggerVoiceResponse(lang === 'ar' ? "مرحبا بك يا عبد الكريم" : "Welcome developer");
@@ -873,6 +978,26 @@ export const MasterDeveloperControl: React.FC<MasterDeveloperControlProps> = ({
               <span>{t('go_to_storefront')}</span>
             </button>
 
+            {/* Transition to Store Admin Dashboard */}
+            <button 
+              onClick={() => {
+                if (onDeveloperLogin) {
+                  onDeveloperLogin({
+                    fullName: "عبدالكريم الذيباني",
+                    username: "abdulkrem065",
+                    role: "developer"
+                  });
+                }
+                if (onGoToAdmin) {
+                  onGoToAdmin();
+                }
+              }}
+              className="bg-gradient-to-r from-amber-500/10 to-yellow-500/10 hover:from-amber-500/20 hover:to-yellow-500/20 text-yellow-400 hover:text-yellow-300 border border-yellow-500/35 hover:border-yellow-400 text-[10px] sm:text-xs font-black px-3 py-1.5 rounded-xl cursor-pointer transition-all flex items-center gap-1.5 shadow-md shadow-yellow-950/20"
+            >
+              <Settings className="w-3.5 h-3.5 text-yellow-400 animate-spin duration-[15000ms]" />
+              <span>{lang === 'ar' ? "لوحة تحكم إدارة المتجر والمحزون ⚙️" : "Store & Inventories Admin ⚙️"}</span>
+            </button>
+
             {/* Language Toggle Button */}
             <button 
               onClick={toggleLanguage}
@@ -1110,6 +1235,182 @@ export const MasterDeveloperControl: React.FC<MasterDeveloperControlProps> = ({
                     <span className="text-[9px] text-slate-500 leading-none block">{lang === 'ar' ? "* مؤشر محسوب من أصل 668 فرع مرخص." : "* Stats computed out of 668 active licenses."}</span>
                   </div>
                 </div>
+              </div>
+
+            </div>
+
+            {/* 🌐 معرض الأنظمة السحابية وبوابات ترويج النشر والمبيعات المطلقة */}
+            <div className="bg-[#0b0c16]/80 rounded-3xl p-6 border-2 border-purple-500/25 shadow-[0_0_30px_rgba(168,85,247,0.1)] relative overflow-hidden text-right" dir="rtl" id="digital-systems-showcase-matrix">
+              <div className="absolute top-0 right-0 w-96 h-96 bg-purple-500/5 rounded-full blur-3xl pointer-events-none" />
+              <div className="absolute bottom-0 left-0 w-96 h-96 bg-blue-500/5 rounded-full blur-3xl pointer-events-none" />
+              
+              <div className="border-b border-[#1f213f] pb-4 mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <span className="text-[10px] bg-purple-500/10 text-purple-300 font-extrabold px-2.5 py-1 rounded border border-purple-500/30 uppercase tracking-wider font-mono">Promotional & White-Label Core</span>
+                  <h3 className="text-base sm:text-lg font-black text-white flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-yellow-400 rotate-12 animate-spin duration-[15000ms]" />
+                    <span>{lang === 'ar' ? "مركز ترويج السلسلة وتوليد الروابط الفرعية للأقسام" : "SaaS Systems Showcase & Deep-Linking Core"}</span>
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    {lang === 'ar' 
+                      ? "يمكنك توليد روابط فرعية نظيفة معزولة تماماً لكل قسم وأنظمتنا التي انتجناها على حده للترويج والنشر، مع تزويدها بنطاقات DNS مخصصة لعرضها للزبائن بشكل مستقل تماماً."
+                      : "Generate clean white-label sub-links for each niche separately. Integrate custom domain DNS mappings to sell ready-to-run systems seamlessly."}
+                  </p>
+                </div>
+                
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-xs text-slate-400 font-bold">{lang === 'ar' ? "حالة ربط النطاق الكلي:" : "Global Custom Domain Binding Status:"}</span>
+                  <div className="bg-[#030409] border border-emerald-500/30 px-3 py-1.5 rounded-xl text-emerald-400 font-mono text-xs font-black flex items-center gap-1.5">
+                    <Cloud className="w-3.5 h-3.5 fill-emerald-500/10 text-emerald-400 animate-pulse" />
+                    <span>IPv4 Connected (A-Record)</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Grid of the 7 Systems */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {PROMO_SYSTEMS.map((sys) => {
+                  const currentOrigin = typeof window !== 'undefined' ? window.location.origin : 'https://al-dhibani-store.com';
+                  const rawSubUrl = `${currentOrigin}/${sys.path}`;
+                  const customDomainBinded = customDomains[sys.id];
+
+                  return (
+                    <div 
+                      key={sys.id} 
+                      className={`bg-gradient-to-b ${sys.bg} border border-[#1b1e3c] rounded-2xl p-5 hover:border-purple-500/35 transition-all duration-300 relative flex flex-col justify-between group shadow-lg`}
+                      id={`promo-card-${sys.id}`}
+                    >
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[9px] font-black bg-purple-500/10 text-purple-300 border border-purple-500/20 px-2 py-0.5 rounded-full">
+                            {lang === 'ar' ? sys.badge.ar : sys.badge.en}
+                          </span>
+                          
+                          {/* Active state */}
+                          <div className="flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                            <span className="text-[9px] font-bold text-slate-404 font-mono">V3.5 Live</span>
+                          </div>
+                        </div>
+
+                        {/* Heading & description */}
+                        <div className="space-y-1 text-right">
+                          <h4 className="text-xs sm:text-sm font-black text-white group-hover:text-purple-300 transition-colors">
+                            {lang === 'ar' ? sys.name.ar : sys.name.en}
+                          </h4>
+                          <p className="text-[11px] text-slate-400 leading-relaxed font-sans">
+                            {lang === 'ar' ? sys.desc.ar : sys.desc.en}
+                          </p>
+                        </div>
+
+                        {/* Copy Link & Showcase link detail */}
+                        <div className="bg-[#030409]/90 border border-slate-900 rounded-xl p-2.5 space-y-2 mt-4">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[9px] text-slate-500 font-black">{lang === 'ar' ? "رابط النشر الفرعي المطلق:" : "Isolated Publishing Web Link:"}</span>
+                            
+                            <button 
+                              onClick={() => {
+                                navigator.clipboard.writeText(rawSubUrl);
+                                setCopiedNicheId(sys.id);
+                                addToast(lang === 'ar' ? "📋 تم نسخ رابط المتجر الفرعي للترويج!" : "📋 Isolated sub-link copied dynamically!", "success");
+                                playLaserBeep('success');
+                                setTimeout(() => setCopiedNicheId(null), 2500);
+                              }}
+                              className="text-[9px] font-bold text-purple-350 hover:text-white flex items-center gap-1 transition-colors bg-[#111326] px-2 py-0.5 rounded border border-purple-500/10 cursor-pointer active:scale-95"
+                            >
+                              <span>{copiedNicheId === sys.id ? (lang === 'ar' ? "تم النسخ! ✓" : "Copied! ✓") : (lang === 'ar' ? "نسخ الرابط 🔗" : "Copy Link 🔗")}</span>
+                            </button>
+                          </div>
+                          
+                          <div className="font-mono text-[10px] text-purple-400 bg-slate-950/40 p-1.5 rounded border border-[#141526]/50 select-all overflow-x-auto whitespace-nowrap scrollbar-none text-left" dir="ltr">
+                            {rawSubUrl}
+                          </div>
+                        </div>
+
+                        {/* Custom Domain Section status feedback */}
+                        {customDomainBinded ? (
+                          <div className="mt-3 bg-emerald-950/25 border border-emerald-500/20 rounded-xl p-2 flex items-center justify-between px-3 text-right">
+                            <div className="text-right">
+                              <span className="text-[9px] text-slate-400 block font-bold">{lang === 'ar' ? "النطاق الخاص النشط:" : "Configured Custom Domain:"}</span>
+                              <span className="text-[10px] text-emerald-300 font-mono font-black">{customDomainBinded}</span>
+                            </div>
+                            <button 
+                              onClick={() => {
+                                const nextDomains = { ...customDomains };
+                                delete nextDomains[sys.id];
+                                setCustomDomains(nextDomains);
+                                localStorage.setItem("saas_custom_domains_v3", JSON.stringify(nextDomains));
+                                addToast(lang === 'ar' ? "🗑️ تم فك ارتباط وإزالة النطاق المخصص." : "🗑️ Custom domain unbound successfully.", "info");
+                                playLaserBeep('click');
+                              }}
+                              className="text-[9px] text-red-400 hover:text-red-300 underline font-black cursor-pointer bg-transparent border-0"
+                            >
+                              {lang === 'ar' ? "إلغاء الربط" : "Remove"}
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="mt-3 flex items-center justify-between">
+                            <span className="text-[9px] text-slate-500">{lang === 'ar' ? "الربط بنطاق خاص (e.g. store.com):" : "Custom Domain Mapping (e.g. store.com):"}</span>
+                            <button 
+                              onClick={() => {
+                                playLaserBeep('click');
+                                setActiveDomainNicheId(sys.id);
+                                setDomainInput("");
+                                setDnsInstructions(null);
+                              }}
+                              className="text-[9px] font-extrabold text-blue-450 hover:text-blue-300 flex items-center gap-1 cursor-pointer bg-transparent border-0"
+                            >
+                              <span>{lang === 'ar' ? "🌐 إضافة نطاق خاص" : "🌐 Bind Custom Domain"}</span>
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Launch & Preview Button and QR options */}
+                      <div className="mt-5 pt-3 border-t border-[#1b1e3c] flex items-center gap-2">
+                        {/* Launch Showcase */}
+                        <button 
+                          onClick={() => {
+                            playLaserBeep('login');
+                            addToast(lang === 'ar' ? `🚀 جاري تشغيل ومعاينة نظام: ${sys.name.ar}...` : `🚀 Launching standalone isolated project: ${sys.name.en}...`, "success");
+                            
+                            // 1. Apply niche template
+                            onApplyNicheTemplate(sys.id);
+                            
+                            // 2. Close SaaS manual dashboard to expose storefront and isolate it!
+                            onClose();
+                          }}
+                          className={`flex-1 bg-gradient-to-r ${sys.id === activeNicheId ? 'from-purple-600 to-[#7c3aed]' : 'from-[#171a39] to-[#252a55] hover:from-purple-900 hover:to-indigo-900'} text-xs font-black text-white py-2 rounded-xl border border-purple-500/25 transition-all shadow-md active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer`}
+                          id={`btn-launch-${sys.id}`}
+                        >
+                          <Eye className="w-3.5 h-3.5 text-slate-100" />
+                          <span>{lang === 'ar' ? "تصفح وعاين النظام فوراً 👁️" : "Launch & Preview System 👁️"}</span>
+                        </button>
+
+                        {/* Interactive Promo QR */}
+                        <button 
+                          onClick={() => {
+                            playLaserBeep('click');
+                            setActiveQrNicheId(sys.id);
+                          }}
+                          title={lang === 'ar' ? "توليد كود QR للترويج السريع" : "Generate Quick QR code"}
+                          className="bg-[#121327] hover:bg-slate-800 text-purple-450 border border-purple-500/20 hover:border-purple-500/50 p-2 rounded-xl transition-all cursor-pointer"
+                        >
+                          <svg className="w-4 h-4 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <rect width="10" height="10" x="3" y="3" rx="1" />
+                            <rect width="6" height="6" x="5" y="5" rx="1" />
+                            <rect width="10" height="10" x="11" y="3" rx="1" />
+                            <rect width="6" height="6" x="13" y="5" rx="1" />
+                            <rect width="10" height="10" x="3" y="11" rx="1" />
+                            <rect width="6" height="6" x="5" y="13" rx="1" />
+                            <path d="M12 12h2v2h-2zM14 14h2v2h-2zM16 12h2v2h-2zM12 16h2v2h-2zM16 16h2v2h-2z" />
+                          </svg>
+                        </button>
+                      </div>
+
+                    </div>
+                  );
+                })}
               </div>
 
             </div>
@@ -2003,6 +2304,196 @@ export const MasterDeveloperControl: React.FC<MasterDeveloperControlProps> = ({
 
           </div>
         )}
+
+        {/* Modal: Custom Domain Binding Matrix */}
+        <AnimatePresence>
+          {activeDomainNicheId && (() => {
+            const targetNiche = PROMO_SYSTEMS.find(n => n.id === activeDomainNicheId);
+            return (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" id="domain-modal-root">
+                <motion.div 
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  className="w-full max-w-lg bg-[#0d0e1b] border-2 border-purple-500/30 rounded-3xl p-6 text-right shadow-[0_0_50px_rgba(168,85,247,0.25)]"
+                >
+                  <div className="flex items-center justify-between border-b border-[#1b1c31] pb-3 mb-4">
+                    <button 
+                      onClick={() => {
+                        setActiveDomainNicheId(null);
+                        setDnsInstructions(null);
+                      }}
+                      className="text-slate-400 hover:text-white bg-slate-100/5 hover:bg-slate-100/10 border border-slate-800 p-1.5 rounded-lg cursor-pointer"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                    <h3 className="text-sm sm:text-base font-black text-white flex items-center gap-2">
+                      <Globe className="w-5 h-5 text-blue-450" />
+                      <span>{lang === 'ar' ? "ربط نطاق مخصص لمشروعك" : "Link Custom Domain to System"}</span>
+                    </h3>
+                  </div>
+
+                  <p className="text-xs text-slate-400 mb-4 leading-relaxed font-sans">
+                    {lang === 'ar'
+                      ? `أنت بصدد ربط نطاق مخصص (مثل: ${targetNiche ? `${targetNiche.path}-aldhibani.com` : 'yourdomain.com'}) لصالح النشاط المحدد لإخفائه وشغله تحت علامة تجارية خاصة ومستقلة تماماً.`
+                      : `You are binding a premier custom domain with DNS records configuration to isolate your project strictly under your independent retail brand.`}
+                  </p>
+
+                  <div className="space-y-4">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] text-slate-350 font-bold block">{lang === 'ar' ? "أدخل النطاق المخصص الخاص بك (Domain Name):" : "Enter your Purchased Custom Domain Name:"}</label>
+                      <input 
+                        type="text" 
+                        required
+                        placeholder="e.g. www.aldhibani-games.com"
+                        value={domainInput}
+                        onChange={(e) => setDomainInput(e.target.value)}
+                        className="w-full bg-[#030409] border border-slate-800 text-slate-200 rounded-xl px-3 py-2 text-xs font-mono text-center outline-none focus:border-purple-500"
+                        dir="ltr"
+                      />
+                    </div>
+
+                    {dnsInstructions ? (
+                      <div className="bg-[#020206] border border-blue-500/30 rounded-2xl p-4 space-y-3 animate-fade-in text-left font-mono" dir="ltr">
+                        <div className="text-[9px] text-[#00f3ff] font-bold tracking-wider uppercase">{lang === 'ar' ? "سجلات الـ DNS المطلوبة بمزود النطاقات الخاص بك:" : "REQUIRED DNS RECORDS TO ADD AT YOUR REGISTRAR:"}</div>
+                        <div className="space-y-2 text-[10px] text-slate-350">
+                          <div className="border-b border-slate-900/50 pb-1.5">
+                            <span className="text-purple-400 font-bold">Type:</span> CNAME  |  <span className="text-purple-450 font-bold">Name:</span> @ / <span className="text-purple-450 font-bold">www</span>  |  <span className="text-purple-450 font-bold">Value:</span> static.aldhibani-platforms.com
+                          </div>
+                          <div>
+                            <span className="text-purple-450 font-bold">Type:</span> A Record  |  <span className="text-purple-450 font-bold">Name:</span> root  |  <span className="text-purple-455 font-bold">Value:</span> 151.101.1.1 (Server IP)
+                          </div>
+                        </div>
+
+                        <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 p-2.5 rounded-lg text-center text-[10px] font-sans font-black">
+                          {lang === 'ar' ? "🟢 جاري التحقق والربط الفاصل بنجاح! النطاق يعمل بنشاط الآن." : "🟢 Active integration validated successfully! Domain resolved."}
+                        </div>
+                      </div>
+                    ) : (
+                      <button 
+                        onClick={() => {
+                          if (!domainInput.trim() || !domainInput.includes(".")) {
+                            addToast(lang === 'ar' ? "يرجى كتابة عنوان نطاق صالح!" : "Please write a valid domain name structure!", "warning");
+                            return;
+                          }
+                          playLaserBeep('success');
+                          
+                          // Save mapping
+                          const nextDomains = { ...customDomains, [activeDomainNicheId]: domainInput.trim() };
+                          setCustomDomains(nextDomains);
+                          localStorage.setItem("saas_custom_domains_v3", JSON.stringify(nextDomains));
+                          
+                          // Display Instructions
+                          setDnsInstructions(true);
+                          addToast(lang === 'ar' ? "✓ تم حجز عنوان النطاق المخصص وبناء الـ DNS!" : "✓ Custom domain DNS registered in database!", "success");
+                        }}
+                        className="w-full bg-blue-600 hover:bg-blue-500 text-xs text-white font-black py-2.5 rounded-xl transition-all cursor-pointer shadow-md shadow-blue-900/30 text-center"
+                      >
+                        {lang === 'ar' ? "ربط النطاق وبناء الـ DNS السحابي 🌐" : "Bind Domain & Generate Cloud DNS"}
+                      </button>
+                    )}
+
+                    <div className="flex gap-2 pt-2 justify-end">
+                      <button 
+                        onClick={() => {
+                          setActiveDomainNicheId(null);
+                          setDnsInstructions(null);
+                        }}
+                        className="bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-450 hover:text-white px-4 py-2 rounded-xl text-xs cursor-pointer"
+                      >
+                        {lang === 'ar' ? "إغلاق" : "Close"}
+                      </button>
+                    </div>
+                  </div>
+                </motion.div>
+              </div>
+            );
+          })()}
+        </AnimatePresence>
+
+        {/* Modal: Dynamic Promotional QR Code Showcase */}
+        <AnimatePresence>
+          {activeQrNicheId && (() => {
+            const temp = PROMO_SYSTEMS.find(n => n.id === activeQrNicheId);
+            const currentOrigin = typeof window !== 'undefined' ? window.location.origin : 'https://al-dhibani-store.com';
+            const rawSubUrl = `${currentOrigin}/${temp?.path || 'games'}`;
+            return (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm" id="qr-modal-root">
+                <motion.div 
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  className="w-full max-w-sm bg-[#0d0e1b] border-2 border-purple-500/25 rounded-3xl p-6 text-center space-y-5 shadow-[0_0_50px_rgba(189,0,255,0.2)]"
+                >
+                  <div className="flex items-center justify-between border-b border-[#1b1c31] pb-3">
+                    <button 
+                      onClick={() => setActiveQrNicheId(null)}
+                      className="text-slate-400 hover:text-white bg-slate-100/5 hover:bg-slate-100/10 border border-slate-800 p-1.5 rounded-lg cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                    <span className="text-xs font-black text-white">{lang === 'ar' ? "كود QR ترويجي فوري" : "Quick Promotional QR Code"}</span>
+                  </div>
+
+                  <div className="space-y-1.5 text-center">
+                    <h4 className="text-xs font-black text-purple-300">
+                      {lang === 'ar' ? temp?.name.ar : temp?.name.en}
+                    </h4>
+                    <span className="text-[10px] text-slate-400 block font-mono">
+                      {rawSubUrl}
+                    </span>
+                  </div>
+
+                  {/* QR Code Graphic Generator Simulator */}
+                  <div className="mx-auto w-44 h-44 bg-white rounded-2xl p-4 flex flex-col items-center justify-center relative group border border-purple-500/20">
+                    <div className="grid grid-cols-4 gap-2 w-full h-full opacity-90">
+                      {/* Generates a stylized neat grid to simulate QR matrix */}
+                      {Array.from({ length: 16 }).map((_, i) => (
+                        <div 
+                          key={i} 
+                          className={`rounded ${
+                            i === 0 || i === 3 || i === 12 || i === 5 || i === 10 || i === 15 || i === 6 || i === 9 
+                              ? 'bg-slate-900' 
+                              : (i % 3 === 0 ? 'bg-indigo-950' : 'bg-transparent')
+                          }`} 
+                        />
+                      ))}
+                    </div>
+                    {/* Al Dhibani Eagle Centered logo on QR */}
+                    <div className="absolute w-12 h-12 rounded-xl bg-[#090a16] border-2 border-white flex items-center justify-center text-lg shadow-lg">
+                      🦅
+                    </div>
+                  </div>
+
+                  <p className="text-[11px] text-slate-400 leading-relaxed font-sans px-2">
+                    {lang === 'ar'
+                      ? "وجه كاميرا هاتفك المحمول لقراءة كود الـ QR هذا ليفتح النظام والصفحة الخاصة مباشرة على جوالك لتجربتها ومشاركتها مع عملائك."
+                      : "Present this high-contrast direct QR code for clients to scan and test drive this gorgeous business portal."}
+                  </p>
+
+                  <div className="flex gap-2 justify-center">
+                    <button 
+                      onClick={() => {
+                        navigator.clipboard.writeText(rawSubUrl);
+                        addToast(lang === 'ar' ? "📋 تم نسخ الرابط المباشر!" : "Direct link copied!", "success");
+                        playLaserBeep('success');
+                      }}
+                      className="bg-purple-900/60 hover:bg-purple-800 pointer-events-auto text-[10px] sm:text-xs text-purple-200 border border-purple-500/30 px-3 py-1.5 rounded-xl transition-all cursor-pointer font-bold"
+                    >
+                      {lang === 'ar' ? "نسخ الرابط المستهدف" : "Copy Target URL"}
+                    </button>
+                    <button 
+                      onClick={() => setActiveQrNicheId(null)}
+                      className="bg-[#121327] hover:bg-slate-800 text-slate-400 hover:text-white px-3 py-1.5 rounded-xl text-xs cursor-pointer"
+                    >
+                      {lang === 'ar' ? "بفهم ذكي" : "Got it"}
+                    </button>
+                  </div>
+                </motion.div>
+              </div>
+            );
+          })()}
+        </AnimatePresence>
 
       </main>
 

@@ -37,8 +37,18 @@ export const handler: Handler = async (event, context) => {
       };
     }
 
-    const key = process.env.GEMINI_API_KEY;
-    if (!key) {
+    const primaryKey = process.env.GEMINI_API_KEY;
+    const backupKey = process.env.GEMINI_API_KEY_BACKUP || process.env.GEMINI_API_KEY_SECONDARY;
+    
+    let keyToUse = primaryKey;
+    if (primaryKey && backupKey) {
+      // Load-balance randomly 50/50 to maximize search capacity on serverless requests
+      keyToUse = Math.random() > 0.5 ? backupKey : primaryKey;
+    } else if (!primaryKey) {
+      keyToUse = backupKey;
+    }
+
+    if (!keyToUse) {
       // Fallback simulated response when Netlify Env key is missing
       const lowerMsg = message.toLowerCase();
       let fallbackText = "مرحباً بك! أنا المساعد الذكي للمتجر. (ملاحظة: مفتاح API غير متوفر في إعدادات نيتليفي حالياً، أعمل بوضع المحاكاة الآمن). ";
@@ -57,7 +67,7 @@ export const handler: Handler = async (event, context) => {
       } else {
         fallbackText += "متجرنا فارغ حالياً، يرجى إضافة بعض المنتجات من لوحة التحكم لتجربة ميزاتنا الكاملة!";
       }
-
+ 
       return {
         statusCode: 200,
         headers: {
@@ -67,9 +77,9 @@ export const handler: Handler = async (event, context) => {
         body: JSON.stringify({ text: fallbackText }),
       };
     }
-
+ 
     const ai = new GoogleGenAI({
-      apiKey: key,
+      apiKey: keyToUse,
       httpOptions: {
         headers: {
           "User-Agent": "aistudio-build-netlify",
