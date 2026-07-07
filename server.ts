@@ -8,15 +8,12 @@ dotenv.config();
 
 // Lazy initialize Gemini client to support dual-key rotation and load balancing
 let aiClientPrimary: GoogleGenAI | null = null;
-let aiClientBackup: GoogleGenAI | null = null;
-let lastUsedBackup = false;
 
 function getGeminiClient() {
   const primaryKey = process.env.GEMINI_API_KEY;
-  const backupKey = process.env.GEMINI_API_KEY_BACKUP || process.env.GEMINI_API_KEY_SECONDARY;
 
-  if (!primaryKey && !backupKey) {
-    console.warn("WARNING: Neither GEMINI_API_KEY nor GEMINI_API_KEY_BACKUP is set. Chat features will fallback.");
+  if (!primaryKey) {
+    console.warn("WARNING: GEMINI_API_KEY is not set. Chat features will fallback.");
     return null;
   }
 
@@ -31,25 +28,7 @@ function getGeminiClient() {
     });
   }
 
-  if (backupKey && !aiClientBackup) {
-    aiClientBackup = new GoogleGenAI({
-      apiKey: backupKey,
-      httpOptions: {
-        headers: {
-          'User-Agent': 'aistudio-build-backup',
-        }
-      }
-    });
-  }
-
-  // If both keys are configured, rotate/load-balance them on each call to withstand heavy searches!
-  if (aiClientPrimary && aiClientBackup) {
-    lastUsedBackup = !lastUsedBackup;
-    console.log(`[AI ROTATION] Routing request to: ${lastUsedBackup ? 'Backup Key' : 'Primary Key'}`);
-    return lastUsedBackup ? aiClientBackup : aiClientPrimary;
-  }
-
-  return aiClientPrimary || aiClientBackup;
+  return aiClientPrimary;
 }
 
 export const app = express();

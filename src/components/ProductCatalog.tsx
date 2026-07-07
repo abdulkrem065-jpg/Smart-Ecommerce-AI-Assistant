@@ -71,7 +71,8 @@ function ProductCard({
   currency, 
   exchangeRate,
   searchQuery = '',
-  lang = 'ar'
+  lang = 'ar',
+  onViewDetails
 }: { 
   product: Product; 
   onAddToCart: (product: Product, selectedColor?: string, selectedFlavor?: string, selectedSubOptions?: CartSubOption[], playerId?: string) => void; 
@@ -81,6 +82,7 @@ function ProductCard({
   key?: React.Key;
   searchQuery?: string;
   lang?: 'ar' | 'en';
+  onViewDetails?: (product: Product) => void;
 }) {
   const [selectedColor, setSelectedColor] = useState<string>('');
   const [selectedFlavor, setSelectedFlavor] = useState<string>('');
@@ -128,15 +130,26 @@ function ProductCard({
       id={`product-card-${product.id}`}
     >
       {/* Product Image Component */}
-      <div className="relative aspect-video w-full bg-[#060b18] overflow-hidden border-b border-blue-900/25 rounded-t-3xl">
+      <div 
+        className="relative aspect-video w-full bg-[#060b18] overflow-hidden border-b border-blue-900/25 rounded-t-3xl cursor-pointer group/img"
+        onClick={() => onViewDetails?.(product)}
+      >
         <img
           src={activeImage || product.image}
           alt={product.name}
-          className="w-full h-full object-cover group-hover:scale-105 group-hover:opacity-100 transition-all duration-500 opacity-90"
+          className="w-full h-full object-cover group-hover/img:scale-105 group-hover/img:opacity-100 transition-all duration-500 opacity-90"
           onError={(e) => {
             (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=500&q=80';
           }}
         />
+        
+        {/* Quick View Overlay */}
+        <div className="absolute inset-0 bg-[#060b18]/40 opacity-0 group-hover/img:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+          <span className="px-4 py-2 bg-blue-950/80 backdrop-blur-md rounded-xl text-yellow-400 font-bold text-xs border border-yellow-500/20 flex items-center gap-2 transform translate-y-4 group-hover/img:translate-y-0 transition-all duration-300">
+            <Search className="w-3.5 h-3.5" />
+            {lang === 'en' ? 'Quick View' : 'نظرة سريعة'}
+          </span>
+        </div>
 
         {/* Badges Overlay */}
         <div className="absolute top-4 right-4 flex flex-col gap-1.5 pointer-events-none">
@@ -199,7 +212,11 @@ function ProductCard({
       {/* Card Details */}
       <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
         <div className="space-y-1.5">
-          <h3 className="font-extrabold text-white group-hover:text-yellow-400 transition-colors text-xs md:text-sm line-clamp-1">
+          <h3 
+            className="font-extrabold text-white group-hover:text-yellow-400 transition-colors text-xs md:text-sm line-clamp-1 cursor-pointer"
+            onClick={() => onViewDetails?.(product)}
+            title={product.name}
+          >
             {highlightText(product.name, searchQuery)}
           </h3>
           <p className="text-[11px] text-slate-400 line-clamp-2 leading-relaxed h-[36px]" title={product.description || product.name}>
@@ -477,6 +494,7 @@ export default function ProductCatalog({
 }: ProductCatalogProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [selectedProductForDetails, setSelectedProductForDetails] = useState<Product | null>(null);
 
   // --- Voice Search / Speech Recognition States & Logic ---
   const [isListening, setIsListening] = useState(false);
@@ -801,11 +819,89 @@ export default function ProductCatalog({
               exchangeRate={exchangeRate}
               searchQuery={searchQuery}
               lang={lang}
+              onViewDetails={setSelectedProductForDetails}
             />
           ))
         )}
       </div>
 
+      {/* PRODUCT DETAILS MODAL */}
+      <AnimatePresence>
+        {selectedProductForDetails && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm"
+            onClick={() => setSelectedProductForDetails(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-[#0b1329] border border-blue-900/50 shadow-2xl rounded-3xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col md:flex-row relative"
+            >
+              <button 
+                onClick={() => setSelectedProductForDetails(null)}
+                className="absolute top-4 right-4 z-10 bg-slate-900/50 hover:bg-slate-900 p-2 rounded-full text-white backdrop-blur-md transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+              
+              <div className="w-full md:w-1/2 bg-[#060b18] relative h-64 md:h-auto">
+                <img 
+                  src={selectedProductForDetails.image} 
+                  alt={selectedProductForDetails.name}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=500&q=80';
+                  }}
+                />
+              </div>
+              
+              <div className="w-full md:w-1/2 p-6 md:p-8 flex flex-col overflow-y-auto">
+                <div className="mb-4 space-y-2">
+                  <span className="px-3 py-1 bg-yellow-500/10 text-yellow-450 border border-yellow-500/20 rounded-full text-[10px] font-bold uppercase tracking-wider">
+                    {selectedProductForDetails.category}
+                  </span>
+                  <h2 className="text-2xl font-black text-white leading-tight">
+                    {selectedProductForDetails.name}
+                  </h2>
+                </div>
+                
+                <p className="text-sm text-slate-400 leading-relaxed mb-6">
+                  {selectedProductForDetails.description || (lang === 'en' ? 'Premium hand-picked warehouse item with certified specifications.' : 'صنف فاخر بجودة معتمدة ومواصفات مناسبة مجهز للتحميل فوري.')}
+                </p>
+
+                <div className="mt-auto space-y-6">
+                  <div className="bg-[#060b18] p-4 rounded-2xl border border-blue-900/30">
+                    <span className="text-xs text-slate-500 block mb-1 font-semibold">{lang === 'en' ? 'Price' : 'السعر'}</span>
+                    <span className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-amber-500">
+                      {getProductDisplay(selectedProductForDetails).mainText}
+                    </span>
+                  </div>
+                  
+                  <div className="[&>div:first-child]:hidden [&>div]:border-none [&>div]:shadow-none [&>div]:bg-transparent [&>div]:p-0">
+                    <ProductCard
+                      product={selectedProductForDetails}
+                      onAddToCart={(p, c, f, s, id) => {
+                        onAddToCart(p, c, f, s, id);
+                        setSelectedProductForDetails(null);
+                      }}
+                      getProductDisplay={getProductDisplay}
+                      currency={currency}
+                      exchangeRate={exchangeRate}
+                      searchQuery={searchQuery}
+                      lang={lang}
+                    />
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

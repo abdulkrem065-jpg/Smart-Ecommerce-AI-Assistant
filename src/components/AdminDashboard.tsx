@@ -3,42 +3,9 @@ import { Product, StoreCategory, Order, CarouselSlide, Staff, UserSession } from
 import { NICHES } from '../data';
 import { isModuleEnabled, isFeatureEnabled } from '../core/moduleLoader';
 import { DollarExchangePricing } from '../modules/games_hyper/DollarExchangePricing';
-import { 
-  Plus, 
-  Edit2, 
-  Trash2, 
-  Package, 
-  Sparkles, 
-  TrendingUp, 
-  AlertTriangle, 
-  CheckCircle, 
-  Smartphone, 
-  Layers, 
-  UploadCloud, 
-  Image as ImageIcon,
-  Coins,
-  MessageSquare,
-  Settings,
-  Sliders,
-  ClipboardList,
-  CheckCircle2,
-  Trash,
-  Check as CheckIcon,
-  X as XIcon,
-  User,
-  MapPin,
-  Calendar,
-  AlertCircle,
-  Wallet,
-  FileText,
-  Award,
-  Lightbulb,
-  BarChart3,
-  CreditCard,
-  Users,
-  ShieldCheck,
-  Zap
-} from 'lucide-react';
+import { exportOrdersToCSV, printOrder } from "../core/exportUtils";
+import { Plus, Edit2, Trash2, Package, Sparkles, TrendingUp, AlertTriangle, CheckCircle, Smartphone, Layers, UploadCloud, Image as ImageIcon, Coins, MessageSquare, Settings, Sliders, ClipboardList, CheckCircle2, Trash, Check as CheckIcon, X as XIcon, User, MapPin, Calendar, AlertCircle, Wallet, FileText, Award, Lightbulb, BarChart3, CreditCard, Users, ShieldCheck, Zap } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Cell, PieChart, Pie } from 'recharts';
 
 const getProjectTypeNiche = (): 'game' | 'pharmacy' | 'supermarket' | 'school' | 'tailor' | 'legal' | 'consulting' | 'hyper' | null => {
   const envVal = (((import.meta as any).env?.VITE_PROJECT_TYPE) || "").toLowerCase().trim();
@@ -2103,6 +2070,7 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
               <p className="text-[10px] text-slate-400 mt-1">تتبع الطلبات الصادرة من الزبائن، غير حالات شحن الخدمة، واحذف الطلبيات المنتهية أو الملغية.</p>
             </div>
             
+            <button onClick={() => exportOrdersToCSV(orders)} className="text-[10px] bg-green-500/15 text-green-400 font-black border border-green-500/25 px-3 py-1 rounded-full hover:bg-green-500/20 transition-colors ml-2 shadow-sm">تصدير CSV 📥</button>
             <span className="text-[10px] bg-yellow-500/15 text-yellow-405 font-black border border-yellow-500/25 px-3 py-1 rounded-full">
               {orders.length} طلب سلة إجمالي
             </span>
@@ -2144,6 +2112,7 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-black text-yellow-400 font-mono">{order.id}</span>
+                          <button onClick={() => printOrder(order, "المتجر")} className="ml-2 text-[10px] bg-slate-700/50 hover:bg-slate-700 text-slate-300 font-bold px-2 py-0.5 rounded transition-colors" title="طباعة الفاتورة">طباعة 🖨️</button>
                           <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${getStatusStyle(order.status)}`}>
                             {order.status}
                           </span>
@@ -4039,6 +4008,61 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
                 {/* Dynamic growth and development suggestions compiled from active store figures */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   
+                  {/* Category Sales Chart using Recharts */}
+                  <div className="bg-[#060b18] p-5 rounded-2xl border border-blue-900/35 space-y-3.5 text-right flex flex-col justify-between md:col-span-2">
+                    <div>
+                      <h4 className="text-xs font-black text-slate-300 pb-2 border-b border-blue-900/15 flex justify-between items-center">
+                        <span>📊 أكثر الأقسام تحقيقاً للمبيعات خلال الشهر الحالي</span>
+                        <span className="text-[9px] bg-blue-500/15 text-blue-400 px-2 py-0.5 rounded border border-blue-500/20">توزيع المبيعات</span>
+                      </h4>
+                      <div className="w-full h-[300px] mt-4 relative" dir="ltr">
+                        {orders.length === 0 ? (
+                          <div className="absolute inset-0 flex items-center justify-center text-xs text-slate-500">
+                            لا توجد بيانات كافية لرسم الرسم البياني
+                          </div>
+                        ) : (
+                          <ResponsiveContainer width="100%" height="100%">
+                            <BarChart
+                              data={
+                                Object.entries(orders.filter(o => o.status !== 'ملغي ❌').reduce((acc, order) => {
+                                  order.items.forEach(item => {
+                                    if (item.product && item.product.category) {
+                                      acc[item.product.category] = (acc[item.product.category] || 0) + (item.product.price * item.quantity);
+                                    }
+                                  });
+                                  return acc;
+                                }, {} as Record<string, number>)).map(([category, revenue]) => ({ category, revenue })).sort((a, b) => b.revenue - a.revenue)
+                              }
+                              margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                            >
+                              <CartesianGrid strokeDasharray="3 3" stroke="#1e3a8a" vertical={false} />
+                              <XAxis dataKey="category" stroke="#94a3b8" tick={{ fill: '#94a3b8', fontSize: 10 }} axisLine={{ stroke: '#1e3a8a' }} tickLine={false} />
+                              <YAxis stroke="#94a3b8" tick={{ fill: '#94a3b8', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(val) => `${val}`} />
+                              <Tooltip
+                                cursor={{ fill: '#1e3a8a', opacity: 0.2 }}
+                                contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e40af', borderRadius: '8px', color: '#f8fafc', fontSize: '12px' }}
+                                itemStyle={{ color: '#fbbf24', fontWeight: 'bold' }}
+                                formatter={(value: number) => [`${displayPrice(value)}`, 'المبيعات']}
+                              />
+                              <Bar dataKey="revenue" fill="#fbbf24" radius={[4, 4, 0, 0]}>
+                                {Object.entries(orders.filter(o => o.status !== 'ملغي ❌').reduce((acc, order) => {
+                                  order.items.forEach(item => {
+                                    if (item.product && item.product.category) {
+                                      acc[item.product.category] = (acc[item.product.category] || 0) + (item.product.price * item.quantity);
+                                    }
+                                  });
+                                  return acc;
+                                }, {} as Record<string, number>)).map((entry, index) => (
+                                  <Cell key={`cell-${index}`} fill={index === 0 ? '#fbbf24' : '#3b82f6'} />
+                                ))}
+                              </Bar>
+                            </BarChart>
+                          </ResponsiveContainer>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
                   {/* 1. Low Stock & Out of Stock lifelines */}
                   <div className="bg-[#060b18] p-5 rounded-2xl border border-blue-900/35 space-y-3.5 text-right flex flex-col justify-between">
                     <div>

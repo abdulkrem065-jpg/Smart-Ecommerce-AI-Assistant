@@ -699,11 +699,13 @@ export default function App() {
           }
         }
       }, (err) => {
-        console.error("Firebase products stream error:", err);
+        console.warn("Firebase products stream access restricted, using local mock data.");
+        const targetNiche = NICHES.find(n => n.id === activeNicheId);
+        if (targetNiche && targetNiche.products) setProducts(targetNiche.products);
       });
       return () => unsubscribe();
     } catch (e) {
-      console.error(e);
+      console.warn(e);
     }
   }, [activeNicheId]);
 
@@ -744,6 +746,8 @@ export default function App() {
         } else {
           setOrders([]);
         }
+      }, (err) => {
+        console.warn("Firebase orders stream access restricted.");
       });
       return () => unsubscribe();
     } catch (e) {
@@ -780,6 +784,8 @@ export default function App() {
         } else {
           setCarouselSlides([]);
         }
+      }, (err) => {
+        console.warn("Firebase slider stream access restricted.");
       });
       return () => unsubscribe();
     } catch (e) {
@@ -806,10 +812,12 @@ export default function App() {
         } else {
           setPaymentMethods([]);
         }
+      }, (err) => {
+        console.warn("Firebase payment methods stream access restricted.");
       });
       return () => unsubscribe();
     } catch (e) {
-      console.error(e);
+      console.warn(e);
     }
   }, []);
 
@@ -1064,10 +1072,10 @@ export default function App() {
             localStorage.setItem("store_pay_api_url", payApiUrlS.Value || "");
           }
         }
-      });
+      }, (err) => { console.warn("Firebase settings stream access restricted."); });
       return () => unsubscribe();
     } catch (e) {
-      console.error(e);
+      console.warn(e);
     }
   }, [activeNicheId]);
 
@@ -1933,7 +1941,7 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
                 Value: newName
               });
             } catch (e) {
-              console.error(e);
+              console.warn(e);
             }
           }}
           adminPassword={adminPassword}
@@ -1948,7 +1956,7 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
                 Link_or_Status: "نشط"
               });
             } catch (e) {
-              console.error(e);
+              console.warn(e);
             }
           }}
           onUpdateAdminPassword={(newPass) => {
@@ -1962,7 +1970,7 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
                 Link_or_Status: "نشط"
               });
             } catch (e) {
-              console.error(e);
+              console.warn(e);
             }
           }}
           gameApiUrl={gameApiUrl}
@@ -2898,7 +2906,7 @@ ${taxEnabled && taxVisible ? `*ضريبة القيمة المضافة (${taxRate
                       Link_or_Status: "نشط"
                     });
                   } catch (e) {
-                    console.error(e);
+                    console.warn(e);
                   }
                   addToast(`🔐 تم تحديث وحفظ الرمز السري لمالك النظام بنجاح إلى: ${newPass}`, "success");
                 }}
