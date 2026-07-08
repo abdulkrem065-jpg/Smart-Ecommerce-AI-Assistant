@@ -5,6 +5,10 @@
 [![Backend Node](https://img.shields.io/badge/Backend-Node.js__%2B__Express-green?logo=node.js)](https://nodejs.org/)
 [![Database Firebase](https://img.shields.io/badge/Database-Firebase__Realtime-orange?logo=firebase)](https://firebase.google.com/)
 [![AI Integrated](https://img.shields.io/badge/AI-Google__Gemini__API-purple?logo=googlegemini)](https://deepmind.google/technologies/gemini/)
+\n## 🌐 Live Deployment / المعاينة الحية
+
+👉 **[Smart E-Commerce AI Assistant (Live Production)](https://smart-ecommerce-ai-assistant.netlify.app)**
+
 
 ---
 
