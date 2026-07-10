@@ -7,6 +7,7 @@ interface AIChatSectionProps {
   activeNicheId?: string;
 }
 
+import { useAICoPilot } from '../hooks/useAICoPilot';
 export default function AIChatSection({ products, activeNicheId = "game" }: AIChatSectionProps) {
   // TTS (Text-to-Speech) & STT (Speech-to-Text) Audio states
   const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null);
@@ -383,10 +384,8 @@ export default function AIChatSection({ products, activeNicheId = "game" }: AICh
   };
   const suggestionPrompts = getDynamicSuggestions(currentResolvedNiche);
 
-  const [messages, setMessages] = useState<Message[]>([]);
+  const { messages, setMessages, sendMessage, isSending, errorMessage, setErrorMessage } = useAICoPilot();
   const [inputValue, setInputValue] = useState('');
-  const [isSending, setIsSending] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isFocused, setIsFocused] = useState(false);
 
   const endOfMessagesRef = useRef<HTMLDivElement>(null);

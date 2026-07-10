@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { DEFAULT_CATEGORIES, DEFAULT_PRODUCTS } from "./core/defaults";
 import { Product, StoreCategory, CartItem, OrderDetails, Order, CarouselSlide, UserSession } from "./types";
 import { NICHES } from "./data";
 
@@ -67,47 +68,6 @@ function set(ref: any, value: any) {
   return firebaseSet(ref, cleanUndefined(value));
 }
 
-// Fallback seed categories
-const DEFAULT_CATEGORIES: StoreCategory[] = [
-  { id: "cat-1", name: "🎮 شحن فورى ألعاب وإنترنت", englishName: "games_charge" },
-  { id: "cat-2", name: "🔌 جوالات وإلكترونيات", englishName: "electronics" },
-  { id: "cat-3", name: "🌾 تموين وتغذية", englishName: "food_supplies" },
-  { id: "cat-4", name: "🧂 خلطات بهارات وتوابل", englishName: "spices" }
-];
-
-// Fallback seed products
-const DEFAULT_PRODUCTS: Product[] = [
-  {
-    id: "prod-1",
-    name: "شحن شدات PUBG Mobile - 325 شدة فوري",
-    description: "تعبئة وشحن فوري ومباشر إلى معرف الأي دي (ID) الخاص بك دون انتظار بأسعار تنافسية ممتازة.",
-    category: "🎮 شحن فورى ألعاب وإنترنت",
-    price: 35.0,
-    image: "https://images.unsplash.com/photo-1542751371-adc38448a05e?w=500&q=80",
-    stock: 99,
-    code: "PUBG325"
-  },
-  {
-    id: "prod-2",
-    name: "سماعات بلوتوث مخصصة للألعاب Ultra Bass",
-    description: "عزل كامل للضوضاء، استجابة صوتية متفوقة خالية من التأخير وميكروفون نقي للدردشة.",
-    category: "🔌 جوالات وإلكترونيات",
-    price: 120.0,
-    image: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500&q=80",
-    stock: 12,
-    code: "G_HEADSET"
-  },
-  {
-    id: "prod-3",
-    name: "خلطة بهارات الذيباني الفاخرة المشكلة - كرتون",
-    description: "توليفة سرية غنية بالهيل والزعفران والمكونات الطبيعية الممتازة المناسبة لجميع أنواع الكبسات والطبخ اليمني والشرقي الفاخر.",
-    category: "🧂 خلطات بهارات وتوابل",
-    price: 85.0,
-    image: "https://images.unsplash.com/photo-1596040033229-a9821ebd058d?w=500&q=80",
-    stock: 50,
-    code: "SP_DHIBANI"
-  }
-];
 
 const getProjectTypeNiche = (): string | null => {
   const envVal = (((import.meta as any).env?.VITE_PROJECT_TYPE) || "").toLowerCase().trim();
@@ -124,27 +84,15 @@ const getProjectTypeNiche = (): string | null => {
 };
 
 export default function App() {
-  // Navigation State
   const [currentTab, setCurrentTab] = useState<"store" | "ai" | "admin" | "tracking">("store");
-
-  // Portal selection state (none = gate selector, gaming = games, grocery = mart)
   const [selectedPortal, setSelectedPortal] = useState<'none' | 'gaming' | 'grocery'>('none');
-
-  // Currency & Exchange Rate State
-  const [currency, setCurrency] = useState<'SAR' | 'YER'>(() => {
-    return (localStorage.getItem("store_currency") as 'SAR' | 'YER') || "YER";
-  });
+  const [currency, setCurrency] = useState<'SAR' | 'YER'>(() => (localStorage.getItem("store_currency") as 'SAR' | 'YER') || "YER");
   const [exchangeRate, setExchangeRate] = useState<number>(() => {
     const saved = localStorage.getItem("store_exchange_rate");
-    const parsed = saved ? Number(saved) : EXCHANGE_RATE_SAR;
-    // Strict arithmetic protection on startup: must be within safe margins
-    return (parsed > 0 && parsed <= 5000) ? parsed : EXCHANGE_RATE_SAR;
+    const parsed = saved ? Number(saved) : 400;
+    return (parsed > 0 && parsed <= 5000) ? parsed : 400;
   });
-
-  // Language State (ar: Arabic, en: English)
-  const [lang, setLang] = useState<'ar' | 'en'>(() => {
-    return (localStorage.getItem("store_lang") as 'ar' | 'en') || "ar";
-  });
+  const [lang, setLang] = useState<'ar' | 'en'>(() => (localStorage.getItem("store_lang") as 'ar' | 'en') || "ar");
 
   const translations = {
     ar: {
@@ -178,7 +126,7 @@ export default function App() {
       options: "الخيارات:",
       playerId: "حساب اللاعب ID:",
       itemsTotal: "مجموع قيمة الأصناف",
-      deliveryFee: "رسوم الشحن والتوصيل",
+      deliveryFee: "رسوم الشحن والتوصيل",      
       taxAndService: "الضرائب المضافة والخدمة",
       instantShipping: "تجهيز وشحن فوري ثواني ⚡",
       freeForVip: "مجاني للمستويات VIP",
@@ -188,24 +136,7 @@ export default function App() {
       clearCart: "إخلاء وتصفية السلة",
     },
     en: {
-      store: "Online Store",
-      ai: "AI Assistant",
-      tracking: "Order Tracking",
-      admin: "Admin Control",
-      currencyTitle: "Store Currency:",
-      langTitle: "Language:",
-      gatesTitle: "Dheebani VIP Integrated Gateway 🔱",
-      gatesSubtitle: "Welcome to our premium multi-niche trading platform. Choose your destination below to start browsing:",
-      gamingGateTitle: "Gaming & Card Top-up Portal",
-      gamingGateBadge: "Instant Top-up ⚡",
-      gamingGateDesc: "Instantly recharge PUBG Mobile UC, Free Fire Diamonds, Google Play, iTunes, and software activation keys.",
-      gamingGateButton: "Enter Gaming Portal",
-      groceryGateTitle: "Al-Dheebani Mart & Spices",
-      groceryGateBadge: "Safe Courier 🚛",
-      groceryGateDesc: "Original Yemeni herbs, premium custom spice blends, and kitchen staples packed with care and delivered to your doorstep.",
-      groceryGateButton: "Browse Food & Mart",
-      backToGates: "Back to Main Portals",
-      gamingHeader: "🎮 Gaming & Cards Top-up Portal",
+
       groceryHeader: "🌾 Wholesale Mart & Spice Blends",
       matchingItems: "matching items",
       technicalSupport: "Technical Assistance",
