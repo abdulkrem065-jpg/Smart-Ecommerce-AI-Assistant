@@ -1,7 +1,7 @@
 import { StateCreator } from 'zustand';
 import { Product, StoreCategory } from '../../types';
 import { DEFAULT_PRODUCTS, DEFAULT_CATEGORIES } from '../../core/defaults';
-import { ref, set, onValue, remove } from 'firebase/database';
+import { ref, set as firebaseSet, onValue, remove } from 'firebase/database';
 import { db } from '../../firebase';
 
 function cleanUndefined(obj: any): any {
@@ -28,6 +28,8 @@ export interface InventorySlice {
   addCategory: (category: Omit<StoreCategory, 'id'>) => void;
   deleteCategory: (id: string) => void;
   fetchFirebaseProducts: () => void;
+  deductStock: (productId: string, quantity: number) => boolean;
+  increaseStock: (productId: string, quantity: number) => boolean;
 }
 
 export const createInventorySlice: StateCreator<InventorySlice> = (set, get) => ({
@@ -48,6 +50,11 @@ export const createInventorySlice: StateCreator<InventorySlice> = (set, get) => 
     return { categories };
   }),
   addProduct: (product) => {
+    const isLocked = (get() as any).isPeriodLocked;
+    if (isLocked) {
+      console.warn("Fiscal period is locked. Cannot add product.");
+      return;
+    }
     const newProduct = { ...product, id: Date.now().toString() };
     const { products } = get();
     const newProducts = [...products, newProduct as Product];
@@ -56,10 +63,15 @@ export const createInventorySlice: StateCreator<InventorySlice> = (set, get) => 
     
     // Write directly to Firebase
     const activeNicheId = localStorage.getItem("store_active_niche") || 'hyper_games';
-    set(ref(db, `niche_${activeNicheId}/products/${newProduct.id}`), cleanUndefined(newProduct))
+    firebaseSet(ref(db, `niche_${activeNicheId}/products/${newProduct.id}`), cleanUndefined(newProduct))
       .catch((err: any) => console.error("Failed to write newly added product to firebase:", err));
   },
   updateProduct: (id, updated) => {
+    const isLocked = (get() as any).isPeriodLocked;
+    if (isLocked) {
+      console.warn("Fiscal period is locked. Cannot update product.");
+      return;
+    }
     const { products } = get();
     const newProducts = products.map((p) => p.id === id ? { ...p, ...updated } : p);
     set({ products: newProducts });
@@ -69,11 +81,16 @@ export const createInventorySlice: StateCreator<InventorySlice> = (set, get) => 
     const updatedProduct = newProducts.find(p => p.id === id);
     if (updatedProduct) {
       const activeNicheId = localStorage.getItem("store_active_niche") || 'hyper_games';
-      set(ref(db, `niche_${activeNicheId}/products/${id}`), cleanUndefined(updatedProduct))
+      firebaseSet(ref(db, `niche_${activeNicheId}/products/${id}`), cleanUndefined(updatedProduct))
         .catch((err: any) => console.error("Failed to edit product on firebase:", err));
     }
   },
   deleteProduct: (id) => {
+    const isLocked = (get() as any).isPeriodLocked;
+    if (isLocked) {
+      console.warn("Fiscal period is locked. Cannot delete product.");
+      return;
+    }
     const { products } = get();
     const newProducts = products.filter((p) => p.id !== id);
     set({ products: newProducts });
@@ -93,7 +110,7 @@ export const createInventorySlice: StateCreator<InventorySlice> = (set, get) => 
     
     // Write directly to Firebase
     const activeNicheId = localStorage.getItem("store_active_niche") || 'hyper_games';
-    set(ref(db, `niche_${activeNicheId}/categories/${newCategory.id}`), cleanUndefined(newCategory))
+    firebaseSet(ref(db, `niche_${activeNicheId}/categories/${newCategory.id}`), cleanUndefined(newCategory))
       .catch((err: any) => console.error("Failed to add category to firebase:", err));
   },
   deleteCategory: (id) => {
@@ -106,6 +123,37 @@ export const createInventorySlice: StateCreator<InventorySlice> = (set, get) => 
     const activeNicheId = localStorage.getItem("store_active_niche") || 'hyper_games';
     remove(ref(db, `niche_${activeNicheId}/categories/${id}`))
       .catch((err: any) => console.error("Failed to delete category from firebase:", err));
+  },
+  deductStock: (productId, quantity) => {
+    const isLocked = (get() as any).isPeriodLocked;
+    if (isLocked) {
+      console.warn("Fiscal period is locked. Cannot deduct stock.");
+      return false;
+    }
+
+    const { products, updateProduct } = get();
+    const product = products.find(p => p.id === productId);
+    
+    if (!product) return false;
+    if ((product.stock || 0) < quantity) return false;
+    
+    updateProduct(productId, { stock: (product.stock || 0) - quantity });
+    return true;
+  },
+  increaseStock: (productId, quantity) => {
+    const isLocked = (get() as any).isPeriodLocked;
+    if (isLocked) {
+      console.warn("Fiscal period is locked. Cannot increase stock.");
+      return false;
+    }
+
+    const { products, updateProduct } = get();
+    const product = products.find(p => p.id === productId);
+    
+    if (!product) return false;
+    
+    updateProduct(productId, { stock: (product.stock || 0) + quantity });
+    return true;
   },
   fetchFirebaseProducts: () => {
     const { setProducts, setCategories } = get();

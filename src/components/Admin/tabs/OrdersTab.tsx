@@ -133,7 +133,7 @@ export default function OrdersTab({ formatPrice }: { formatPrice: (p: number) =>
                         </button>
                       )}
 
-                      <button onClick={() => printOrder(order)} className="p-1.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-lg hover:bg-blue-500 hover:text-white transition-colors" title="طباعة فاتورة كاشير صغيرة 🖨️">
+                      <button onClick={() => printOrder(order, 'فاتورة كاشير')} className="p-1.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-lg hover:bg-blue-500 hover:text-white transition-colors" title="طباعة فاتورة كاشير صغيرة 🖨️">
                          <Printer className="w-3.5 h-3.5" />
                       </button>
 

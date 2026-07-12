@@ -30,6 +30,7 @@ export interface TenantConfig {
   payApiUrl: string;
   payApiMerchantId: string;
   payApiToken: string;
+  is_period_locked?: boolean;
 }
 
 export interface TenantSlice {
@@ -68,6 +69,7 @@ const defaultTenantConfig: TenantConfig = {
   payApiUrl: '',
   payApiMerchantId: '',
   payApiToken: '',
+  is_period_locked: false,
 };
 
 export const createTenantSlice: StateCreator<TenantSlice> = (set) => ({

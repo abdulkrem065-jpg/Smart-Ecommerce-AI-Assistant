@@ -18,7 +18,7 @@ export default function CategoriesTab() {
     
     addCategory({
       name: newCatArabic.trim(),
-      nameEn: newCatEnglish.trim(),
+      englishName: newCatEnglish.trim(),
       isDefault: false
     });
     
@@ -81,7 +81,7 @@ export default function CategoriesTab() {
                   <div>
                     <h4 className="text-xs font-bold text-white mb-1">{c.name}</h4>
                     <div className="flex items-center gap-2">
-                      <span className="text-[10px] text-slate-400 font-mono">{c.nameEn || 'N/A'}</span>
+                      <span className="text-[10px] text-slate-400 font-mono">{c.englishName || 'N/A'}</span>
                       <span className="text-[9px] bg-blue-950/40 text-blue-400 border border-blue-900/40 px-1.5 py-0.5 rounded-md">
                         {productsInCat} منتج
                       </span>

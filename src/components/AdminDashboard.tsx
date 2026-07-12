@@ -1,14 +1,37 @@
 import React, { useState } from "react";
 import SettingsTab from "./Admin/tabs/SettingsTab";
 import OrdersTab from "./Admin/tabs/OrdersTab";
+import { t } from '../core/translations';
+
+import { SalesInvoicesTab } from "./Admin/tabs/SalesInvoicesTab";
+import { PurchaseInvoicesTab } from "./Admin/tabs/PurchaseInvoicesTab";
+import { CashAccountsTab } from "./Admin/tabs/CashAccountsTab";
+import CustomersTab from "./Admin/tabs/CustomersTab";
+import SuppliersTab from "./Admin/tabs/SuppliersTab";
+import SalesReturnsTab from "./Admin/tabs/SalesReturnsTab";
+import PurchaseReturnsTab from "./Admin/tabs/PurchaseReturnsTab";
+import FixedAssetsTab from "./Admin/tabs/FixedAssetsTab";
+import { CostCentersTab } from "./Admin/tabs/CostCentersTab";
+import { AdvancedReportsTab } from "./Admin/tabs/AdvancedReportsTab";
+import { RolesTab } from "./Admin/tabs/RolesTab";
+
+import { CostCentersTab } from "./Admin/tabs/CostCentersTab";
+import { AdvancedReportsTab } from "./Admin/tabs/AdvancedReportsTab";
+import { RolesTab } from "./Admin/tabs/RolesTab";
+
+
 import InventoryTab from "./Admin/tabs/InventoryTab";
 import CategoriesTab from "./Admin/tabs/CategoriesTab";
+import AccountsTab from "./Admin/tabs/AccountsTab";
+import TrialBalanceView from "./Admin/tabs/TrialBalanceView";
+import FinancialStatementsView from "./Admin/tabs/FinancialStatementsView";
+import FiscalClosingView from "./Admin/tabs/FiscalClosingView";
 import { Product, StoreCategory, Order, CarouselSlide, Staff, UserSession } from '../types';
 import { NICHES } from '../data';
 import { isModuleEnabled, isFeatureEnabled } from '../core/moduleLoader';
 import { DollarExchangePricing } from '../modules/games_hyper/DollarExchangePricing';
 import { exportOrdersToCSV, printOrder } from "../core/exportUtils";
-import { Plus, Edit2, Trash2, Package, Sparkles, TrendingUp, AlertTriangle, CheckCircle, Smartphone, Layers, UploadCloud, Image as ImageIcon, Coins, MessageSquare, Settings, Sliders, ClipboardList, CheckCircle2, Trash, Check as CheckIcon, X as XIcon, User, MapPin, Calendar, AlertCircle, Wallet, FileText, Award, Lightbulb, BarChart3, CreditCard, Users, ShieldCheck, Zap } from 'lucide-react';
+import { Plus, Edit2, Building, Truck, Undo2, Trash2, Package, Sparkles, TrendingUp, AlertTriangle, CheckCircle, Smartphone, Layers, UploadCloud, Image as ImageIcon, Coins, MessageSquare, Settings, Sliders, ClipboardList, CheckCircle2, Trash, Check as CheckIcon, X as XIcon, User, MapPin, Calendar, AlertCircle, Wallet, FileText, Award, Lightbulb, BarChart3, PieChart, Shield, CreditCard, Users, ShieldCheck, Zap, ShoppingCart, Building2 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Cell, PieChart, Pie } from 'recharts';
 
 const getProjectTypeNiche = (): 'game' | 'pharmacy' | 'supermarket' | 'school' | 'tailor' | 'legal' | 'consulting' | 'hyper' | null => {
@@ -229,7 +252,7 @@ export default function AdminDashboard({
   onUpdateUsdToYer
 }: AdminDashboardProps) {
   // Main admin control panel navigation tabs
-  const [activeTab, setActiveTab] = useState<'products' | 'categories' | 'orders' | 'slides' | 'configuration' | 'stats' | 'staff'>(() => {
+  const [activeTab, setActiveTab] = useState<'products' | 'categories' | 'orders' | 'slides' | 'configuration' | 'stats' | 'staff' | 'accounting' | 'trial_balance' | 'financial_statements' | 'fiscal_closing' | 'sales_invoices' | 'purchase_invoices' | 'cash_accounts'>(() => {
     if (userSession?.role === 'staff') {
       if (userSession.permissions?.canEditInventory) return 'products';
       if (userSession.permissions?.canManageOrders) return 'orders';
@@ -243,6 +266,31 @@ export default function AdminDashboard({
   const [reportsSubTab, setReportsSubTab] = useState<'reconciliation' | 'analytics'>('reconciliation');
   const [reconciliationStatusFilter, setReconciliationStatusFilter] = useState<'all' | 'ready' | 'pending'>('all');
   const [excludePastOrders, setExcludePastOrders] = useState<boolean>(true);
+  
+  const [productName, setProductName] = useState('');
+  const [productDesc, setProductDesc] = useState('');
+  const [productCat, setProductCat] = useState('');
+  const [productPrice, setProductPrice] = useState('');
+  const [productPriceSar, setProductPriceSar] = useState('');
+  const [productPriceYer, setProductPriceYer] = useState('');
+  const [productCurrency, setProductCurrency] = useState('SAR');
+  const [applyCurrencyToAll, setApplyCurrencyToAll] = useState(false);
+  const [productColors, setProductColors] = useState('');
+  const [productFlavors, setProductFlavors] = useState('');
+  const [productStock, setProductStock] = useState('10');
+  const [productImage, setProductImage] = useState('');
+  const [productCode, setProductCode] = useState('');
+  const [productImages, setProductImages] = useState('');
+  const [productCostUsd, setProductCostUsd] = useState('');
+  const [productProfitMarginUsd, setProductProfitMarginUsd] = useState('');
+  const [productIsDigitalService, setProductIsDigitalService] = useState(false);
+  const [productDigitalServiceType, setProductDigitalServiceType] = useState('direct');
+  const [productDigitalCategory, setProductDigitalCategory] = useState('game');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [newCatArabic, setNewCatArabic] = useState('');
+  const [newCatEnglish, setNewCatEnglish] = useState('');
+  const [selectedFund, setSelectedFund] = useState('');
+
   const [reconciliationPeriod, setReconciliationPeriod] = useState<'all' | 'recent' | 'today'>('recent');
   const [locallyReconciledOrderIds, setLocallyReconciledOrderIds] = useState<string[]>([]);
   const [isPrintModalOpen, setIsPrintModalOpen] = useState<boolean>(false);
@@ -252,6 +300,10 @@ export default function AdminDashboard({
   const isOwner = userSession?.role === 'owner';
   const isStaff = userSession?.role === 'staff';
   
+    const { checkPermission } = useStore();
+  const canViewCostCenters = checkPermission('cost_centers', 'canView');
+  const canViewReports = checkPermission('reports', 'canView');
+  const canViewUsers = checkPermission('users', 'canView');
   const hasFinancePermission = isDeveloper || isOwner || (isStaff && !!userSession?.permissions?.canViewFinance);
   const hasInventoryPermission = isDeveloper || isOwner || (isStaff && !!userSession?.permissions?.canEditInventory);
   const hasOrdersPermission = isDeveloper || isOwner || (isStaff && !!userSession?.permissions?.canManageOrders);
@@ -1403,6 +1455,120 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
             </button>
           )}
 
+
+          {hasOrdersPermission && (
+            <button
+              onClick={() => setActiveTab('sales_invoices')}
+              className={`flex-1 xl:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                activeTab === 'sales_invoices' ? 'bg-[#111a2f] text-emerald-400 shadow-lg font-black border border-emerald-500/10' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <FileText className="w-3.5 h-3.5" /> {t('salesInvoices.title')}
+            </button>
+          )}
+          {hasOrdersPermission && (
+            <button
+              onClick={() => setActiveTab('purchase_invoices')}
+              className={`flex-1 xl:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                activeTab === 'purchase_invoices' ? 'bg-[#111a2f] text-indigo-400 shadow-lg font-black border border-indigo-500/10' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <ShoppingCart className="w-3.5 h-3.5" /> {t('purchaseInvoices.title')}
+            </button>
+          )}
+          {hasFinancePermission && (
+            <button
+              onClick={() => setActiveTab('cash_accounts')}
+              className={`flex-1 xl:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                activeTab === 'cash_accounts' ? 'bg-[#111a2f] text-blue-400 shadow-lg font-black border border-blue-500/10' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Building2 className="w-3.5 h-3.5" /> {t('cashAccounts.title')}
+            </button>
+          )}
+
+          {hasOrdersPermission && (
+            <button
+              onClick={() => setActiveTab('customers')}
+              className={`flex-1 xl:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                activeTab === 'customers' ? 'bg-[#111a2f] text-blue-400 shadow-lg font-black border border-blue-500/10' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Users className="w-3.5 h-3.5" /> {t('customers.title')}
+            </button>
+          )}
+          {hasOrdersPermission && (
+            <button
+              onClick={() => setActiveTab('suppliers')}
+              className={`flex-1 xl:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                activeTab === 'suppliers' ? 'bg-[#111a2f] text-indigo-400 shadow-lg font-black border border-indigo-500/10' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Truck className="w-3.5 h-3.5" /> {t('suppliers.title')}
+            </button>
+          )}
+          {hasOrdersPermission && (
+            <button
+              onClick={() => setActiveTab('sales_returns')}
+              className={`flex-1 xl:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                activeTab === 'sales_returns' ? 'bg-[#111a2f] text-red-400 shadow-lg font-black border border-red-500/10' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Undo2 className="w-3.5 h-3.5" /> {t('salesReturns.title')}
+            </button>
+          )}
+          {hasOrdersPermission && (
+            <button
+              onClick={() => setActiveTab('purchase_returns')}
+              className={`flex-1 xl:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                activeTab === 'purchase_returns' ? 'bg-[#111a2f] text-orange-400 shadow-lg font-black border border-orange-500/10' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Undo2 className="w-3.5 h-3.5" /> {t('purchaseReturns.title')}
+            </button>
+          )}
+          {hasFinancePermission && (
+            <button
+              onClick={() => setActiveTab('fixed_assets')}
+              className={`flex-1 xl:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                activeTab === 'fixed_assets' ? 'bg-[#111a2f] text-purple-400 shadow-lg font-black border border-purple-500/10' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Building className="w-3.5 h-3.5" /> {t('fixedAssets.title')}
+            </button>
+          )}
+          {canViewCostCenters && (
+            <button
+              onClick={() => setActiveTab('cost_centers')}
+              className={`flex-1 xl:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                activeTab === 'cost_centers' ? 'bg-[#111a2f] text-teal-400 shadow-lg font-black border border-teal-500/10' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <PieChart className="w-3.5 h-3.5" /> {t('costCenters.title')}
+            </button>
+          )}
+          {canViewReports && (
+            <button
+              onClick={() => setActiveTab('advanced_reports')}
+              className={`flex-1 xl:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                activeTab === 'advanced_reports' ? 'bg-[#111a2f] text-fuchsia-400 shadow-lg font-black border border-fuchsia-500/10' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <BarChart3 className="w-3.5 h-3.5" /> {t('advancedReports.title')}
+            </button>
+          )}
+          {canViewUsers && (
+            <button
+              onClick={() => setActiveTab('roles_permissions')}
+              className={`flex-1 xl:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                activeTab === 'roles_permissions' ? 'bg-[#111a2f] text-cyan-400 shadow-lg font-black border border-cyan-500/10' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Shield className="w-3.5 h-3.5" /> {t('roles.title')}
+            </button>
+          )}
+
+
           {hasOrdersPermission && (
             <button
               onClick={() => setActiveTab('orders')}
@@ -1449,6 +1615,48 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
               }`}
             >
               البيانات والتقارير 📊
+            </button>
+          )}
+
+          {hasFinancePermission && (
+            <button
+              onClick={() => setActiveTab('accounting')}
+              className={`flex-1 xl:flex-none px-3.5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                activeTab === 'accounting' ? 'bg-[#111a2f] text-yellow-400 shadow-lg font-black border border-yellow-500/10' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              دليل الحسابات 📓
+            </button>
+          )}
+
+          {hasFinancePermission && (
+            <button
+              onClick={() => setActiveTab('trial_balance')}
+              className={`flex-1 xl:flex-none px-3.5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer relative ${
+                activeTab === 'trial_balance' ? 'bg-[#111a2f] text-rose-400 shadow-lg font-black border border-rose-500/10' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              ميزان المراجعة الذكي ⚖️
+            </button>
+          )}
+          {hasFinancePermission && (
+            <button
+              onClick={() => setActiveTab('financial_statements')}
+              className={`flex-1 xl:flex-none px-3.5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer relative ${
+                activeTab === 'financial_statements' ? 'bg-[#111a2f] text-emerald-400 shadow-lg font-black border border-emerald-500/10' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              القوائم المالية 📊
+            </button>
+          )}
+          {hasFinancePermission && (
+            <button
+              onClick={() => setActiveTab('fiscal_closing')}
+              className={`flex-1 xl:flex-none px-3.5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer relative ${
+                activeTab === 'fiscal_closing' ? 'bg-[#111a2f] text-amber-400 shadow-lg font-black border border-amber-500/10' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              إقفال الفترة 🔒
             </button>
           )}
 
@@ -1543,6 +1751,15 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
       )}
       {activeTab === "orders" && hasOrdersPermission && (
         <OrdersTab formatPrice={formatPrice || ((p) => p.toLocaleString())} />
+      )}
+      {activeTab === 'sales_invoices' && hasOrdersPermission && (
+        <SalesInvoicesTab />
+      )}
+      {activeTab === 'purchase_invoices' && hasOrdersPermission && (
+        <PurchaseInvoicesTab />
+      )}
+      {activeTab === 'cash_accounts' && hasFinancePermission && (
+        <CashAccountsTab />
       )}
       {activeTab === 'slides' && hasInventoryPermission && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-fade-in" id="slides-tab-section">
@@ -1991,6 +2208,18 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
       {/* RE-ARCHITECTED CONFIGURATOR & IDENTITY PROFILE */}
       {activeTab === "configuration" && isSuperUser && (
         <SettingsTab />
+      )}
+      {activeTab === 'accounting' && hasFinancePermission && (
+        <AccountsTab />
+      )}
+      {activeTab === 'trial_balance' && hasFinancePermission && (
+        <TrialBalanceView />
+      )}
+      {activeTab === 'financial_statements' && hasFinancePermission && (
+        <FinancialStatementsView />
+      )}
+      {activeTab === 'fiscal_closing' && hasFinancePermission && (
+        <FiscalClosingView />
       )}
       {activeTab === 'stats' && hasFinancePermission && (() => {
         // 1. Calculations for reconciliation Ledger

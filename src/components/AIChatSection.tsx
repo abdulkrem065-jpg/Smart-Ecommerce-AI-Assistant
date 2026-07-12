@@ -386,7 +386,7 @@ export default function AIChatSection({ products, activeNicheId = "game" }: AICh
 
   const { messages, setMessages, sendMessage, isSending, errorMessage, setErrorMessage } = useAICoPilot();
   const [inputValue, setInputValue] = useState('');
-  const [isFocused, setIsFocused] = useState(false);
+    const [isFocused, setIsFocused] = useState(false);
 
   const endOfMessagesRef = useRef<HTMLDivElement>(null);
 
@@ -421,7 +421,7 @@ export default function AIChatSection({ products, activeNicheId = "game" }: AICh
 
     setMessages((prev) => [...prev, userMsg]);
     if (!customText) setInputValue('');
-    setIsSending(true);
+    
     setErrorMessage(null);
 
     // Context check for Name Registration Flow
@@ -439,7 +439,7 @@ export default function AIChatSection({ products, activeNicheId = "game" }: AICh
           timestamp: new Date()
         };
         setMessages((prev) => [...prev, aiMsg]);
-        setIsSending(false);
+        
       }, 600);
       return;
     }
@@ -482,7 +482,7 @@ export default function AIChatSection({ products, activeNicheId = "game" }: AICh
       console.error(err);
       setErrorMessage('تأخر رد المساعد الذكي. يرجى مراجعة مفتاح API الخاص بك في لوحة الإعدادات أو الإشارة لخطأ الاتصالات.');
     } finally {
-      setIsSending(false);
+      
     }
   };
 

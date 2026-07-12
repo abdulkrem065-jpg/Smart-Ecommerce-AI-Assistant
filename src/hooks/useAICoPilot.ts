@@ -8,6 +8,7 @@ export function useAICoPilot() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   
   const addOrder = useStore(state => state.addOrder);
+  const updateProduct = useStore(state => state.updateProduct);
   
   const sendMessage = async (text: string, activeNicheId: string, customConfig?: any) => {
     setIsSending(true);
@@ -46,17 +47,28 @@ export function useAICoPilot() {
         const newOrder: Order = {
           id: `ORD-AI-${Date.now().toString().slice(-6)}`,
           customerName: args.customerName,
-          customerPhone: args.customerPhone || "AI-Assisted",
+          phone: args.customerPhone || "AI-Assisted",
           date: new Date().toISOString(),
           status: 'قيد المعالجة',
           items: args.items || [], 
-          total: args.total || 0,
-          subtotal: args.total || 0,
-          tax: 0,
+          totalPrice: args.total || 0, currency: "YER", address: "AI Assited",
+          // subtotalPrice: args.total || 0, currency: "YER", address: "AI Assited",
+          
           paymentMethod: 'AI Order'
         };
         
         addOrder(newOrder);
+        
+        // Decrement stock for ordered items
+        if (args.items && Array.isArray(args.items)) {
+          args.items.forEach((item: any) => {
+            const product = state.products.find((p: any) => p.id === item.id || p.name === item.name);
+            if (product) {
+              const newStock = Math.max(0, (product.stock || 0) - (item.quantity || 1));
+              updateProduct(product.id, { stock: newStock });
+            }
+          });
+        }
 
         const aiMsg: Message = { id: `ai-${Date.now()}`, sender: 'ai', text: data.text || "لقد تم إنشاء طلبك بنجاح عبر المساعد الذكي! شكراً لثقتك بنا.", timestamp: new Date() };
         setMessages(prev => [...prev, aiMsg]);

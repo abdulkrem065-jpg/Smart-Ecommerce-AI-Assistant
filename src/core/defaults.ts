@@ -2,10 +2,10 @@ import { Product, StoreCategory } from './types';
 
 // Fallback seed categories
 export const DEFAULT_CATEGORIES: StoreCategory[] = [
-  { id: "cat-1", name: "🎮 شحن فورى ألعاب وإنترنت", nameEn: "games_charge", isDefault: true },
-  { id: "cat-2", name: "🔌 جوالات وإلكترونيات", nameEn: "electronics", isDefault: true },
-  { id: "cat-3", name: "🌾 تموين وتغذية", nameEn: "food_supplies", isDefault: true },
-  { id: "cat-4", name: "🧂 خلطات بهارات وتوابل", nameEn: "spices", isDefault: true }
+  { id: "cat-1", name: "🎮 شحن فورى ألعاب وإنترنت", englishName: "games_charge", isDefault: true },
+  { id: "cat-2", name: "🔌 جوالات وإلكترونيات", englishName: "electronics", isDefault: true },
+  { id: "cat-3", name: "🌾 تموين وتغذية", englishName: "food_supplies", isDefault: true },
+  { id: "cat-4", name: "🧂 خلطات بهارات وتوابل", englishName: "spices", isDefault: true }
 ];
 
 // Fallback seed products
