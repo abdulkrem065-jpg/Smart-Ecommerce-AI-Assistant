@@ -14,8 +14,11 @@ import { PurchaseSlice, createPurchaseSlice } from './slices/purchaseSlice';
 import { CashSlice, createCashSlice } from './slices/cashSlice';
 import { CostCenterSlice, createCostCenterSlice } from './slices/costCenterSlice';
 import { RoleSlice, createRoleSlice } from './slices/roleSlice';
+import { EmployeeSlice, createEmployeeSlice } from './slices/employeeSlice';
+import { PayrollSlice, createPayrollSlice } from './slices/payrollSlice';
+import { NotificationSlice, createNotificationSlice } from './slices/notificationSlice';
 
-export const useStore = create<AuthSlice & TenantSlice & OrderSlice & InventorySlice & AccountingSlice & JournalEngineSlice & FinancialReportSlice & CustomerSlice & SalesReturnSlice & SupplierSlice & PurchaseSlice & CashSlice & FixedAssetSlice & CostCenterSlice & RoleSlice>()((...a) => ({
+export const useStore = create<AuthSlice & TenantSlice & OrderSlice & InventorySlice & AccountingSlice & JournalEngineSlice & FinancialReportSlice & CustomerSlice & SalesReturnSlice & SupplierSlice & PurchaseSlice & CashSlice & FixedAssetSlice & CostCenterSlice & RoleSlice & EmployeeSlice & PayrollSlice & NotificationSlice>()((...a) => ({
   ...createAuthSlice(...a),
   ...createTenantSlice(...a),
   ...createOrderSlice(...a),
@@ -30,5 +33,8 @@ export const useStore = create<AuthSlice & TenantSlice & OrderSlice & InventoryS
   ...createCashSlice(...a),
   ...createFixedAssetSlice(...a),
   ...createCostCenterSlice(...a),
-  ...createRoleSlice(...a)
+  ...createRoleSlice(...a),
+  ...createEmployeeSlice(...a),
+  ...createPayrollSlice(...a),
+  ...createNotificationSlice(...a)
 }));

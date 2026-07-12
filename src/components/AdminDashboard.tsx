@@ -15,6 +15,10 @@ import { CostCentersTab } from "./Admin/tabs/CostCentersTab";
 import { AdvancedReportsTab } from "./Admin/tabs/AdvancedReportsTab";
 import { RolesTab } from "./Admin/tabs/RolesTab";
 
+import { EmployeesTab } from "./Admin/tabs/EmployeesTab";
+import { NotificationBell } from "./Admin/NotificationBell";
+
+
 import { CostCentersTab } from "./Admin/tabs/CostCentersTab";
 import { AdvancedReportsTab } from "./Admin/tabs/AdvancedReportsTab";
 import { RolesTab } from "./Admin/tabs/RolesTab";
@@ -252,7 +256,7 @@ export default function AdminDashboard({
   onUpdateUsdToYer
 }: AdminDashboardProps) {
   // Main admin control panel navigation tabs
-  const [activeTab, setActiveTab] = useState<'products' | 'categories' | 'orders' | 'slides' | 'configuration' | 'stats' | 'staff' | 'accounting' | 'trial_balance' | 'financial_statements' | 'fiscal_closing' | 'sales_invoices' | 'purchase_invoices' | 'cash_accounts'>(() => {
+  const [activeTab, setActiveTab] = useState<'products' | 'categories' | 'orders' | 'slides' | 'configuration' | 'stats' | 'staff' | 'accounting' | 'trial_balance' | 'financial_statements' | 'fiscal_closing' | 'sales_invoices' | 'purchase_invoices' | 'cash_accounts' | 'employees'>(() => {
     if (userSession?.role === 'staff') {
       if (userSession.permissions?.canEditInventory) return 'products';
       if (userSession.permissions?.canManageOrders) return 'orders';
@@ -1421,14 +1425,18 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
               </span>
             )}
           </div>
-          {onLogoutAdmin && (
-            <button
-              onClick={onLogoutAdmin}
-              className="mt-3.5 px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-xl text-[11px] font-black transition-all cursor-pointer inline-flex items-center gap-1.5 shadow-sm hover:scale-[1.02] active:scale-[0.98]"
-            >
-              <span>تسجيل خروج المشرف 🚪</span>
-            </button>
-          )}
+
+          <div className="flex items-center gap-2 mt-3.5">
+            {onLogoutAdmin && (
+              <button
+                onClick={onLogoutAdmin}
+                className="px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-xl text-[11px] font-black transition-all cursor-pointer inline-flex items-center gap-1.5 shadow-sm hover:scale-[1.02] active:scale-[0.98]"
+              >
+                <span>تسجيل خروج المشرف 🚪</span>
+              </button>
+            )}
+            <NotificationBell />
+          </div>
         </div>
 
         {/* Dynamic Navigation Controllers with strict RBAC */}
@@ -1760,6 +1768,9 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
       )}
       {activeTab === 'cash_accounts' && hasFinancePermission && (
         <CashAccountsTab />
+      )}
+      {activeTab === 'employees' && hasFinancePermission && (
+        <EmployeesTab />
       )}
       {activeTab === 'slides' && hasInventoryPermission && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-fade-in" id="slides-tab-section">

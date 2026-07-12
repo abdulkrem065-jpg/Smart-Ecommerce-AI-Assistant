@@ -1,40 +1,67 @@
 const fs = require('fs');
-const path = 'src/core/types.ts';
-let code = fs.readFileSync(path, 'utf8');
 
-if (!code.includes('export interface FixedAsset')) {
-  code += `
-// الأصل الثابت
-export interface FixedAsset {
+let content = fs.readFileSync('src/core/types.ts', 'utf8');
+
+const newInterfaces = `
+// الموظف
+export interface Employee {
   id: string;
-  name: string;               // اسم الأصل
-  category: string;           // تصنيف (أثاث، أجهزة، مركبات، عقارات)
-  purchaseDate: string;       // تاريخ الشراء
-  purchaseValue: number;      // قيمة الشراء
-  salvageValue: number;       // قيمة الخردة
-  usefulLife: number;         // العمر الإنتاجي (بالشهور)
-  depreciationMethod: 'قسط ثابت' | 'متناقص';  // طريقة الإهلاك
-  depreciationRate: number;   // معدل الإهلاك (يُحتسب تلقائياً)
-  accumulatedDepreciation: number;  // مجمع الإهلاك
-  bookValue: number;          // القيمة الدفترية الحالية
-  monthlyDepreciation: number; // قسط الإهلاك الشهري
-  lastDepreciationDate?: string;  // تاريخ آخر إهلاك
-  status: 'نشط' | 'مباع' | 'مستهلك';
+  fullName: string;
+  phone: string;
+  email?: string;
+  address?: string;
+  position: string;           // المسمى الوظيفي
+  department: string;         // القسم
+  basicSalary: number;        // الراتب الأساسي
+  housingAllowance: number;   // بدل سكن
+  transportAllowance: number; // بدل نقل
+  otherAllowances: number;    // بدلات أخرى
+  deductions: number;         // استقطاعات شهرية ثابتة
+  joinDate: string;           // تاريخ الالتحاق
+  status: 'نشط' | 'مستقيل' | 'موقوف';
+  bankAccount?: string;       // رقم الحساب البنكي (لتحويل الراتب)
+  idNumber?: string;          // رقم الهوية
   notes?: string;
 }
 
-// قسط الإهلاك
-export interface DepreciationEntry {
+// مسير الرواتب
+export interface PayrollRun {
   id: string;
-  assetId: string;
-  assetName: string;
+  month: number;              // الشهر (1-12)
+  year: number;               // السنة
+  date: string;               // تاريخ التشغيل
+  status: 'مفتوح' | 'معتمد' | 'مدفوع';
+  entries: PayrollEntry[];
+  totalGross: number;         // إجمالي المستحقات
+  totalDeductions: number;    // إجمالي الاستقطاعات
+  totalNet: number;           // صافي الرواتب
+  journalEntryId?: string;    // معرف القيد المحاسبي
+}
+
+// بند في مسير الرواتب
+export interface PayrollEntry {
+  employeeId: string;
+  employeeName: string;
+  basicSalary: number;
+  housingAllowance: number;
+  transportAllowance: number;
+  otherAllowances: number;
+  additions: number;          // إضافات هذا الشهر
+  deductions: number;         // استقطاعات هذا الشهر
+  netSalary: number;          // صافي الراتب
+}
+
+// إشعار
+export interface Notification {
+  id: string;
   date: string;
-  amount: number;
-  accumulatedBefore: number;
-  accumulatedAfter: number;
-  bookValueAfter: number;
-  journalEntryId?: string;
+  type: 'تحذير' | 'معلومة' | 'نجاح' | 'خطر';
+  title: string;
+  message: string;
+  module: string;             // الوحدة المرتبطة
+  referenceId?: string;       // معرف العنصر المرتبط
+  isRead: boolean;
 }
 `;
-  fs.writeFileSync(path, code);
-}
+
+fs.writeFileSync('src/core/types.ts', content + newInterfaces);
