@@ -133,7 +133,7 @@ export const translations: Record<string, Record<string, string>> = {
     'openingBalance': 'الرصيد الافتتاحي',
     'save': 'حفظ',
     'cancel': 'إلغاء',
-  },
+    'noData': 'لا توجد بيانات لعرضها',
     'costCenters.title': 'مراكز التكلفة',
     'addCostCenter': 'إضافة مركز تكلفة',
     'budget': 'الموازنة',
@@ -164,8 +164,6 @@ export const translations: Record<string, Record<string, string>> = {
     'permissions': 'الصلاحيات',
     'view': 'عرض',
     'create': 'إنشاء',
-    'edit': 'تعديل',
-    'delete': 'حذف',
     'active': 'نشط',
     'inactive': 'غير نشط',
     'lastLogin': 'آخر دخول',
@@ -199,6 +197,7 @@ export const translations: Record<string, Record<string, string>> = {
     'budgetExceeded': 'تجاوز الموازنة',
     'assetExpired': 'أصل منتهي العمر',
     'custodyOpen': 'عهدة مفتوحة',
+  },
   en: {
 
 
@@ -335,6 +334,7 @@ export const translations: Record<string, Record<string, string>> = {
     'openingBalance': 'Opening Balance',
     'save': 'Save',
     'cancel': 'Cancel',
+    'noData': 'No data to display',
     'costCenters.title': 'Cost Centers',
     'addCostCenter': 'Add Cost Center',
     'budget': 'Budget',
@@ -365,8 +365,6 @@ export const translations: Record<string, Record<string, string>> = {
     'permissions': 'Permissions',
     'view': 'View',
     'create': 'Create',
-    'edit': 'Edit',
-    'delete': 'Delete',
     'active': 'Active',
     'inactive': 'Inactive',
     'lastLogin': 'Last Login',

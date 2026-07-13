@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
+import { ConfirmModal } from '../../ConfirmModal';
+import { EmptyState } from '../../EmptyState';
+import { LoadingSpinner } from '../../LoadingSpinner';
 import { useStore } from '../../../store';
 import { exportOrdersToCSV, printOrder } from "../../../core/exportUtils";
 import { ClipboardList, CheckCircle2, AlertTriangle, AlertCircle, Trash, XIcon, Package, Printer } from 'lucide-react';
-import { Order } from '../../../types';
+import { Order } from '../../../core/types';
 
 export default function OrdersTab({ formatPrice }: { formatPrice: (p: number) => string }) {
   const orders = useStore((state) => state.orders);
@@ -11,6 +14,7 @@ export default function OrdersTab({ formatPrice }: { formatPrice: (p: number) =>
   const currency = useStore((state) => state.tenantConfig.currency);
 
   const [selectedFund, setSelectedFund] = useState<string>('all');
+  const [itemToDelete, setItemToDelete] = useState<string | null>(null);
 
   return (
     <div className="bg-[#0b1329] p-6 rounded-3xl border border-blue-900/40 shadow-sm space-y-4 animate-fade-in" id="orders-tab-section">

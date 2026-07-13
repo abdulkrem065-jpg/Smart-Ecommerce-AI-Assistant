@@ -1,5 +1,5 @@
 import { StateCreator } from 'zustand';
-import { Product, StoreCategory } from '../../types';
+import { Product, StoreCategory } from '../../core/types';
 import { DEFAULT_PRODUCTS, DEFAULT_CATEGORIES } from '../../core/defaults';
 import { ref, set as firebaseSet, onValue, remove } from 'firebase/database';
 import { db } from '../../firebase';

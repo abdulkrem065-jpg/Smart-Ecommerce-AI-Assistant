@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
+import { ConfirmModal } from '../../ConfirmModal';
+import { EmptyState } from '../../EmptyState';
+import { LoadingSpinner } from '../../LoadingSpinner';
 import { useStore } from '../../../store';
 import { Package, Plus, Sparkles, Image as ImageIcon, Trash2, Edit2, UploadCloud, CheckIcon, Smartphone, Zap } from 'lucide-react';
-import { Product } from '../../../types';
+import { Product } from '../../../core/types';
 import { DollarExchangePricing } from '../../../modules/games_hyper/DollarExchangePricing';
 
 export default function InventoryTab({ formatPrice }: { formatPrice: (p: number) => string }) {
@@ -16,6 +19,7 @@ export default function InventoryTab({ formatPrice }: { formatPrice: (p: number)
   const usdToSar = 3.75; // Approximation
 
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
+  const [itemToDelete, setItemToDelete] = useState<string | null>(null);
 
   const [productName, setProductName] = useState('');
   const [productDesc, setProductDesc] = useState('');

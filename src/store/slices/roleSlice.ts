@@ -1,5 +1,21 @@
 import { StateCreator } from 'zustand';
 import { UserRole, SystemUser, UserPermission } from '../../core/types';
+import { ref, set as firebaseSet, onValue, remove } from 'firebase/database';
+import { db } from '../../firebase';
+
+function cleanUndefined(obj: any): any {
+  if (obj === null || obj === undefined) return null;
+  if (Array.isArray(obj)) return obj.map(item => cleanUndefined(item));
+  if (typeof obj === 'object') {
+    const cleaned: any = {};
+    for (const key of Object.keys(obj)) {
+      if (obj[key] !== undefined) cleaned[key] = cleanUndefined(obj[key]);
+    }
+    return cleaned;
+  }
+  return obj;
+}
+
 
 export interface RoleSlice {
   userRoles: UserRole[];
@@ -20,57 +36,85 @@ export const createRoleSlice: StateCreator<RoleSlice> = (set, get) => ({
   systemUsers: [],
 
   fetchRoles: () => {
-    // Should fetch from Firebase
+    const activeNicheId = localStorage.getItem("store_active_niche") || 'hyper_games';
+    onValue(ref(db, `niche_${activeNicheId}/userRoles`), (snapshot) => {
+      const val = snapshot.val();
+      if (val) {
+        set({ userRoles: Array.isArray(val) ? val.filter(Boolean) : Object.values(val) });
+      } else {
+        set({ userRoles: [] });
+      }
+    });
   },
 
   addRole: (role) => {
+    if ((get() as any).isPeriodLocked) { console.warn('Period locked'); return; }
     const newRole: UserRole = {
       ...role,
       id: Date.now().toString(),
       createdAt: new Date().toISOString()
     };
-    set((state) => ({
-      userRoles: [...state.userRoles, newRole]
-    }));
+    set((state) => ({ userRoles: [...state.userRoles, newRole] }));
+    const activeNicheId = localStorage.getItem("store_active_niche") || 'hyper_games';
+    firebaseSet(ref(db, `niche_${activeNicheId}/userRoles/${newRole.id}`), cleanUndefined(newRole));
   },
 
   updateRole: (id, updates) => {
-    set((state) => ({
-      userRoles: state.userRoles.map((r) => r.id === id ? { ...r, ...updates } : r)
-    }));
+    if ((get() as any).isPeriodLocked) { console.warn('Period locked'); return; }
+    set((state) => ({ userRoles: state.userRoles.map((r) => r.id === id ? { ...r, ...updates } : r) }));
+    const updatedRole = get().userRoles.find((r: UserRole) => r.id === id);
+    if (updatedRole) {
+      const activeNicheId = localStorage.getItem("store_active_niche") || 'hyper_games';
+      firebaseSet(ref(db, `niche_${activeNicheId}/userRoles/${id}`), cleanUndefined(updatedRole));
+    }
   },
 
   deleteRole: (id) => {
-    set((state) => ({
-      userRoles: state.userRoles.filter((r) => r.id !== id)
-    }));
+    if ((get() as any).isPeriodLocked) { console.warn('Period locked'); return; }
+    set((state) => ({ userRoles: state.userRoles.filter((r) => r.id !== id) }));
+    const activeNicheId = localStorage.getItem("store_active_niche") || 'hyper_games';
+    remove(ref(db, `niche_${activeNicheId}/userRoles/${id}`));
   },
 
   fetchUsers: () => {
-    // Should fetch from Firebase
+    const activeNicheId = localStorage.getItem("store_active_niche") || 'hyper_games';
+    onValue(ref(db, `niche_${activeNicheId}/systemUsers`), (snapshot) => {
+      const val = snapshot.val();
+      if (val) {
+        set({ systemUsers: Array.isArray(val) ? val.filter(Boolean) : Object.values(val) });
+      } else {
+        set({ systemUsers: [] });
+      }
+    });
   },
 
   addUser: (user) => {
+    if ((get() as any).isPeriodLocked) { console.warn('Period locked'); return; }
     const newUser: SystemUser = {
       ...user,
       id: Date.now().toString(),
       createdAt: new Date().toISOString()
     };
-    set((state) => ({
-      systemUsers: [...state.systemUsers, newUser]
-    }));
+    set((state) => ({ systemUsers: [...state.systemUsers, newUser] }));
+    const activeNicheId = localStorage.getItem("store_active_niche") || 'hyper_games';
+    firebaseSet(ref(db, `niche_${activeNicheId}/systemUsers/${newUser.id}`), cleanUndefined(newUser));
   },
 
   updateUser: (id, updates) => {
-    set((state) => ({
-      systemUsers: state.systemUsers.map((u) => u.id === id ? { ...u, ...updates } : u)
-    }));
+    if ((get() as any).isPeriodLocked) { console.warn('Period locked'); return; }
+    set((state) => ({ systemUsers: state.systemUsers.map((u) => u.id === id ? { ...u, ...updates } : u) }));
+    const updatedUser = get().systemUsers.find((u: SystemUser) => u.id === id);
+    if (updatedUser) {
+      const activeNicheId = localStorage.getItem("store_active_niche") || 'hyper_games';
+      firebaseSet(ref(db, `niche_${activeNicheId}/systemUsers/${id}`), cleanUndefined(updatedUser));
+    }
   },
 
   deleteUser: (id) => {
-    set((state) => ({
-      systemUsers: state.systemUsers.filter((u) => u.id !== id)
-    }));
+    if ((get() as any).isPeriodLocked) { console.warn('Period locked'); return; }
+    set((state) => ({ systemUsers: state.systemUsers.filter((u) => u.id !== id) }));
+    const activeNicheId = localStorage.getItem("store_active_niche") || 'hyper_games';
+    remove(ref(db, `niche_${activeNicheId}/systemUsers/${id}`));
   },
 
   checkPermission: (module, action) => {

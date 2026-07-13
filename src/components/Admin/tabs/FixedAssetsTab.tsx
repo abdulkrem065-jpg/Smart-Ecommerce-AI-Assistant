@@ -2,12 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { useStore } from '../../../store';
 import { Building, Plus, Play, Trash2, Edit, Tag, X } from 'lucide-react';
 import { FixedAsset, DepreciationEntry } from '../../../core/types';
+import { ConfirmModal } from '../../ConfirmModal';
+import { EmptyState } from '../../EmptyState';
+import { LoadingSpinner } from '../../LoadingSpinner';
 import { t } from '../../../core/translations';
 
 export default function FixedAssetsTab() {
   const lang = localStorage.getItem('store_lang') || 'ar';
   const { fixedAssets, depreciationEntries, fetchFixedAssets, addFixedAsset, updateFixedAsset, deleteFixedAsset, runMonthlyDepreciation, sellAsset } = useStore();
   const [activeSubTab, setActiveSubTab] = useState<'assets' | 'history'>('assets');
+  const [itemToDelete, setItemToDelete] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showSellModal, setShowSellModal] = useState(false);
   const [selectedAssetId, setSelectedAssetId] = useState('');
@@ -137,7 +141,7 @@ export default function FixedAssetsTab() {
               </thead>
               <tbody className="divide-y divide-blue-900/20">
                 {fixedAssets.map((a: FixedAsset) => (
-                  <tr key={a.id} className="hover:bg-white/5 transition-colors">
+                  <tr key={a.id} className="hover:bg-[#0f172a]/5 transition-colors">
                     <td className="p-4 text-sm font-medium text-white">{a.name}</td>
                     <td className="p-4 text-sm text-slate-300">
                       {a.category === 'أثاث' ? t('furniture', lang) :
@@ -165,7 +169,7 @@ export default function FixedAssetsTab() {
                           <Tag className="w-4 h-4" />
                         </button>
                       )}
-                      <button onClick={() => handleDelete(a.id)} className="p-1.5 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/40" title={t('delete', lang)}>
+                      <button onClick={() => setItemToDelete(a.id)} className="p-1.5 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/40" title={t('delete', lang)}>
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </td>
@@ -193,7 +197,7 @@ export default function FixedAssetsTab() {
               </thead>
               <tbody className="divide-y divide-blue-900/20">
                 {depreciationEntries.map((e: DepreciationEntry) => (
-                  <tr key={e.id} className="hover:bg-white/5 transition-colors">
+                  <tr key={e.id} className="hover:bg-[#0f172a]/5 transition-colors">
                     <td className="p-4 text-sm font-medium text-white">{e.assetName}</td>
                     <td className="p-4 text-sm text-slate-300">{e.date}</td>
                     <td className="p-4 text-sm font-bold text-emerald-400">{e.amount.toFixed(2)}</td>
@@ -301,7 +305,7 @@ export default function FixedAssetsTab() {
                 </button>
                 <button
                   onClick={() => setShowAddModal(false)}
-                  className="flex-1 bg-white/5 text-white py-3 rounded-lg font-bold hover:bg-white/10 transition-colors"
+                  className="flex-1 bg-[#0f172a]/5 text-white py-3 rounded-lg font-bold hover:bg-[#0f172a]/10 transition-colors"
                 >
                   {t('cancel', lang)}
                 </button>
@@ -350,7 +354,7 @@ export default function FixedAssetsTab() {
                 </button>
                 <button
                   onClick={() => setShowSellModal(false)}
-                  className="flex-1 bg-white/5 text-white py-3 rounded-lg font-bold hover:bg-white/10 transition-colors"
+                  className="flex-1 bg-[#0f172a]/5 text-white py-3 rounded-lg font-bold hover:bg-[#0f172a]/10 transition-colors"
                 >
                   {t('cancel', lang)}
                 </button>
@@ -359,6 +363,16 @@ export default function FixedAssetsTab() {
           </div>
         </div>
       )}
+    
+      <ConfirmModal
+        isOpen={!!itemToDelete}
+        title={t('confirmDelete', lang)}
+        message={t('confirmDeleteMsg', lang)}
+        onConfirm={() => {
+          if (itemToDelete) deleteFixedAsset(itemToDelete);
+        }}
+        onCancel={() => setItemToDelete(null)}
+      />
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Message, Product } from '../types';
+import { Message, Product } from '../core/types';
 import { Send, Bot, Sparkles, User, RefreshCw, Cpu, AlertCircle, Trash2, Volume2, VolumeX, Mic, MicOff } from 'lucide-react';
 
 interface AIChatSectionProps {

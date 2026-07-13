@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useStore } from '../store';
 import SettingsTab from "./Admin/tabs/SettingsTab";
 import OrdersTab from "./Admin/tabs/OrdersTab";
 import { t } from '../core/translations';
@@ -19,9 +20,6 @@ import { EmployeesTab } from "./Admin/tabs/EmployeesTab";
 import { NotificationBell } from "./Admin/NotificationBell";
 
 
-import { CostCentersTab } from "./Admin/tabs/CostCentersTab";
-import { AdvancedReportsTab } from "./Admin/tabs/AdvancedReportsTab";
-import { RolesTab } from "./Admin/tabs/RolesTab";
 
 
 import InventoryTab from "./Admin/tabs/InventoryTab";
@@ -30,13 +28,14 @@ import AccountsTab from "./Admin/tabs/AccountsTab";
 import TrialBalanceView from "./Admin/tabs/TrialBalanceView";
 import FinancialStatementsView from "./Admin/tabs/FinancialStatementsView";
 import FiscalClosingView from "./Admin/tabs/FiscalClosingView";
-import { Product, StoreCategory, Order, CarouselSlide, Staff, UserSession } from '../types';
+import { Product, StoreCategory, Order, CarouselSlide, Staff, UserSession } from '../core/types';
 import { NICHES } from '../data';
 import { isModuleEnabled, isFeatureEnabled } from '../core/moduleLoader';
 import { DollarExchangePricing } from '../modules/games_hyper/DollarExchangePricing';
 import { exportOrdersToCSV, printOrder } from "../core/exportUtils";
-import { Plus, Edit2, Building, Truck, Undo2, Trash2, Package, Sparkles, TrendingUp, AlertTriangle, CheckCircle, Smartphone, Layers, UploadCloud, Image as ImageIcon, Coins, MessageSquare, Settings, Sliders, ClipboardList, CheckCircle2, Trash, Check as CheckIcon, X as XIcon, User, MapPin, Calendar, AlertCircle, Wallet, FileText, Award, Lightbulb, BarChart3, PieChart, Shield, CreditCard, Users, ShieldCheck, Zap, ShoppingCart, Building2 } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Cell, PieChart, Pie } from 'recharts';
+import { Plus, Edit2, Building, Truck, Undo2, Trash2, Package, Sparkles, TrendingUp, AlertTriangle, CheckCircle, Smartphone, Layers, UploadCloud, Image as ImageIcon, Coins, MessageSquare, Settings, Sliders, ClipboardList, CheckCircle2, Trash, Check as CheckIcon, X as XIcon, User, MapPin, Calendar, AlertCircle, Wallet, FileText, Award, Lightbulb, BarChart3, PieChart as PieChartIcon, Shield, CreditCard, Users, ShieldCheck, Zap, ShoppingCart, Building2 } from 'lucide-react';
+
+import { PieChart, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Cell, Pie } from 'recharts';
 
 const getProjectTypeNiche = (): 'game' | 'pharmacy' | 'supermarket' | 'school' | 'tailor' | 'legal' | 'consulting' | 'hyper' | null => {
   const envVal = (((import.meta as any).env?.VITE_PROJECT_TYPE) || "").toLowerCase().trim();
@@ -1552,7 +1551,7 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
                 activeTab === 'cost_centers' ? 'bg-[#111a2f] text-teal-400 shadow-lg font-black border border-teal-500/10' : 'text-slate-400 hover:text-white'
               }`}
             >
-              <PieChart className="w-3.5 h-3.5" /> {t('costCenters.title')}
+              <PieChartIcon className="w-3.5 h-3.5" /> {t('costCenters.title')}
             </button>
           )}
           {canViewReports && (

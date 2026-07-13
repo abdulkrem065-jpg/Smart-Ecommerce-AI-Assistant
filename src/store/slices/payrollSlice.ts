@@ -1,5 +1,21 @@
 import { StateCreator } from 'zustand';
 import { PayrollRun, PayrollEntry, Employee } from '../../core/types';
+import { ref, set as firebaseSet, onValue, remove } from 'firebase/database';
+import { db } from '../../firebase';
+
+function cleanUndefined(obj: any): any {
+  if (obj === null || obj === undefined) return null;
+  if (Array.isArray(obj)) return obj.map(item => cleanUndefined(item));
+  if (typeof obj === 'object') {
+    const cleaned: any = {};
+    for (const key of Object.keys(obj)) {
+      if (obj[key] !== undefined) cleaned[key] = cleanUndefined(obj[key]);
+    }
+    return cleaned;
+  }
+  return obj;
+}
+
 
 export interface PayrollSlice {
   payrollRuns: PayrollRun[];
@@ -19,7 +35,22 @@ export const createPayrollSlice: StateCreator<
   payrollRuns: [],
 
   fetchPayrollRuns: () => {
-    // Should fetch from Firebase
+    const activeNicheId = localStorage.getItem("store_active_niche") || 'hyper_games';
+    const payrollsRef = ref(db, `niche_${activeNicheId}/payroll_runs`);
+    onValue(payrollsRef, (snapshot) => {
+      const val = snapshot.val();
+      if (val) {
+        let loadedList: PayrollRun[] = [];
+        if (Array.isArray(val)) {
+          loadedList = val.filter(Boolean) as PayrollRun[];
+        } else {
+          loadedList = Object.values(val) as PayrollRun[];
+        }
+        set({ payrollRuns: loadedList });
+      } else {
+        set({ payrollRuns: [] });
+      }
+    });
   },
 
   createPayrollRun: (month, year) => {
@@ -80,6 +111,9 @@ export const createPayrollSlice: StateCreator<
     set(state => ({
       payrollRuns: [...state.payrollRuns, newPayroll]
     }));
+    const activeNicheId = localStorage.getItem("store_active_niche") || 'hyper_games';
+    firebaseSet(ref(db, `niche_${activeNicheId}/payroll_runs/${newPayroll.id}`), cleanUndefined(newPayroll))
+      .catch((err: any) => console.error("Failed to create payroll run:", err));
   },
 
   approvePayroll: (id) => {
@@ -96,12 +130,16 @@ export const createPayrollSlice: StateCreator<
       // const journalEntryId = generateJournalEntry(...)
       const journalEntryId = `JRN-${Date.now()}`;
 
-      return {
-        payrollRuns: state.payrollRuns.map((p: PayrollRun) =>
+      const updatedRuns = state.payrollRuns.map((p: PayrollRun) =>
           p.id === id ? { ...p, status: 'معتمد', journalEntryId } : p
-        )
-      };
-    });
+        );
+        return { payrollRuns: updatedRuns };
+      });
+      const updatedRun = get().payrollRuns.find((p: PayrollRun) => p.id === id);
+      if (updatedRun) {
+        const activeNicheId = localStorage.getItem("store_active_niche") || 'hyper_games';
+        firebaseSet(ref(db, `niche_${activeNicheId}/payroll_runs/${id}`), cleanUndefined(updatedRun));
+      }
   },
 
   payPayroll: (id, bankAccountId) => {
@@ -112,12 +150,16 @@ export const createPayrollSlice: StateCreator<
 
     set(state => {
       // In a real app, generate the payment voucher and update cash balances
-      return {
-        payrollRuns: state.payrollRuns.map((p: PayrollRun) =>
+      const updatedRuns = state.payrollRuns.map((p: PayrollRun) =>
           p.id === id ? { ...p, status: 'مدفوع' } : p
-        )
-      };
-    });
+        );
+        return { payrollRuns: updatedRuns };
+      });
+      const updatedRunPay = get().payrollRuns.find((p: PayrollRun) => p.id === id);
+      if (updatedRunPay) {
+        const activeNicheId = localStorage.getItem("store_active_niche") || 'hyper_games';
+        firebaseSet(ref(db, `niche_${activeNicheId}/payroll_runs/${id}`), cleanUndefined(updatedRunPay));
+      }
   },
 
   getEmployeePayrollHistory: (employeeId) => {

@@ -1,7 +1,10 @@
 import React, { useEffect, useState } from 'react';
+import { ConfirmModal } from '../../ConfirmModal';
+import { EmptyState } from '../../EmptyState';
+import { LoadingSpinner } from '../../LoadingSpinner';
 import { useStore } from '../../../store';
 import { AlertCircle, FileText, CheckCircle2, ChevronRight, Activity, Zap } from 'lucide-react';
-import { JournalEntry } from '../../../types';
+import { JournalEntry } from '../../../core/types';
 
 export default function TrialBalanceView() {
   const { journalEntries, fetchJournalEntries, runInstantTrialBalance, aiRadarLocator, trialBalance, radarAlerts, updateJournalEntry } = useStore();

@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
+import { ConfirmModal } from '../../ConfirmModal';
+import { EmptyState } from '../../EmptyState';
+import { LoadingSpinner } from '../../LoadingSpinner';
 import { useStore } from '../../../store';
 import { Layers, Plus, Trash2 } from 'lucide-react';
-import { StoreCategory } from '../../../types';
+import { StoreCategory } from '../../../core/types';
 
 export default function CategoriesTab() {
   const categories = useStore((state) => state.categories);
@@ -10,6 +13,7 @@ export default function CategoriesTab() {
   const deleteCategory = useStore((state) => state.deleteCategory);
 
   const [newCatArabic, setNewCatArabic] = useState('');
+  const [itemToDelete, setItemToDelete] = useState<string | null>(null);
   const [newCatEnglish, setNewCatEnglish] = useState('');
 
   const handleCategorySubmit = (e: React.FormEvent) => {

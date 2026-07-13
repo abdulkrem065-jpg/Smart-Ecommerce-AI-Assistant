@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { ChevronRight, ChevronLeft, Sparkles, Trophy, ShoppingBag } from "lucide-react";
-import { CarouselSlide } from "../types";
+import { CarouselSlide } from "../core/types";
 
 export const DEFAULT_SLIDES: CarouselSlide[] = [
   {

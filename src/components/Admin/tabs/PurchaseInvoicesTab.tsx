@@ -2,6 +2,9 @@ import React, { useState } from 'react';
 import { useStore } from '../../../store';
 import { ShoppingCart, Search, Eye, Filter, CreditCard, X, CheckCircle } from 'lucide-react';
 import { PurchaseInvoice, PurchaseItem } from '../../../core/types';
+import { ConfirmModal } from '../../ConfirmModal';
+import { EmptyState } from '../../EmptyState';
+import { LoadingSpinner } from '../../LoadingSpinner';
 import { t } from '../../../core/translations';
 
 export function PurchaseInvoicesTab() {
@@ -75,7 +78,7 @@ export function PurchaseInvoicesTab() {
             <tbody className="divide-y divide-blue-900/20">
               {filteredInvoices.length > 0 ? (
                 filteredInvoices.map((inv: PurchaseInvoice) => (
-                  <tr key={inv.id} className="hover:bg-white/5 transition-colors">
+                  <tr key={inv.id} className="hover:bg-[#0f172a]/5 transition-colors">
                     <td className="p-4 text-sm font-medium text-white">{inv.id}</td>
                     <td className="p-4 text-sm text-slate-300">{inv.supplierName}</td>
                     <td className="p-4 text-sm text-slate-300">{new Date(inv.date).toLocaleDateString(lang === 'en' ? 'en-US' : 'ar-SA')}</td>
@@ -181,7 +184,7 @@ export function PurchaseInvoicesTab() {
                   </thead>
                   <tbody className="divide-y divide-blue-900/20">
                     {selectedInvoice.items.map((item: PurchaseItem, idx: number) => (
-                      <tr key={idx} className="hover:bg-white/5">
+                      <tr key={idx} className="hover:bg-[#0f172a]/5">
                         <td className="p-3 text-sm text-white">{item.productName || item.productId}</td>
                         <td className="p-3 text-sm text-slate-300">{item.quantity}</td>
                         <td className="p-3 text-sm text-slate-300">{item.unitCost}</td>
@@ -217,6 +220,7 @@ export function PurchaseInvoicesTab() {
           </div>
         </div>
       )}
+    
     </div>
   );
 }

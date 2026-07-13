@@ -36,6 +36,10 @@ export const createCustomerSlice: StateCreator<CustomerSlice> = (set, get) => ({
     return { customers };
   }),
   addCustomer: (customer) => {
+    if ((get() as any).isPeriodLocked) {
+      console.warn('Fiscal period is locked.');
+      return;
+    }
     const newCustomer: Customer = { 
       ...customer, 
       id: Date.now().toString(),
@@ -54,6 +58,10 @@ export const createCustomerSlice: StateCreator<CustomerSlice> = (set, get) => ({
       .catch((err: any) => console.error("Failed to add customer to firebase:", err));
   },
   updateCustomer: (id, updated) => {
+    if ((get() as any).isPeriodLocked) {
+      console.warn('Fiscal period is locked.');
+      return;
+    }
     const { customers } = get();
     const newCustomers = customers.map((c) => c.id === id ? { ...c, ...updated } : c);
     set({ customers: newCustomers });
@@ -68,6 +76,10 @@ export const createCustomerSlice: StateCreator<CustomerSlice> = (set, get) => ({
     }
   },
   deleteCustomer: (id) => {
+    if ((get() as any).isPeriodLocked) {
+      console.warn('Fiscal period is locked.');
+      return;
+    }
     const { customers } = get();
     const newCustomers = customers.filter((c) => c.id !== id);
     set({ customers: newCustomers });
@@ -101,6 +113,10 @@ export const createCustomerSlice: StateCreator<CustomerSlice> = (set, get) => ({
     });
   },
   updateCustomerBalance: (id, amount) => {
+    if ((get() as any).isPeriodLocked) {
+      console.warn('Fiscal period is locked.');
+      return;
+    }
     const { customers } = get();
     const customer = customers.find(c => c.id === id);
     if (customer) {

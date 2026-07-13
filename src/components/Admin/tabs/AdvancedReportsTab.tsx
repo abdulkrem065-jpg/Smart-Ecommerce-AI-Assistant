@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
 import { useStore } from '../../../store';
+import { ConfirmModal } from '../../ConfirmModal';
+import { EmptyState } from '../../EmptyState';
+import { LoadingSpinner } from '../../LoadingSpinner';
 import { t } from '../../../core/translations';
 import { BarChart3, Download, Printer } from 'lucide-react';
 
 export const AdvancedReportsTab: React.FC = () => {
   const [activeSubTab, setActiveSubTab] = useState<'aging' | 'cashFlow' | 'products' | 'customers' | 'budget'>('aging');
   
-  const { customers, orders, inventory, costCenters, accounts } = useStore();
+  const { customers, orders, products, costCenters, accounts } = useStore();
 
   const handleExport = () => {
     // Basic CSV export logic
@@ -24,21 +27,21 @@ export const AdvancedReportsTab: React.FC = () => {
           <div className="bg-purple-100 p-2 rounded-lg">
             <BarChart3 className="text-purple-600" size={24} />
           </div>
-          <h2 className="text-xl font-bold text-gray-800">{t('advancedReports.title')}</h2>
+          <h2 className="text-xl font-bold text-white">{t('advancedReports.title')}</h2>
         </div>
         <div className="flex gap-2">
-          <button onClick={handleExport} className="flex items-center gap-2 bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors">
+          <button onClick={handleExport} className="flex items-center gap-2 bg-[#0f172a] border border-blue-900/40 text-slate-300 px-4 py-2 rounded-lg hover:bg-[#1e293b] transition-colors">
             <Download size={18} />
             <span>{t('exportCsv')}</span>
           </button>
-          <button onClick={handlePrint} className="flex items-center gap-2 bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors">
+          <button onClick={handlePrint} className="flex items-center gap-2 bg-[#0f172a] border border-blue-900/40 text-slate-300 px-4 py-2 rounded-lg hover:bg-[#1e293b] transition-colors">
             <Printer size={18} />
             <span>{t('print')}</span>
           </button>
         </div>
       </div>
 
-      <div className="flex gap-2 overflow-x-auto mb-6 bg-white p-2 rounded-xl shadow-sm border border-gray-100">
+      <div className="flex gap-2 overflow-x-auto mb-6 bg-[#0f172a] p-2 rounded-xl shadow-sm border border-blue-900/40">
         {[
           { id: 'aging', label: t('agingReport') },
           { id: 'cashFlow', label: t('cashFlowReport') },
@@ -52,7 +55,7 @@ export const AdvancedReportsTab: React.FC = () => {
             className={`px-4 py-2 rounded-lg whitespace-nowrap transition-colors ${
               activeSubTab === tab.id 
                 ? 'bg-purple-100 text-purple-700 font-medium' 
-                : 'text-gray-600 hover:bg-gray-100'
+                : 'text-slate-300 hover:bg-white/5'
             }`}
           >
             {tab.label}
@@ -60,11 +63,11 @@ export const AdvancedReportsTab: React.FC = () => {
         ))}
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 overflow-x-auto">
+      <div className="bg-[#0f172a] rounded-xl shadow-sm border border-blue-900/40 p-6 overflow-x-auto">
         {activeSubTab === 'aging' && (
           <div>
-            <table className="w-full text-sm text-left rtl:text-right text-gray-500">
-              <thead className="text-xs text-gray-700 uppercase bg-gray-50">
+            <table className="w-full text-sm text-left rtl:text-right text-slate-400">
+              <thead className="text-xs text-slate-300 uppercase bg-[#1e293b]">
                 <tr>
                   <th className="px-6 py-3">{t('customerName')}</th>
                   <th className="px-6 py-3 text-green-600">{t('aging.notDue')} (0-30)</th>
@@ -77,7 +80,7 @@ export const AdvancedReportsTab: React.FC = () => {
               <tbody>
                 {customers?.map(c => (
                   <tr key={c.id} className="border-b">
-                    <td className="px-6 py-4 font-medium text-gray-900">{c.name}</td>
+                    <td className="px-6 py-4 font-medium text-white">{c.name}</td>
                     <td className="px-6 py-4">0</td>
                     <td className="px-6 py-4">0</td>
                     <td className="px-6 py-4">0</td>
@@ -109,8 +112,8 @@ export const AdvancedReportsTab: React.FC = () => {
 
         {activeSubTab === 'products' && (
           <div>
-            <table className="w-full text-sm text-left rtl:text-right text-gray-500">
-              <thead className="text-xs text-gray-700 uppercase bg-gray-50">
+            <table className="w-full text-sm text-left rtl:text-right text-slate-400">
+              <thead className="text-xs text-slate-300 uppercase bg-[#1e293b]">
                 <tr>
                   <th className="px-6 py-3">{t('product')}</th>
                   <th className="px-6 py-3">{t('quantity')}</th>
@@ -119,10 +122,10 @@ export const AdvancedReportsTab: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {inventory?.map(p => (
+                {products?.map(p => (
                   <tr key={p.id} className="border-b">
-                    <td className="px-6 py-4 font-medium text-gray-900">{p.name}</td>
-                    <td className="px-6 py-4">{p.quantity}</td>
+                    <td className="px-6 py-4 font-medium text-white">{p.name}</td>
+                    <td className="px-6 py-4">{p.stock}</td>
                     <td className="px-6 py-4">{p.price * 10}</td>
                     <td className="px-6 py-4 text-green-600">25%</td>
                   </tr>
@@ -134,8 +137,8 @@ export const AdvancedReportsTab: React.FC = () => {
 
         {activeSubTab === 'customers' && (
            <div>
-           <table className="w-full text-sm text-left rtl:text-right text-gray-500">
-             <thead className="text-xs text-gray-700 uppercase bg-gray-50">
+           <table className="w-full text-sm text-left rtl:text-right text-slate-400">
+             <thead className="text-xs text-slate-300 uppercase bg-[#1e293b]">
                <tr>
                  <th className="px-6 py-3">{t('customerName')}</th>
                  <th className="px-6 py-3">{t('totalPurchases')}</th>
@@ -145,7 +148,7 @@ export const AdvancedReportsTab: React.FC = () => {
              <tbody>
                {customers?.map(c => (
                  <tr key={c.id} className="border-b">
-                   <td className="px-6 py-4 font-medium text-gray-900">{c.name}</td>
+                   <td className="px-6 py-4 font-medium text-white">{c.name}</td>
                    <td className="px-6 py-4">5</td>
                    <td className="px-6 py-4">{c.totalPurchases}</td>
                  </tr>
@@ -157,8 +160,8 @@ export const AdvancedReportsTab: React.FC = () => {
 
         {activeSubTab === 'budget' && (
            <div>
-           <table className="w-full text-sm text-left rtl:text-right text-gray-500">
-             <thead className="text-xs text-gray-700 uppercase bg-gray-50">
+           <table className="w-full text-sm text-left rtl:text-right text-slate-400">
+             <thead className="text-xs text-slate-300 uppercase bg-[#1e293b]">
                <tr>
                  <th className="px-6 py-3">{t('name')}</th>
                  <th className="px-6 py-3">{t('budget')}</th>
@@ -171,7 +174,7 @@ export const AdvancedReportsTab: React.FC = () => {
                  const dev = c.budget - c.actualSpending;
                  return (
                  <tr key={c.id} className="border-b">
-                   <td className="px-6 py-4 font-medium text-gray-900">{c.name}</td>
+                   <td className="px-6 py-4 font-medium text-white">{c.name}</td>
                    <td className="px-6 py-4">{c.budget}</td>
                    <td className="px-6 py-4">{c.actualSpending}</td>
                    <td className={`px-6 py-4 font-bold ${dev < 0 ? 'text-red-600' : 'text-green-600'}`}>

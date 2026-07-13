@@ -2,12 +2,16 @@ import React, { useState } from 'react';
 import { useStore } from '../../../store';
 import { Users, Search, Plus, Trash2, Edit, FileText, X } from 'lucide-react';
 import { Customer } from '../../../core/types';
+import { ConfirmModal } from '../../ConfirmModal';
+import { EmptyState } from '../../EmptyState';
+import { LoadingSpinner } from '../../LoadingSpinner';
 import { t } from '../../../core/translations';
 
 export default function CustomersTab() {
   const lang = localStorage.getItem('store_lang') || 'ar';
   const { customers, addCustomer, updateCustomer, deleteCustomer } = useStore();
   const [searchTerm, setSearchTerm] = useState('');
+  const [itemToDelete, setItemToDelete] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [viewCustomer, setViewCustomer] = useState<Customer | null>(null);
@@ -105,8 +109,21 @@ export default function CustomersTab() {
               </tr>
             </thead>
             <tbody className="divide-y divide-blue-900/20">
-              {filteredCustomers.map(c => (
-                <tr key={c.id} className="hover:bg-white/5 transition-colors">
+              
+              {(!customers) ? (
+                <tr>
+                  <td colSpan={7} className="p-8">
+                    <LoadingSpinner />
+                  </td>
+                </tr>
+              ) : filteredCustomers.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="p-8">
+                    <EmptyState title={t('noData', lang)} />
+                  </td>
+                </tr>
+              ) : filteredCustomers.map(c => (
+                <tr key={c.id} className="hover:bg-[#0f172a]/5 transition-colors">
                   <td className="p-4 text-sm font-medium text-white">{c.name}</td>
                   <td className="p-4 text-sm text-slate-300" dir="ltr">{c.phone}</td>
                   <td className="p-4 text-sm font-bold text-emerald-400">{c.balance}</td>
@@ -119,7 +136,7 @@ export default function CustomersTab() {
                     <button onClick={() => openEdit(c)} className="p-1.5 bg-amber-500/20 text-amber-400 rounded-lg hover:bg-amber-500/40" title={t('edit', lang)}>
                       <Edit className="w-4 h-4" />
                     </button>
-                    <button onClick={() => handleDelete(c.id)} className="p-1.5 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/40" title={t('delete', lang)}>
+                    <button onClick={() => setItemToDelete(c.id)} className="p-1.5 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/40" title={t('delete', lang)}>
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </td>
@@ -196,7 +213,7 @@ export default function CustomersTab() {
                 </button>
                 <button
                   onClick={() => setShowAddModal(false)}
-                  className="flex-1 bg-white/5 text-white py-3 rounded-lg font-bold hover:bg-white/10 transition-colors"
+                  className="flex-1 bg-[#0f172a]/5 text-white py-3 rounded-lg font-bold hover:bg-[#0f172a]/10 transition-colors"
                 >
                   {t('cancel', lang)}
                 </button>
@@ -239,13 +256,23 @@ export default function CustomersTab() {
                </div>
             </div>
             <div className="p-4 border-t border-blue-900/40 bg-[#060b18] flex justify-end gap-2">
-              <button onClick={() => setViewCustomer(null)} className="px-4 py-2 bg-white/5 text-white rounded-lg hover:bg-white/10 transition-colors font-bold text-sm">
+              <button onClick={() => setViewCustomer(null)} className="px-4 py-2 bg-[#0f172a]/5 text-white rounded-lg hover:bg-[#0f172a]/10 transition-colors font-bold text-sm">
                 {t('close', lang)}
               </button>
             </div>
           </div>
         </div>
       )}
+    
+      <ConfirmModal
+        isOpen={!!itemToDelete}
+        title={t('confirmDelete', lang)}
+        message={t('confirmDeleteMsg', lang)}
+        onConfirm={() => {
+          if (itemToDelete) deleteCustomer(itemToDelete);
+        }}
+        onCancel={() => setItemToDelete(null)}
+      />
     </div>
   );
 }

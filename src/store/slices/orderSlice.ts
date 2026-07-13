@@ -1,5 +1,5 @@
 import { StateCreator } from 'zustand';
-import { Order } from '../../types';
+import { Order } from '../../core/types';
 import { ref, set as firebaseSet, onValue, remove } from 'firebase/database';
 import { db } from '../../firebase';
 

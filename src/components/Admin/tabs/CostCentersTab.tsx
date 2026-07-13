@@ -1,11 +1,15 @@
 import React, { useState } from 'react';
 import { useStore } from '../../../store';
 import { CostCenter } from '../../../core/types';
+import { ConfirmModal } from '../../ConfirmModal';
+import { EmptyState } from '../../EmptyState';
+import { LoadingSpinner } from '../../LoadingSpinner';
 import { t } from '../../../core/translations';
 import { PieChart, Plus, Edit, Trash2, X } from 'lucide-react';
 
 export const CostCentersTab: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<string | null>(null);
   const [editingCenter, setEditingCenter] = useState<CostCenter | null>(null);
   
   const { costCenters, addCostCenter, updateCostCenter, deleteCostCenter, getCentersTree } = useStore();
@@ -64,20 +68,20 @@ export const CostCentersTab: React.FC = () => {
 
       return (
         <div key={center.id} className={`flex flex-col mb-4 ${level > 0 ? 'ml-6 rtl:mr-6' : ''}`}>
-          <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-100 flex items-center justify-between">
+          <div className="bg-[#0f172a] p-4 rounded-lg shadow-sm border border-blue-900/40 flex items-center justify-between">
             <div className="flex flex-col flex-1">
               <div className="flex items-center gap-2">
-                <span className="font-semibold text-gray-800">{center.name}</span>
-                <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full">{center.type}</span>
+                <span className="font-semibold text-white">{center.name}</span>
+                <span className="text-xs bg-[#1e293b] text-slate-300 px-2 py-1 rounded-full">{center.type}</span>
               </div>
-              <div className="mt-2 text-sm text-gray-500 flex gap-4">
+              <div className="mt-2 text-sm text-slate-400 flex gap-4">
                 <span>{t('budget')}: {center.budget.toLocaleString()}</span>
                 <span>{t('actualSpending')}: {center.actualSpending.toLocaleString()}</span>
               </div>
               <div className="mt-2 w-full bg-gray-200 rounded-full h-2.5">
                 <div className={`${progressBarColor} h-2.5 rounded-full`} style={{ width: `${Math.min(consumptionRate, 100)}%` }}></div>
               </div>
-              <span className="text-xs text-gray-500 mt-1">{t('consumptionRate')}: {consumptionRate.toFixed(1)}%</span>
+              <span className="text-xs text-slate-400 mt-1">{t('consumptionRate')}: {consumptionRate.toFixed(1)}%</span>
             </div>
             
             <div className="flex items-center gap-2 ml-4 rtl:mr-4">
@@ -91,7 +95,7 @@ export const CostCentersTab: React.FC = () => {
           </div>
           
           {center.children && center.children.length > 0 && (
-            <div className="mt-4 border-l-2 border-gray-200 rtl:border-r-2 rtl:border-l-0 pl-4 rtl:pr-4">
+            <div className="mt-4 border-l-2 border-blue-900/40 rtl:border-r-2 rtl:border-l-0 pl-4 rtl:pr-4">
               {renderTree(center.children as any, level + 1)}
             </div>
           )}
@@ -107,7 +111,7 @@ export const CostCentersTab: React.FC = () => {
           <div className="bg-blue-100 p-2 rounded-lg">
             <PieChart className="text-blue-600" size={24} />
           </div>
-          <h2 className="text-xl font-bold text-gray-800">{t('costCenters.title')}</h2>
+          <h2 className="text-xl font-bold text-white">{t('costCenters.title')}</h2>
         </div>
         <button
           onClick={() => handleOpenModal()}
@@ -118,9 +122,9 @@ export const CostCentersTab: React.FC = () => {
         </button>
       </div>
 
-      <div className="bg-gray-50 p-6 rounded-xl border border-gray-200">
+      <div className="bg-[#1e293b] p-6 rounded-xl border border-blue-900/40">
         {tree.length > 0 ? renderTree(tree) : (
-          <div className="text-center text-gray-500 py-10">
+          <div className="text-center text-slate-400 py-10">
             {t('noAccountsAdded')}
           </div>
         )}
@@ -128,33 +132,33 @@ export const CostCentersTab: React.FC = () => {
 
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
-            <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-              <h3 className="font-semibold text-gray-800">
+          <div className="bg-[#0f172a] rounded-xl shadow-xl w-full max-w-md overflow-hidden">
+            <div className="p-4 border-b border-blue-900/40 flex justify-between items-center bg-[#1e293b]">
+              <h3 className="font-semibold text-white">
                 {editingCenter ? t('edit') : t('addCostCenter')}
               </h3>
-              <button onClick={() => setIsModalOpen(false)} className="text-gray-500 hover:text-gray-700">
+              <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-300">
                 <X size={20} />
               </button>
             </div>
             
             <div className="p-4 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{t('name')}</label>
+                <label className="block text-sm font-medium text-slate-300 mb-1">{t('name')}</label>
                 <input
                   type="text"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-blue-900/40 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{t('type')}</label>
+                <label className="block text-sm font-medium text-slate-300 mb-1">{t('type')}</label>
                 <select
                   value={formData.type}
                   onChange={(e) => setFormData({ ...formData, type: e.target.value as any })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-blue-900/40 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="قسم">قسم</option>
                   <option value="فرع">فرع</option>
@@ -163,21 +167,21 @@ export const CostCentersTab: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{t('budget')}</label>
+                <label className="block text-sm font-medium text-slate-300 mb-1">{t('budget')}</label>
                 <input
                   type="number"
                   value={formData.budget}
                   onChange={(e) => setFormData({ ...formData, budget: Number(e.target.value) })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-blue-900/40 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">المركز الأب (اختياري)</label>
+                <label className="block text-sm font-medium text-slate-300 mb-1">المركز الأب (اختياري)</label>
                 <select
                   value={formData.parentId}
                   onChange={(e) => setFormData({ ...formData, parentId: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-blue-900/40 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">بدون</option>
                   {costCenters
@@ -189,10 +193,10 @@ export const CostCentersTab: React.FC = () => {
               </div>
             </div>
 
-            <div className="p-4 border-t border-gray-100 flex justify-end gap-2 bg-gray-50">
+            <div className="p-4 border-t border-blue-900/40 flex justify-end gap-2 bg-[#1e293b]">
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="px-4 py-2 text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+                className="px-4 py-2 text-slate-300 bg-[#0f172a] border border-blue-900/40 rounded-lg hover:bg-[#1e293b]"
               >
                 {t('cancel')}
               </button>

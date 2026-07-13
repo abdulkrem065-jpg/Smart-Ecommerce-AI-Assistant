@@ -1,5 +1,21 @@
 import { StateCreator } from 'zustand';
 import { Notification } from '../../core/types';
+import { ref, set as firebaseSet, onValue, remove } from 'firebase/database';
+import { db } from '../../firebase';
+
+function cleanUndefined(obj: any): any {
+  if (obj === null || obj === undefined) return null;
+  if (Array.isArray(obj)) return obj.map(item => cleanUndefined(item));
+  if (typeof obj === 'object') {
+    const cleaned: any = {};
+    for (const key of Object.keys(obj)) {
+      if (obj[key] !== undefined) cleaned[key] = cleanUndefined(obj[key]);
+    }
+    return cleaned;
+  }
+  return obj;
+}
+
 
 export interface NotificationSlice {
   notifications: Notification[];
@@ -22,7 +38,28 @@ export const createNotificationSlice: StateCreator<
   unreadCount: 0,
 
   fetchNotifications: () => {
-    // Should fetch from Firebase
+    const activeNicheId = localStorage.getItem("store_active_niche") || 'hyper_games';
+    const notifsRef = ref(db, `niche_${activeNicheId}/notifications`);
+    onValue(notifsRef, (snapshot) => {
+      const val = snapshot.val();
+      if (val) {
+        let loadedList: Notification[] = [];
+        if (Array.isArray(val)) {
+          loadedList = val.filter(Boolean) as Notification[];
+        } else {
+          loadedList = Object.values(val) as Notification[];
+        }
+        loadedList = loadedList.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        set({ 
+          notifications: loadedList,
+          unreadCount: loadedList.filter(n => !n.isRead).length
+        });
+      } else {
+        set({ notifications: [], unreadCount: 0 });
+    const activeNicheId = localStorage.getItem("store_active_niche") || 'hyper_games';
+    remove(ref(db, `niche_${activeNicheId}/notifications`));
+      }
+    });
   },
 
   addNotification: (notification) => {
@@ -40,6 +77,8 @@ export const createNotificationSlice: StateCreator<
         unreadCount: newNotifications.filter((n: Notification) => !n.isRead).length
       };
     });
+    const activeNicheId = localStorage.getItem("store_active_niche") || 'hyper_games';
+    firebaseSet(ref(db, `niche_${activeNicheId}/notifications/${newNotification.id}`), cleanUndefined(newNotification));
   },
 
   markAsRead: (id) => {
@@ -52,6 +91,11 @@ export const createNotificationSlice: StateCreator<
         unreadCount: newNotifications.filter((n: Notification) => !n.isRead).length
       };
     });
+    const updatedNotification = get().notifications.find((n: Notification) => n.id === id);
+    if (updatedNotification) {
+      const activeNicheId = localStorage.getItem("store_active_niche") || 'hyper_games';
+      firebaseSet(ref(db, `niche_${activeNicheId}/notifications/${id}`), cleanUndefined(updatedNotification));
+    }
   },
 
   markAllAsRead: () => {
@@ -59,6 +103,11 @@ export const createNotificationSlice: StateCreator<
       notifications: state.notifications.map((n: Notification) => ({ ...n, isRead: true })),
       unreadCount: 0
     }));
+    const allNotifs = get().notifications;
+    const activeNicheId = localStorage.getItem("store_active_niche") || 'hyper_games';
+    allNotifs.forEach((n: Notification) => {
+      firebaseSet(ref(db, `niche_${activeNicheId}/notifications/${n.id}`), cleanUndefined(n));
+    });
   },
 
   clearNotifications: () => {

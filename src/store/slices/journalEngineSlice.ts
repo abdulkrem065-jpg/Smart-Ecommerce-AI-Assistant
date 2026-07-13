@@ -1,7 +1,7 @@
 import { StateCreator } from 'zustand';
 import { ref, set as firebaseSet, onValue } from 'firebase/database';
 import { db } from '../../firebase';
-import { JournalEntry } from '../../types';
+import { JournalEntry } from '../../core/types';
 
 export interface JournalEngineSlice {
   journalEntries: JournalEntry[];

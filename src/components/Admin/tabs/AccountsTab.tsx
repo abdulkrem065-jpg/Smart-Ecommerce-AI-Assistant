@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from 'react';
+import { ConfirmModal } from '../../ConfirmModal';
+import { EmptyState } from '../../EmptyState';
+import { LoadingSpinner } from '../../LoadingSpinner';
 import { useStore } from '../../../store';
-import { AccountCategory, AccountingAccount, AccountingTransaction } from '../../../types';
+import { AccountCategory, AccountingAccount, AccountingTransaction } from '../../../core/types';
 import { Wallet, Users, Truck, Receipt, Building, Plus, ArrowUpRight, ArrowDownLeft, Search, ChevronRight } from 'lucide-react';
 
 export default function AccountsTab() {

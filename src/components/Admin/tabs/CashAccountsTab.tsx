@@ -2,12 +2,16 @@ import React, { useState } from 'react';
 import { useStore } from '../../../store';
 import { Building2, Plus, ArrowDownCircle, ArrowUpCircle, Users, ArrowLeftRight, Wallet, X } from 'lucide-react';
 import { CashAccount, ReceiptVoucher, PaymentVoucher, Custody, CashTransfer } from '../../../core/types';
+import { ConfirmModal } from '../../ConfirmModal';
+import { EmptyState } from '../../EmptyState';
+import { LoadingSpinner } from '../../LoadingSpinner';
 import { t } from '../../../core/translations';
 
 export function CashAccountsTab() {
   const lang = localStorage.getItem('store_lang') || 'ar';
   const { cashAccounts, receiptVouchers, paymentVouchers, custodies, cashTransfers, addCashAccount } = useStore();
   const [activeSubTab, setActiveSubTab] = useState<'accounts' | 'receipts' | 'payments' | 'custodies' | 'transfers'>('accounts');
+  const [itemToDelete, setItemToDelete] = useState<string | null>(null);
   
   const [showAddAccount, setShowAddAccount] = useState(false);
   const [newAccName, setNewAccName] = useState('');
@@ -53,7 +57,7 @@ export function CashAccountsTab() {
                   className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-bold transition-all whitespace-nowrap ${
                     activeSubTab === tab.id 
                       ? 'bg-blue-600 text-white shadow-md' 
-                      : 'text-slate-400 hover:text-white hover:bg-white/5'
+                      : 'text-slate-400 hover:text-white hover:bg-[#0f172a]/5'
                   }`}
                 >
                   <Icon className="w-4 h-4" />
@@ -116,7 +120,7 @@ export function CashAccountsTab() {
             </thead>
             <tbody className="divide-y divide-blue-900/20">
               {receiptVouchers.map((rv: ReceiptVoucher) => (
-                <tr key={rv.id} className="hover:bg-white/5">
+                <tr key={rv.id} className="hover:bg-[#0f172a]/5">
                   <td className="p-4 text-sm text-slate-300">{new Date(rv.date).toLocaleDateString(lang === 'en' ? 'en-US' : 'ar-SA')}</td>
                   <td className="p-4 text-sm text-white">{rv.description}</td>
                   <td className="p-4 text-sm text-slate-300">{rv.fromParty}</td>
@@ -124,7 +128,7 @@ export function CashAccountsTab() {
                   <td className="p-4 text-sm font-bold text-emerald-400">{rv.amount}</td>
                 </tr>
               ))}
-              {receiptVouchers.length === 0 && <tr><td colSpan={5} className="p-8 text-center text-slate-500">{t('noReceiptVouchers', lang)}</td></tr>}
+              {!receiptVouchers ? (<tr><td colSpan={5} className="p-8"><LoadingSpinner /></td></tr>) : receiptVouchers.length === 0 && (<tr><td colSpan={5} className="p-8"><EmptyState title={t('noData', lang)} /></td></tr>)}
             </tbody>
           </table>
         </div>
@@ -145,7 +149,7 @@ export function CashAccountsTab() {
             </thead>
             <tbody className="divide-y divide-blue-900/20">
               {paymentVouchers.map((pv: PaymentVoucher) => (
-                <tr key={pv.id} className="hover:bg-white/5">
+                <tr key={pv.id} className="hover:bg-[#0f172a]/5">
                   <td className="p-4 text-sm text-slate-300">{new Date(pv.date).toLocaleDateString(lang === 'en' ? 'en-US' : 'ar-SA')}</td>
                   <td className="p-4 text-sm text-white">{pv.description}</td>
                   <td className="p-4 text-sm text-slate-300">{pv.toParty}</td>
@@ -153,7 +157,7 @@ export function CashAccountsTab() {
                   <td className="p-4 text-sm font-bold text-red-400">{pv.amount}</td>
                 </tr>
               ))}
-              {paymentVouchers.length === 0 && <tr><td colSpan={5} className="p-8 text-center text-slate-500">{t('noPaymentVouchers', lang)}</td></tr>}
+              {!paymentVouchers ? (<tr><td colSpan={5} className="p-8"><LoadingSpinner /></td></tr>) : paymentVouchers.length === 0 && (<tr><td colSpan={5} className="p-8"><EmptyState title={t('noData', lang)} /></td></tr>)}
             </tbody>
           </table>
         </div>
@@ -174,7 +178,7 @@ export function CashAccountsTab() {
             </thead>
             <tbody className="divide-y divide-blue-900/20">
               {custodies.map((c: Custody) => (
-                <tr key={c.id} className="hover:bg-white/5">
+                <tr key={c.id} className="hover:bg-[#0f172a]/5">
                   <td className="p-4 text-sm text-slate-300">{new Date(c.date).toLocaleDateString(lang === 'en' ? 'en-US' : 'ar-SA')}</td>
                   <td className="p-4 text-sm text-white">{c.employeeName}</td>
                   <td className="p-4 text-sm text-slate-300">{c.purpose}</td>
@@ -189,7 +193,7 @@ export function CashAccountsTab() {
                   </td>
                 </tr>
               ))}
-              {custodies.length === 0 && <tr><td colSpan={5} className="p-8 text-center text-slate-500">{t('noCustodies', lang)}</td></tr>}
+              {!custodies ? (<tr><td colSpan={5} className="p-8"><LoadingSpinner /></td></tr>) : custodies.length === 0 && (<tr><td colSpan={5} className="p-8"><EmptyState title={t('noData', lang)} /></td></tr>)}
             </tbody>
           </table>
         </div>
@@ -210,7 +214,7 @@ export function CashAccountsTab() {
             </thead>
             <tbody className="divide-y divide-blue-900/20">
               {cashTransfers.map((t: CashTransfer) => (
-                <tr key={t.id} className="hover:bg-white/5">
+                <tr key={t.id} className="hover:bg-[#0f172a]/5">
                   <td className="p-4 text-sm text-slate-300">{new Date(t.date).toLocaleDateString(lang === 'en' ? 'en-US' : 'ar-SA')}</td>
                   <td className="p-4 text-sm text-white">{t.description}</td>
                   <td className="p-4 text-sm text-slate-300">{t.fromAccountName}</td>
@@ -218,7 +222,7 @@ export function CashAccountsTab() {
                   <td className="p-4 text-sm font-bold text-purple-400">{t.amount}</td>
                 </tr>
               ))}
-              {cashTransfers.length === 0 && <tr><td colSpan={5} className="p-8 text-center text-slate-500">{t('noTransfers', lang)}</td></tr>}
+              {!cashTransfers ? (<tr><td colSpan={5} className="p-8"><LoadingSpinner /></td></tr>) : cashTransfers.length === 0 && (<tr><td colSpan={5} className="p-8"><EmptyState title={t('noData', lang)} /></td></tr>)}
             </tbody>
           </table>
         </div>
@@ -276,7 +280,7 @@ export function CashAccountsTab() {
                 </button>
                 <button 
                   onClick={() => setShowAddAccount(false)} 
-                  className="flex-1 bg-white/5 text-white py-3 rounded-lg font-bold hover:bg-white/10 transition-colors"
+                  className="flex-1 bg-[#0f172a]/5 text-white py-3 rounded-lg font-bold hover:bg-[#0f172a]/10 transition-colors"
                 >
                   {t('cancel', lang)}
                 </button>

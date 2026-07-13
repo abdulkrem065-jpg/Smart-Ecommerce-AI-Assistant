@@ -1,4 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { ConfirmModal } from '../../ConfirmModal';
+import { EmptyState } from '../../EmptyState';
+import { LoadingSpinner } from '../../LoadingSpinner';
 import { useStore } from '../../../store';
 import { Zap, Smartphone, ImageIcon, MessageSquare, Settings, Coins, Sliders, Check as CheckIcon, Save, CreditCard, ShieldCheck } from 'lucide-react';
 import { NICHES } from '../../../data';

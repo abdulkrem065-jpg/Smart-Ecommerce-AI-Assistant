@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { DEFAULT_CATEGORIES, DEFAULT_PRODUCTS } from "./core/defaults";
-import { Product, StoreCategory, CartItem, OrderDetails, Order, CarouselSlide, UserSession } from "./types";
+import { Product, StoreCategory, CartItem, OrderDetails, Order, CarouselSlide, UserSession } from "./core/types";
 import { NICHES } from "./data";
 
 // =========================================================================

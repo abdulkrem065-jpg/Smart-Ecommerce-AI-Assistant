@@ -1,4 +1,7 @@
 import React, { useEffect } from 'react';
+import { ConfirmModal } from '../../ConfirmModal';
+import { EmptyState } from '../../EmptyState';
+import { LoadingSpinner } from '../../LoadingSpinner';
 import { useStore } from '../../../store';
 import { FileText, TrendingUp, TrendingDown, DollarSign } from 'lucide-react';
 

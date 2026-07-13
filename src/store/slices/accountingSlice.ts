@@ -1,7 +1,7 @@
 import { StateCreator } from 'zustand';
 import { ref, set as firebaseSet, onValue } from 'firebase/database';
 import { db } from '../../firebase';
-import { AccountingAccount, AccountCategory, AccountingTransaction } from '../../types';
+import { AccountingAccount, AccountCategory, AccountingTransaction } from '../../core/types';
 
 function cleanUndefined(obj: any): any {
   if (obj === null || obj === undefined) return null;

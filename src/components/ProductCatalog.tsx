@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Product, StoreCategory, CartSubOption } from '../types';
+import { Product, StoreCategory, CartSubOption } from '../core/types';
 import { Search, ShoppingBag, ShoppingCart, X, Sparkles, Check as CheckIcon, Plus as PlusIcon, Mic, Languages } from 'lucide-react';
 import { isModuleEnabled } from '../core/moduleLoader';
 import { GameIdFeature } from '../modules/games_hyper/GameIdFeature';

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Lock, Keyboard, ArrowLeft, ShieldAlert, CheckCircle2, AlertTriangle, User, Play, Mail, Shield, Users } from "lucide-react";
-import { UserSession, Staff } from "../types";
+import { UserSession, Staff } from "../core/types";
 
 interface AdminLoginGateProps {
   correctPassword?: string;

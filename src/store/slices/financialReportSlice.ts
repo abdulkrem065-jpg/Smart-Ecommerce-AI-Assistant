@@ -1,5 +1,5 @@
 import { StateCreator } from 'zustand';
-import { JournalEntry, AccountingAccount } from '../../types';
+import { JournalEntry, AccountingAccount } from '../../core/types';
 import { ref, set as firebaseSet, onValue } from 'firebase/database';
 import { db } from '../../firebase';
 

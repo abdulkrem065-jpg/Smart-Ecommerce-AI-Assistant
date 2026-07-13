@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useStore } from '../store';
-import { Message, Order } from '../types';
+import { Message, Order } from '../core/types';
 
 export function useAICoPilot() {
   const [messages, setMessages] = useState<Message[]>([]);

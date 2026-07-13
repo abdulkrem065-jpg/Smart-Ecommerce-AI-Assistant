@@ -1,5 +1,5 @@
 import { StateCreator } from 'zustand';
-import { UserSession } from '../types';
+import { UserSession } from '../core/types';
 
 export interface AuthSlice {
   userSession: UserSession | null;

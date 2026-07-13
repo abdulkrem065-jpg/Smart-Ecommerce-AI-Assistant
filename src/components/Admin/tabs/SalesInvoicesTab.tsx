@@ -2,12 +2,16 @@ import React, { useState } from 'react';
 import { useStore } from '../../../store';
 import { FileText, Search, Eye, Filter, X, Download } from 'lucide-react';
 import { Order, CartItem } from '../../../core/types';
+import { ConfirmModal } from '../../ConfirmModal';
+import { EmptyState } from '../../EmptyState';
+import { LoadingSpinner } from '../../LoadingSpinner';
 import { t } from '../../../core/translations';
 
 export function SalesInvoicesTab() {
   const lang = localStorage.getItem('store_lang') || 'ar';
-  const { orders } = useStore();
+  const { orders, updateOrderStatus, deleteOrder } = useStore();
   const [searchTerm, setSearchTerm] = useState('');
+  const [itemToDelete, setItemToDelete] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('الكل');
   const [selectedInvoice, setSelectedInvoice] = useState<Order | null>(null);
 
@@ -69,7 +73,7 @@ export function SalesInvoicesTab() {
             <tbody className="divide-y divide-blue-900/20">
               {filteredOrders.length > 0 ? (
                 filteredOrders.map((order: Order) => (
-                  <tr key={order.id} className="hover:bg-white/5 transition-colors">
+                  <tr key={order.id} className="hover:bg-[#0f172a]/5 transition-colors">
                     <td className="p-4 text-sm font-medium text-white">{order.id}</td>
                     <td className="p-4 text-sm text-slate-300">{order.customerName}</td>
                     <td className="p-4 text-sm text-slate-300">{new Date(order.date).toLocaleDateString(lang === 'en' ? 'en-US' : 'ar-SA')}</td>
@@ -158,7 +162,7 @@ export function SalesInvoicesTab() {
                   </thead>
                   <tbody className="divide-y divide-blue-900/20">
                     {selectedInvoice.items.map((item: CartItem, idx: number) => (
-                      <tr key={idx} className="hover:bg-white/5">
+                      <tr key={idx} className="hover:bg-[#0f172a]/5">
                         <td className="p-3 text-sm text-white">{item.product.name}</td>
                         <td className="p-3 text-sm text-slate-300">{item.quantity}</td>
                         <td className="p-3 text-sm text-slate-300">{item.product.price} {selectedInvoice.currency}</td>
@@ -186,6 +190,16 @@ export function SalesInvoicesTab() {
           </div>
         </div>
       )}
+    
+      <ConfirmModal
+        isOpen={!!itemToDelete}
+        title={t('confirmDelete', lang)}
+        message={t('confirmDeleteMsg', lang)}
+        onConfirm={() => {
+          if (itemToDelete) deleteOrder(itemToDelete);
+        }}
+        onCancel={() => setItemToDelete(null)}
+      />
     </div>
   );
 }

@@ -497,23 +497,24 @@ export const MasterDeveloperControl: React.FC<MasterDeveloperControlProps> = ({
     if (isAuthenticated) {
       if (timerRef.current) clearInterval(timerRef.current);
       timerRef.current = setInterval(() => {
-        setTimeLeft(prev => {
-          if (prev <= 1) {
-            clearInterval(timerRef.current);
-            setIsAuthenticated(false);
-            sessionStorage.removeItem("is_master_developer_verified");
-            addToast(lang === 'ar' ? "🚨 الخاطر! انتهت مهلة جلسة الأمان المضيئة. يرجى الدخول مجدداً." : "🚨 Session timeout! System auto-locked.", "error");
-            playLaserBeep('alert');
-            return 300;
-          }
-          return prev - 1;
-        });
+        setTimeLeft(prev => prev - 1);
       }, 1000);
     }
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, [isAuthenticated]);
+
+  useEffect(() => {
+    if (isAuthenticated && timeLeft <= 0) {
+      if (timerRef.current) clearInterval(timerRef.current);
+      setIsAuthenticated(false);
+      sessionStorage.removeItem("is_master_developer_verified");
+      addToast(lang === 'ar' ? "🚨 الخاطر! انتهت مهلة جلسة الأمان المضيئة. يرجى الدخول مجدداً." : "🚨 Session timeout! System auto-locked.", "error");
+      playLaserBeep('alert');
+      setTimeLeft(300);
+    }
+  }, [timeLeft, isAuthenticated, lang, addToast]);
 
   const extendSession = () => {
     setTimeLeft(300);
@@ -555,10 +556,13 @@ export const MasterDeveloperControl: React.FC<MasterDeveloperControlProps> = ({
   // Handlers for Project & Subscribers suspension / features injection
   const toggleProjectStatus = (pId: string) => {
     playLaserBeep('click');
-    setProjects(prev => prev.map(p => {
+    const project = projects.find(p => p.id === pId);
+    if (!project) return;
+    const nextStatus = project.status === 'active' ? 'inactive' : 'active';
+    addLog(`⚡ تم تغيير مصفوفة [${project.name}] إلى: ${nextStatus === 'active' ? 'نشط وحي' : 'معطل ومغلق'}`, "success");
+    
+    setProjects(projects.map(p => {
       if (p.id === pId) {
-        const nextStatus = p.status === 'active' ? 'inactive' : 'active';
-        addLog(`⚡ تم تغيير مصفوفة [${p.name}] إلى: ${nextStatus === 'active' ? 'نشط وحي' : 'معطل ومغلق'}`, "success");
         return { ...p, status: nextStatus };
       }
       return p;
@@ -567,20 +571,26 @@ export const MasterDeveloperControl: React.FC<MasterDeveloperControlProps> = ({
 
   const toggleSubscriberActive = (pId: string, sId: string) => {
     playLaserBeep('click');
-    setProjects(prev => prev.map(p => {
+    const project = projects.find(p => p.id === pId);
+    if (!project) return;
+    const subscriber = project.subscribers.find((s: any) => s.id === sId);
+    if (!subscriber) return;
+
+    const nextVal = !subscriber.active;
+    addLog(`⚡ تم ${nextVal ? 'تفعيل وتشغيل' : 'حظر وإيقاف'} المشترك الفردي [${subscriber.name}].`, "info");
+    addToast(
+      lang === 'ar' 
+        ? `تم ${nextVal ? 'فتح حظر' : 'حظر'} العميل ${subscriber.name} مستقلّاً!` 
+        : `Subscription for ${subscriber.name} is now: ${nextVal ? 'Live' : 'Banned'}`, 
+      nextVal ? "success" : "warning"
+    );
+
+    setProjects(projects.map(p => {
       if (p.id === pId) {
         return {
           ...p,
           subscribers: p.subscribers.map((s: any) => {
             if (s.id === sId) {
-              const nextVal = !s.active;
-              addLog(`⚡ تم ${nextVal ? 'تفعيل وتشغيل' : 'حظر وإيقاف'} المشترك الفردي [${s.name}].`, "info");
-              addToast(
-                lang === 'ar' 
-                  ? `تم ${nextVal ? 'فتح حظر' : 'حظر'} العميل ${s.name} مستقلّاً!` 
-                  : `Subscription for ${s.name} is now: ${nextVal ? 'Live' : 'Banned'}`, 
-                nextVal ? "success" : "warning"
-              );
               return { ...s, active: nextVal };
             }
             return s;
@@ -593,20 +603,26 @@ export const MasterDeveloperControl: React.FC<MasterDeveloperControlProps> = ({
 
   const toggleSubscriberFeature = (pId: string, sId: string, featureKey: string) => {
     playLaserBeep('click');
-    setProjects(prev => prev.map(p => {
+    const project = projects.find(p => p.id === pId);
+    if (!project) return;
+    const subscriber = project.subscribers.find((s: any) => s.id === sId);
+    if (!subscriber) return;
+
+    let updated = [...subscriber.features];
+    if (updated.includes(featureKey)) {
+      updated = updated.filter(f => f !== featureKey);
+      addLog(`⚙️ تم حجب ميزة [${featureKey}] عن العميل [${subscriber.name}]`, "warning");
+    } else {
+      updated.push(featureKey);
+      addLog(`⚙️ تم حقن وتفعيل ميزة [${featureKey}] للعميل [${subscriber.name}]`, "success");
+    }
+
+    setProjects(projects.map(p => {
       if (p.id === pId) {
         return {
           ...p,
           subscribers: p.subscribers.map((s: any) => {
             if (s.id === sId) {
-              let updated = [...s.features];
-              if (updated.includes(featureKey)) {
-                updated = updated.filter(f => f !== featureKey);
-                addLog(`⚙️ تم حجب ميزة [${featureKey}] عن العميل [${s.name}]`, "warning");
-              } else {
-                updated.push(featureKey);
-                addLog(`⚙️ تم حقن وتفعيل ميزة [${featureKey}] للعميل [${s.name}]`, "success");
-              }
               return { ...s, features: updated };
             }
             return s;
