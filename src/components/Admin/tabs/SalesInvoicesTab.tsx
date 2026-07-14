@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { useStore } from '../../../store';
-import { FileText, Search, Eye, Filter, X, Download } from 'lucide-react';
+import { FileText, Search, Eye, Filter, X, Download, Plus } from 'lucide-react';
 import { Order, CartItem } from '../../../core/types';
 import { ConfirmModal } from '../../ConfirmModal';
 import { EmptyState } from '../../EmptyState';
 import { LoadingSpinner } from '../../LoadingSpinner';
 import { t } from '../../../core/translations';
+import { formatDate, formatCurrency } from '../../../core/utils';
 
 export function SalesInvoicesTab() {
   const lang = localStorage.getItem('store_lang') || 'ar';
@@ -14,6 +15,30 @@ export function SalesInvoicesTab() {
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('الكل');
   const [selectedInvoice, setSelectedInvoice] = useState<Order | null>(null);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const { addOrder } = useStore();
+  const [formData, setFormData] = useState({ customerName: '', phone: '', totalAmount: '', status: 'تم التسليم 🟢' as any });
+  const handleSave = () => {
+    if (!formData.customerName || !formData.totalAmount) return;
+    addOrder({
+      id: 'INV-' + Date.now().toString().slice(-6),
+      customerName: formData.customerName,
+      phone: formData.phone,
+      address: 'إدخال يدوي',
+      paymentMethod: 'نقدي',
+      totalPrice: parseFloat(formData.totalAmount),
+      currency: 'SAR',
+      date: new Date().toISOString(),
+      status: formData.status,
+      items: [{
+        product: { id: 'manual', name: 'إدخال يدوي', price: parseFloat(formData.totalAmount), category: 'other', image: '', description: '' },
+        quantity: 1,
+        selectedSubOptions: {}
+      }]
+    } as Order);
+    setShowAddModal(false);
+    setFormData({ customerName: '', phone: '', totalAmount: '', status: 'تم التسليم 🟢' });
+  };
 
   const filteredOrders = orders.filter((o: Order) => {
     const matchesSearch = o.id.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -53,6 +78,13 @@ export function SalesInvoicesTab() {
               <option value="مرفوض 🔴">{t('rejected', lang)}</option>
             </select>
           </div>
+          <button 
+            className="flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-sm font-bold shadow-lg shadow-emerald-500/20 transition-all"
+            onClick={() => setShowAddModal(true)}
+          >
+            <Plus className="w-4 h-4" /> 
+            {lang === 'en' ? 'Add Invoice' : 'إضافة فاتورة'}
+          </button>
         </div>
       </div>
 
@@ -76,7 +108,7 @@ export function SalesInvoicesTab() {
                   <tr key={order.id} className="hover:bg-[#0f172a]/5 transition-colors">
                     <td className="p-4 text-sm font-medium text-white">{order.id}</td>
                     <td className="p-4 text-sm text-slate-300">{order.customerName}</td>
-                    <td className="p-4 text-sm text-slate-300">{new Date(order.date).toLocaleDateString(lang === 'en' ? 'en-US' : 'ar-SA')}</td>
+                    <td className="p-4 text-sm text-slate-300">{formatDate(order.date, lang)}</td>
                     <td className="p-4 text-sm text-slate-300">{lang === 'en' && order.paymentMethod === 'نقدي' ? 'Cash' : order.paymentMethod}</td>
                     <td className="p-4 text-sm font-bold text-emerald-400">{order.totalPrice} {lang === 'en' ? (order.currency === 'SAR' ? 'SAR' : 'YER') : order.currency}</td>
                     <td className="p-4 text-sm">
@@ -141,7 +173,7 @@ export function SalesInvoicesTab() {
                 </div>
                 <div className="bg-[#060b18] p-4 rounded-xl border border-blue-900/40">
                   <p className="text-xs text-slate-400 mb-1">{t('invoiceDate', lang)}</p>
-                  <p className="font-bold text-white">{new Date(selectedInvoice.date).toLocaleDateString(lang === 'en' ? 'en-US' : 'ar-SA')}</p>
+                  <p className="font-bold text-white">{formatDate(selectedInvoice.date, lang)}</p>
                 </div>
                 <div className="bg-[#060b18] p-4 rounded-xl border border-blue-900/40">
                   <p className="text-xs text-slate-400 mb-1">{t('paymentMethod', lang)}</p>
@@ -177,7 +209,7 @@ export function SalesInvoicesTab() {
               
               <div className="flex justify-between items-center bg-[#060b18] p-4 rounded-xl border border-blue-900/40">
                 <span className="text-slate-400 font-bold">{t('finalTotal', lang)}</span>
-                <span className="text-2xl font-black text-emerald-400">{selectedInvoice.totalPrice} {selectedInvoice.currency}</span>
+                <span className="text-2xl font-black text-emerald-400">{formatCurrency(selectedInvoice.totalPrice, selectedInvoice.currency, lang)}</span>
               </div>
             </div>
             

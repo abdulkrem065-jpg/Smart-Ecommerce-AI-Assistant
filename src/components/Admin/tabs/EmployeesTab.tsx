@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useStore } from '../../../store';
 import { Employee, PayrollRun } from '../../../core/types';
 import { t } from '../../../core/translations';
+import { formatDate } from '../../../core/utils';
 import { Users, Plus, Edit, Trash2, X, CheckCircle, FileText, Check, DollarSign } from 'lucide-react';
 import { ConfirmModal } from '../../ConfirmModal';
 import { EmptyState } from '../../EmptyState';
@@ -205,7 +206,7 @@ export const EmployeesTab: React.FC = () => {  const lang = localStorage.getItem
               {payrollRuns?.map(p => (
                 <tr key={p.id} className="border-b hover:bg-white/5">
                   <td className="px-6 py-4 font-medium text-white">{p.month} / {p.year}</td>
-                  <td className="px-6 py-4">{new Date(p.date).toLocaleDateString()}</td>
+                  <td className="px-6 py-4">{formatDate(p.date, lang)}</td>
                   <td className="px-6 py-4 font-medium">{p.totalGross.toLocaleString()}</td>
                   <td className="px-6 py-4 font-bold text-emerald-400">{p.totalNet.toLocaleString()}</td>
                   <td className="px-6 py-4">

@@ -6,6 +6,7 @@ import { ConfirmModal } from '../../ConfirmModal';
 import { EmptyState } from '../../EmptyState';
 import { LoadingSpinner } from '../../LoadingSpinner';
 import { t } from '../../../core/translations';
+import { formatDate, formatCurrency } from '../../../core/utils';
 
 export default function SalesReturnsTab() {
   const lang = localStorage.getItem('store_lang') || 'ar';
@@ -91,8 +92,8 @@ export default function SalesReturnsTab() {
                   <td className="p-4 text-sm font-medium text-white">{r.id}</td>
                   <td className="p-4 text-sm text-slate-300">{r.orderId}</td>
                   <td className="p-4 text-sm text-slate-300">{r.customerName}</td>
-                  <td className="p-4 text-sm text-slate-300">{new Date(r.date).toLocaleDateString(lang === 'en' ? 'en-US' : 'ar-SA')}</td>
-                  <td className="p-4 text-sm font-bold text-red-400">{r.totalRefund}</td>
+                  <td className="p-4 text-sm text-slate-300">{formatDate(r.date, lang)}</td>
+                  <td className="p-4 text-sm font-bold text-red-400">{formatCurrency(r.totalRefund, "SAR", lang)}</td>
                   <td className="p-4 text-sm">
                     <span className="px-2 py-1 rounded-md text-xs font-bold bg-emerald-500/20 text-emerald-400">
                       {r.status}

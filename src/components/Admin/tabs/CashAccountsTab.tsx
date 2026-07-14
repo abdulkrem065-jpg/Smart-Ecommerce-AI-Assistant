@@ -6,10 +6,11 @@ import { ConfirmModal } from '../../ConfirmModal';
 import { EmptyState } from '../../EmptyState';
 import { LoadingSpinner } from '../../LoadingSpinner';
 import { t } from '../../../core/translations';
+import { formatDate, formatCurrency } from '../../../core/utils';
 
 export function CashAccountsTab() {
   const lang = localStorage.getItem('store_lang') || 'ar';
-  const { cashAccounts, receiptVouchers, paymentVouchers, custodies, cashTransfers, addCashAccount } = useStore();
+  const { cashAccounts, receiptVouchers, paymentVouchers, custodies, cashTransfers, addCashAccount, createReceiptVoucher, createPaymentVoucher, createCustody } = useStore();
   const [activeSubTab, setActiveSubTab] = useState<'accounts' | 'receipts' | 'payments' | 'custodies' | 'transfers'>('accounts');
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
   
@@ -17,6 +18,63 @@ export function CashAccountsTab() {
   const [newAccName, setNewAccName] = useState('');
   const [newAccType, setNewAccType] = useState<'صندوق' | 'بنك'>('صندوق');
   const [newAccBalance, setNewAccBalance] = useState('');
+  
+  const [showReceiptModal, setShowReceiptModal] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showCustodyModal, setShowCustodyModal] = useState(false);
+  
+  const [rvData, setRvData] = useState({ amount: '', fromParty: '', description: '', cashAccountId: '' });
+  const [pvData, setPvData] = useState({ amount: '', toParty: '', description: '', cashAccountId: '' });
+  const [custodyData, setCustodyData] = useState({ employeeName: '', amount: '', description: '' });
+
+  const handleSaveReceipt = () => {
+    if (!rvData.amount || !rvData.cashAccountId) return;
+    const acc = cashAccounts.find((a: any) => a.id === rvData.cashAccountId);
+    if (!acc) return;
+    if (createReceiptVoucher) {
+      createReceiptVoucher({
+        amount: parseFloat(rvData.amount),
+        fromParty: rvData.fromParty,
+        description: rvData.description,
+        cashAccountId: rvData.cashAccountId,
+        cashAccountName: acc.name,
+      });
+    }
+    setShowReceiptModal(false);
+    setRvData({ amount: '', fromParty: '', description: '', cashAccountId: '' });
+  };
+
+  const handleSavePayment = () => {
+    if (!pvData.amount || !pvData.cashAccountId) return;
+    const acc = cashAccounts.find((a: any) => a.id === pvData.cashAccountId);
+    if (!acc) return;
+    if (createPaymentVoucher) {
+      createPaymentVoucher({
+        amount: parseFloat(pvData.amount),
+        toParty: pvData.toParty,
+        description: pvData.description,
+        cashAccountId: pvData.cashAccountId,
+        cashAccountName: acc.name,
+      });
+    }
+    setShowPaymentModal(false);
+    setPvData({ amount: '', toParty: '', description: '', cashAccountId: '' });
+  };
+
+  const handleSaveCustody = () => {
+    if (!custodyData.amount || !custodyData.employeeName) return;
+    if (createCustody) {
+      createCustody({
+        employeeName: custodyData.employeeName,
+        amount: parseFloat(custodyData.amount),
+        purpose: custodyData.description,
+        // status omitted
+      });
+    }
+    setShowCustodyModal(false);
+    setCustodyData({ employeeName: '', amount: '', description: '' });
+  };
+
 
   const handleAddAccount = () => {
     if (!newAccName.trim()) return;
@@ -92,7 +150,7 @@ export function CashAccountsTab() {
                 </div>
                 <h4 className="text-lg font-bold text-white mb-2 pr-8">{acc.name}</h4>
                 <div className="text-2xl font-black text-blue-400">
-                  {acc.balance} {acc.currency}
+                  {formatCurrency(acc.balance, acc.currency, lang)}
                 </div>
               </div>
             ))}
@@ -108,6 +166,11 @@ export function CashAccountsTab() {
       {/* Receipts Content */}
       {activeSubTab === 'receipts' && (
         <div className="bg-[#0b1329] rounded-xl shadow-lg border border-blue-900/40 overflow-hidden">
+          <div className="p-4 border-b border-blue-900/40 flex justify-end">
+            <button onClick={() => setShowReceiptModal(true)} className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-emerald-700 transition-colors text-sm">
+              <Plus className="w-4 h-4" /> {lang === 'en' ? 'Add Receipt' : 'سند قبض جديد'}
+            </button>
+          </div>
           <table className={`w-full ${lang === 'en' ? 'text-left' : 'text-right'}`}>
             <thead className="bg-[#060b18] border-b border-blue-900/40">
               <tr>
@@ -121,11 +184,11 @@ export function CashAccountsTab() {
             <tbody className="divide-y divide-blue-900/20">
               {receiptVouchers.map((rv: ReceiptVoucher) => (
                 <tr key={rv.id} className="hover:bg-[#0f172a]/5">
-                  <td className="p-4 text-sm text-slate-300">{new Date(rv.date).toLocaleDateString(lang === 'en' ? 'en-US' : 'ar-SA')}</td>
+                  <td className="p-4 text-sm text-slate-300">{formatDate(rv.date, lang)}</td>
                   <td className="p-4 text-sm text-white">{rv.description}</td>
                   <td className="p-4 text-sm text-slate-300">{rv.fromParty}</td>
                   <td className="p-4 text-sm text-slate-300">{rv.cashAccountName}</td>
-                  <td className="p-4 text-sm font-bold text-emerald-400">{rv.amount}</td>
+                  <td className="p-4 text-sm font-bold text-emerald-400">{formatCurrency(rv.amount, "SAR", lang)}</td>
                 </tr>
               ))}
               {!receiptVouchers ? (<tr><td colSpan={5} className="p-8"><LoadingSpinner /></td></tr>) : receiptVouchers.length === 0 && (<tr><td colSpan={5} className="p-8"><EmptyState title={t('noData', lang)} /></td></tr>)}
@@ -137,6 +200,11 @@ export function CashAccountsTab() {
       {/* Payments Content */}
       {activeSubTab === 'payments' && (
         <div className="bg-[#0b1329] rounded-xl shadow-lg border border-blue-900/40 overflow-hidden">
+          <div className="p-4 border-b border-blue-900/40 flex justify-end">
+            <button onClick={() => setShowPaymentModal(true)} className="flex items-center gap-2 bg-red-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-red-700 transition-colors text-sm">
+              <Plus className="w-4 h-4" /> {lang === 'en' ? 'Add Payment' : 'سند صرف جديد'}
+            </button>
+          </div>
           <table className={`w-full ${lang === 'en' ? 'text-left' : 'text-right'}`}>
             <thead className="bg-[#060b18] border-b border-blue-900/40">
               <tr>
@@ -150,11 +218,11 @@ export function CashAccountsTab() {
             <tbody className="divide-y divide-blue-900/20">
               {paymentVouchers.map((pv: PaymentVoucher) => (
                 <tr key={pv.id} className="hover:bg-[#0f172a]/5">
-                  <td className="p-4 text-sm text-slate-300">{new Date(pv.date).toLocaleDateString(lang === 'en' ? 'en-US' : 'ar-SA')}</td>
+                  <td className="p-4 text-sm text-slate-300">{formatDate(pv.date, lang)}</td>
                   <td className="p-4 text-sm text-white">{pv.description}</td>
                   <td className="p-4 text-sm text-slate-300">{pv.toParty}</td>
                   <td className="p-4 text-sm text-slate-300">{pv.cashAccountName}</td>
-                  <td className="p-4 text-sm font-bold text-red-400">{pv.amount}</td>
+                  <td className="p-4 text-sm font-bold text-red-400">{formatCurrency(pv.amount, "SAR", lang)}</td>
                 </tr>
               ))}
               {!paymentVouchers ? (<tr><td colSpan={5} className="p-8"><LoadingSpinner /></td></tr>) : paymentVouchers.length === 0 && (<tr><td colSpan={5} className="p-8"><EmptyState title={t('noData', lang)} /></td></tr>)}
@@ -166,6 +234,11 @@ export function CashAccountsTab() {
       {/* Custodies Content */}
       {activeSubTab === 'custodies' && (
         <div className="bg-[#0b1329] rounded-xl shadow-lg border border-blue-900/40 overflow-hidden">
+          <div className="p-4 border-b border-blue-900/40 flex justify-end">
+            <button onClick={() => setShowCustodyModal(true)} className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-purple-700 transition-colors text-sm">
+              <Plus className="w-4 h-4" /> {lang === 'en' ? 'Add Custody' : 'عهدة جديدة'}
+            </button>
+          </div>
           <table className={`w-full ${lang === 'en' ? 'text-left' : 'text-right'}`}>
             <thead className="bg-[#060b18] border-b border-blue-900/40">
               <tr>
@@ -179,10 +252,10 @@ export function CashAccountsTab() {
             <tbody className="divide-y divide-blue-900/20">
               {custodies.map((c: Custody) => (
                 <tr key={c.id} className="hover:bg-[#0f172a]/5">
-                  <td className="p-4 text-sm text-slate-300">{new Date(c.date).toLocaleDateString(lang === 'en' ? 'en-US' : 'ar-SA')}</td>
+                  <td className="p-4 text-sm text-slate-300">{formatDate(c.date, lang)}</td>
                   <td className="p-4 text-sm text-white">{c.employeeName}</td>
                   <td className="p-4 text-sm text-slate-300">{c.purpose}</td>
-                  <td className="p-4 text-sm font-bold text-amber-400">{c.amount}</td>
+                  <td className="p-4 text-sm font-bold text-amber-400">{formatCurrency(c.amount, "SAR", lang)}</td>
                   <td className="p-4 text-sm">
                     <span className={`px-2 py-1 rounded-md text-xs font-bold ${
                       c.status === 'مسددة' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'
@@ -215,11 +288,11 @@ export function CashAccountsTab() {
             <tbody className="divide-y divide-blue-900/20">
               {cashTransfers.map((t: CashTransfer) => (
                 <tr key={t.id} className="hover:bg-[#0f172a]/5">
-                  <td className="p-4 text-sm text-slate-300">{new Date(t.date).toLocaleDateString(lang === 'en' ? 'en-US' : 'ar-SA')}</td>
+                  <td className="p-4 text-sm text-slate-300">{formatDate(t.date, lang)}</td>
                   <td className="p-4 text-sm text-white">{t.description}</td>
                   <td className="p-4 text-sm text-slate-300">{t.fromAccountName}</td>
                   <td className="p-4 text-sm text-slate-300">{t.toAccountName}</td>
-                  <td className="p-4 text-sm font-bold text-purple-400">{t.amount}</td>
+                  <td className="p-4 text-sm font-bold text-purple-400">{formatCurrency(t.amount, "SAR", lang)}</td>
                 </tr>
               ))}
               {!cashTransfers ? (<tr><td colSpan={5} className="p-8"><LoadingSpinner /></td></tr>) : cashTransfers.length === 0 && (<tr><td colSpan={5} className="p-8"><EmptyState title={t('noData', lang)} /></td></tr>)}

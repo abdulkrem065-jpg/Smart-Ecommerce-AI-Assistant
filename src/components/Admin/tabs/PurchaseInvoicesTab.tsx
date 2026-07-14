@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { useStore } from '../../../store';
-import { ShoppingCart, Search, Eye, Filter, CreditCard, X, CheckCircle } from 'lucide-react';
+import { ShoppingCart, Search, Eye, Filter, CreditCard, X, CheckCircle, Plus } from 'lucide-react';
 import { PurchaseInvoice, PurchaseItem } from '../../../core/types';
 import { ConfirmModal } from '../../ConfirmModal';
 import { EmptyState } from '../../EmptyState';
 import { LoadingSpinner } from '../../LoadingSpinner';
 import { t } from '../../../core/translations';
+import { formatDate, formatCurrency } from '../../../core/utils';
 
 export function PurchaseInvoicesTab() {
   const lang = localStorage.getItem('store_lang') || 'ar';
@@ -13,6 +14,27 @@ export function PurchaseInvoicesTab() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('الكل');
   const [selectedInvoice, setSelectedInvoice] = useState<PurchaseInvoice | null>(null);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const { createPurchaseInvoice } = useStore();
+  const [formData, setFormData] = useState({ supplierName: '', totalAmount: '', status: 'مفتوحة' as 'مفتوحة' | 'مدفوعة' | 'ملغية' });
+  const handleSave = () => {
+    if (!formData.supplierName || !formData.totalAmount) return;
+    createPurchaseInvoice({
+      supplierId: 'manual',
+      supplierName: formData.supplierName,
+      totalAmount: parseFloat(formData.totalAmount),
+      status: formData.status,
+      items: [{
+        productId: 'manual',
+        productName: 'إدخال يدوي',
+        quantity: 1,
+        unitCost: parseFloat(formData.totalAmount),
+        totalCost: parseFloat(formData.totalAmount)
+      }]
+    });
+    setShowAddModal(false);
+    setFormData({ supplierName: '', totalAmount: '', status: 'مفتوحة' });
+  };
 
   const filteredInvoices = purchaseInvoices.filter((inv: PurchaseInvoice) => {
     const matchesSearch = inv.id.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -59,6 +81,13 @@ export function PurchaseInvoicesTab() {
               <option value="ملغية">{t('cancelled', lang)}</option>
             </select>
           </div>
+          <button 
+            className="flex items-center gap-2 px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg text-sm font-bold shadow-lg shadow-indigo-500/20 transition-all"
+            onClick={() => setShowAddModal(true)}
+          >
+            <Plus className="w-4 h-4" /> 
+            {lang === 'en' ? 'Add Purchase' : 'إضافة فاتورة مشتريات'}
+          </button>
         </div>
       </div>
 
@@ -81,8 +110,8 @@ export function PurchaseInvoicesTab() {
                   <tr key={inv.id} className="hover:bg-[#0f172a]/5 transition-colors">
                     <td className="p-4 text-sm font-medium text-white">{inv.id}</td>
                     <td className="p-4 text-sm text-slate-300">{inv.supplierName}</td>
-                    <td className="p-4 text-sm text-slate-300">{new Date(inv.date).toLocaleDateString(lang === 'en' ? 'en-US' : 'ar-SA')}</td>
-                    <td className="p-4 text-sm font-bold text-indigo-400">{inv.totalAmount}</td>
+                    <td className="p-4 text-sm text-slate-300">{formatDate(inv.date, lang)}</td>
+                    <td className="p-4 text-sm font-bold text-indigo-400">{formatCurrency(inv.totalAmount, "SAR", lang)}</td>
                     <td className="p-4 text-sm">
                       <span className={`px-2 py-1 rounded-md text-xs font-bold ${
                         inv.status === 'مدفوعة' ? 'bg-emerald-500/20 text-emerald-400' :
@@ -150,7 +179,7 @@ export function PurchaseInvoicesTab() {
                 </div>
                 <div className="bg-[#060b18] p-4 rounded-xl border border-blue-900/40">
                   <p className="text-xs text-slate-400 mb-1">{t('invoiceDate', lang)}</p>
-                  <p className="font-bold text-white">{new Date(selectedInvoice.date).toLocaleDateString(lang === 'en' ? 'en-US' : 'ar-SA')}</p>
+                  <p className="font-bold text-white">{formatDate(selectedInvoice.date, lang)}</p>
                 </div>
                 <div className="bg-[#060b18] p-4 rounded-xl border border-blue-900/40">
                   <p className="text-xs text-slate-400 mb-1">{lang === 'en' ? 'Status' : 'حالة الفاتورة'}</p>
@@ -166,7 +195,7 @@ export function PurchaseInvoicesTab() {
                 {selectedInvoice.paymentDate && (
                   <div className="bg-[#060b18] p-4 rounded-xl border border-blue-900/40">
                     <p className="text-xs text-slate-400 mb-1">{t('paymentDate', lang)}</p>
-                    <p className="font-bold text-white">{new Date(selectedInvoice.paymentDate).toLocaleDateString(lang === 'en' ? 'en-US' : 'ar-SA')}</p>
+                    <p className="font-bold text-white">{formatDate(selectedInvoice.paymentDate, lang)}</p>
                   </div>
                 )}
               </div>
@@ -187,7 +216,7 @@ export function PurchaseInvoicesTab() {
                       <tr key={idx} className="hover:bg-[#0f172a]/5">
                         <td className="p-3 text-sm text-white">{item.productName || item.productId}</td>
                         <td className="p-3 text-sm text-slate-300">{item.quantity}</td>
-                        <td className="p-3 text-sm text-slate-300">{item.unitCost}</td>
+                        <td className="p-3 text-sm text-slate-300">{formatCurrency(item.unitCost, "SAR", lang)}</td>
                         <td className="p-3 text-sm font-bold text-indigo-400">
                           {item.totalCost}
                         </td>

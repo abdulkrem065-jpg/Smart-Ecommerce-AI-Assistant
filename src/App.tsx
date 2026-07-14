@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { DEFAULT_CATEGORIES, DEFAULT_PRODUCTS } from "./core/defaults";
 import { Product, StoreCategory, CartItem, OrderDetails, Order, CarouselSlide, UserSession } from "./core/types";
 import { NICHES } from "./data";
@@ -390,13 +390,13 @@ export default function App() {
   }
   const [toasts, setToasts] = useState<FancyToast[]>([]);
 
-  const addToast = (message: string, type: "success" | "info" | "warning" = "success", productImage?: string) => {
+  const addToast = useCallback((message: string, type: "success" | "info" | "warning" = "success", productImage?: string) => {
     const id = String(Date.now() + Math.random());
     setToasts((prev) => [...prev, { id, message, type, productImage }]);
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
     }, 4500);
-  };
+  }, []);
 
   // Settings from Realtime Database
   const [siteName, setSiteName] = useState(() => localStorage.getItem("store_site_name") || "مستودع ومتجر الذيباني VIP");

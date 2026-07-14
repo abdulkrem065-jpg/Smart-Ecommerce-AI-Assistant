@@ -3,6 +3,7 @@ import { useStore } from '../store';
 import SettingsTab from "./Admin/tabs/SettingsTab";
 import OrdersTab from "./Admin/tabs/OrdersTab";
 import { t } from '../core/translations';
+import { GlobalSidebar } from "./Admin/GlobalSidebar";
 
 import { SalesInvoicesTab } from "./Admin/tabs/SalesInvoicesTab";
 import { PurchaseInvoicesTab } from "./Admin/tabs/PurchaseInvoicesTab";
@@ -254,6 +255,7 @@ export default function AdminDashboard({
   usdToYer = 530,
   onUpdateUsdToYer
 }: AdminDashboardProps) {
+  const lang = localStorage.getItem('store_lang') || 'ar';
   // Main admin control panel navigation tabs
   const [activeTab, setActiveTab] = useState<'products' | 'categories' | 'orders' | 'slides' | 'configuration' | 'stats' | 'staff' | 'accounting' | 'trial_balance' | 'financial_statements' | 'fiscal_closing' | 'sales_invoices' | 'purchase_invoices' | 'cash_accounts' | 'employees'>(() => {
     if (userSession?.role === 'staff') {
@@ -1406,7 +1408,9 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
   }, 0);
 
   return (
-    <div className="space-y-8" dir="rtl" id="admin-dashboard-root">
+    <div className="flex bg-[#030712] min-h-screen text-white" dir={lang === 'en' ? 'ltr' : 'rtl'}>
+      <GlobalSidebar activeTab={activeTab} setActiveTab={setActiveTab} lang={lang} />
+      <div className="flex-1 overflow-x-hidden p-6 md:p-8 space-y-8" id="admin-dashboard-root">
       
       {/* Page Title & Navigation Tabs row */}
       <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 border-b border-blue-900/40 pb-6">
@@ -1438,246 +1442,6 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
           </div>
         </div>
 
-        {/* Dynamic Navigation Controllers with strict RBAC */}
-        <div className="flex bg-[#060b18] p-1.5 rounded-2xl border border-blue-900/50 w-full xl:w-auto flex-wrap gap-1" id="dashboard-navigation">
-          {hasInventoryPermission && (
-            <button
-              onClick={() => setActiveTab('products')}
-              className={`flex-1 xl:flex-none px-3.5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
-                activeTab === 'products' ? 'bg-[#111a2f] text-yellow-400 shadow-lg font-black border border-yellow-500/10' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              المخزن والأصناف
-            </button>
-          )}
-          
-          {hasInventoryPermission && (
-            <button
-              onClick={() => setActiveTab('categories')}
-              className={`flex-1 xl:flex-none px-3.5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
-                activeTab === 'categories' ? 'bg-[#111a2f] text-yellow-405 shadow-lg font-black border border-yellow-500/10' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              الأقسام ({categories.length})
-            </button>
-          )}
-
-
-          {hasOrdersPermission && (
-            <button
-              onClick={() => setActiveTab('sales_invoices')}
-              className={`flex-1 xl:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
-                activeTab === 'sales_invoices' ? 'bg-[#111a2f] text-emerald-400 shadow-lg font-black border border-emerald-500/10' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              <FileText className="w-3.5 h-3.5" /> {t('salesInvoices.title')}
-            </button>
-          )}
-          {hasOrdersPermission && (
-            <button
-              onClick={() => setActiveTab('purchase_invoices')}
-              className={`flex-1 xl:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
-                activeTab === 'purchase_invoices' ? 'bg-[#111a2f] text-indigo-400 shadow-lg font-black border border-indigo-500/10' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              <ShoppingCart className="w-3.5 h-3.5" /> {t('purchaseInvoices.title')}
-            </button>
-          )}
-          {hasFinancePermission && (
-            <button
-              onClick={() => setActiveTab('cash_accounts')}
-              className={`flex-1 xl:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
-                activeTab === 'cash_accounts' ? 'bg-[#111a2f] text-blue-400 shadow-lg font-black border border-blue-500/10' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              <Building2 className="w-3.5 h-3.5" /> {t('cashAccounts.title')}
-            </button>
-          )}
-
-          {hasOrdersPermission && (
-            <button
-              onClick={() => setActiveTab('customers')}
-              className={`flex-1 xl:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
-                activeTab === 'customers' ? 'bg-[#111a2f] text-blue-400 shadow-lg font-black border border-blue-500/10' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              <Users className="w-3.5 h-3.5" /> {t('customers.title')}
-            </button>
-          )}
-          {hasOrdersPermission && (
-            <button
-              onClick={() => setActiveTab('suppliers')}
-              className={`flex-1 xl:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
-                activeTab === 'suppliers' ? 'bg-[#111a2f] text-indigo-400 shadow-lg font-black border border-indigo-500/10' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              <Truck className="w-3.5 h-3.5" /> {t('suppliers.title')}
-            </button>
-          )}
-          {hasOrdersPermission && (
-            <button
-              onClick={() => setActiveTab('sales_returns')}
-              className={`flex-1 xl:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
-                activeTab === 'sales_returns' ? 'bg-[#111a2f] text-red-400 shadow-lg font-black border border-red-500/10' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              <Undo2 className="w-3.5 h-3.5" /> {t('salesReturns.title')}
-            </button>
-          )}
-          {hasOrdersPermission && (
-            <button
-              onClick={() => setActiveTab('purchase_returns')}
-              className={`flex-1 xl:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
-                activeTab === 'purchase_returns' ? 'bg-[#111a2f] text-orange-400 shadow-lg font-black border border-orange-500/10' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              <Undo2 className="w-3.5 h-3.5" /> {t('purchaseReturns.title')}
-            </button>
-          )}
-          {hasFinancePermission && (
-            <button
-              onClick={() => setActiveTab('fixed_assets')}
-              className={`flex-1 xl:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
-                activeTab === 'fixed_assets' ? 'bg-[#111a2f] text-purple-400 shadow-lg font-black border border-purple-500/10' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              <Building className="w-3.5 h-3.5" /> {t('fixedAssets.title')}
-            </button>
-          )}
-          {canViewCostCenters && (
-            <button
-              onClick={() => setActiveTab('cost_centers')}
-              className={`flex-1 xl:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
-                activeTab === 'cost_centers' ? 'bg-[#111a2f] text-teal-400 shadow-lg font-black border border-teal-500/10' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              <PieChartIcon className="w-3.5 h-3.5" /> {t('costCenters.title')}
-            </button>
-          )}
-          {canViewReports && (
-            <button
-              onClick={() => setActiveTab('advanced_reports')}
-              className={`flex-1 xl:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
-                activeTab === 'advanced_reports' ? 'bg-[#111a2f] text-fuchsia-400 shadow-lg font-black border border-fuchsia-500/10' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              <BarChart3 className="w-3.5 h-3.5" /> {t('advancedReports.title')}
-            </button>
-          )}
-          {canViewUsers && (
-            <button
-              onClick={() => setActiveTab('roles_permissions')}
-              className={`flex-1 xl:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
-                activeTab === 'roles_permissions' ? 'bg-[#111a2f] text-cyan-400 shadow-lg font-black border border-cyan-500/10' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              <Shield className="w-3.5 h-3.5" /> {t('roles.title')}
-            </button>
-          )}
-
-
-          {hasOrdersPermission && (
-            <button
-              onClick={() => setActiveTab('orders')}
-              className={`flex-1 xl:flex-none px-3.5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer relative ${
-                activeTab === 'orders' ? 'bg-[#111a2f] text-yellow-400 shadow-lg font-black border border-yellow-500/10' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              <span>الطلبات المستلمة</span>
-              {orders.length > 0 && (
-                <span className="absolute -top-1 -left-1 bg-red-500 text-white font-black text-[9px] w-4.5 h-4.5 rounded-full flex items-center justify-center animate-pulse">
-                  {orders.length}
-                </span>
-              )}
-            </button>
-          )}
-
-          {hasInventoryPermission && (
-            <button
-              onClick={() => setActiveTab('slides')}
-              className={`flex-1 xl:flex-none px-3.5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
-                activeTab === 'slides' ? 'bg-[#111a2f] text-yellow-400 shadow-lg font-black border border-yellow-500/10' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              إعلانات السلايدر ({carouselSlides.length})
-            </button>
-          )}
-
-          {isSuperUser && (
-            <button
-              onClick={() => setActiveTab('configuration')}
-              className={`flex-1 xl:flex-none px-3.5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
-                activeTab === 'configuration' ? 'bg-[#111a2f] text-yellow-500 shadow-lg font-black border border-yellow-500/10' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              إعدادات الضبط العام ⚙️
-            </button>
-          )}
-
-          {hasFinancePermission && (
-            <button
-              onClick={() => setActiveTab('stats')}
-              className={`flex-1 xl:flex-none px-3.5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
-                activeTab === 'stats' ? 'bg-[#111a2f] text-yellow-400 shadow-lg font-black border border-yellow-500/10' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              البيانات والتقارير 📊
-            </button>
-          )}
-
-          {hasFinancePermission && (
-            <button
-              onClick={() => setActiveTab('accounting')}
-              className={`flex-1 xl:flex-none px-3.5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
-                activeTab === 'accounting' ? 'bg-[#111a2f] text-yellow-400 shadow-lg font-black border border-yellow-500/10' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              دليل الحسابات 📓
-            </button>
-          )}
-
-          {hasFinancePermission && (
-            <button
-              onClick={() => setActiveTab('trial_balance')}
-              className={`flex-1 xl:flex-none px-3.5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer relative ${
-                activeTab === 'trial_balance' ? 'bg-[#111a2f] text-rose-400 shadow-lg font-black border border-rose-500/10' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              ميزان المراجعة الذكي ⚖️
-            </button>
-          )}
-          {hasFinancePermission && (
-            <button
-              onClick={() => setActiveTab('financial_statements')}
-              className={`flex-1 xl:flex-none px-3.5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer relative ${
-                activeTab === 'financial_statements' ? 'bg-[#111a2f] text-emerald-400 shadow-lg font-black border border-emerald-500/10' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              القوائم المالية 📊
-            </button>
-          )}
-          {hasFinancePermission && (
-            <button
-              onClick={() => setActiveTab('fiscal_closing')}
-              className={`flex-1 xl:flex-none px-3.5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer relative ${
-                activeTab === 'fiscal_closing' ? 'bg-[#111a2f] text-amber-400 shadow-lg font-black border border-amber-500/10' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              إقفال الفترة 🔒
-            </button>
-          )}
-
-          {isSuperUser && (
-            <button
-              onClick={() => setActiveTab('staff')}
-              className={`flex-1 xl:flex-none px-3.5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
-                activeTab === 'staff' ? 'bg-[#111a2f] text-yellow-500 shadow-lg font-black border border-yellow-500/10' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              إدارة الموظفين والامتيازات 👥🔑
-            </button>
-          )}
-        </div>
       </div>
 
       {/* Real-time Toast notices */}
@@ -3123,6 +2887,7 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
         );
       })()}
 
+      </div>
     </div>
   );
 }

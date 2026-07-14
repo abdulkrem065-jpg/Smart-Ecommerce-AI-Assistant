@@ -1,3 +1,4 @@
+import { formatDate } from '../../../core/utils';
 import React, { useEffect, useState } from 'react';
 import { ConfirmModal } from '../../ConfirmModal';
 import { EmptyState } from '../../EmptyState';
@@ -7,6 +8,7 @@ import { AccountCategory, AccountingAccount, AccountingTransaction } from '../..
 import { Wallet, Users, Truck, Receipt, Building, Plus, ArrowUpRight, ArrowDownLeft, Search, ChevronRight } from 'lucide-react';
 
 export default function AccountsTab() {
+  const lang = localStorage.getItem("store_lang") || "ar";
   const { 
     accounts, 
     activeCategory, 
@@ -114,7 +116,7 @@ export default function AccountsTab() {
             <tbody className="divide-y divide-slate-800">
               {selectedAccount.transactions && selectedAccount.transactions.map((tx) => (
                 <tr key={tx.id} className="text-slate-300 hover:bg-slate-800/20 transition-colors">
-                  <td className="p-4">{new Date(tx.date).toLocaleDateString('ar-SA')}</td>
+                  <td className="p-4">{formatDate(tx.date, lang)}</td>
                   <td className="p-4">{tx.description}</td>
                   <td className="p-4 text-emerald-400">{tx.debit > 0 ? tx.debit.toLocaleString() : '-'}</td>
                   <td className="p-4 text-rose-400">{tx.credit > 0 ? tx.credit.toLocaleString() : '-'}</td>
