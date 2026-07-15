@@ -1,4 +1,8 @@
-import React, { useState } from 'react';
+const fs = require('fs');
+
+let code = fs.readFileSync('src/components/Admin/GlobalSidebar.tsx', 'utf8');
+
+code = `import React, { useState } from 'react';
 import { Image as ImageIcon, Package, Landmark, BarChart3, Settings, Menu, X, FileText, ShoppingCart, Undo2, ArrowDownCircle, Users, Truck, Wallet, Building2, AlignVerticalSpaceAround, UserCircle, Target, Briefcase, FileSignature, Receipt, Database } from 'lucide-react';
 import { t } from '../../core/translations';
 
@@ -93,9 +97,9 @@ export function GlobalSidebar({ activeTab, setActiveTab, lang, isOpen, setIsOpen
       
       {/* Sidebar Drawer */}
       <div 
-        className={`fixed top-0 ${lang === 'en' ? 'left-0' : 'right-0'} h-full w-72 bg-[#0b1329] border-${lang === 'en' ? 'r' : 'l'} border-blue-900/40 z-50 transform transition-transform duration-300 ease-in-out flex flex-col ${
+        className={\`fixed top-0 \${lang === 'en' ? 'left-0' : 'right-0'} h-full w-72 bg-[#0b1329] border-\${lang === 'en' ? 'r' : 'l'} border-blue-900/40 z-50 transform transition-transform duration-300 ease-in-out flex flex-col \${
           isOpen ? 'translate-x-0' : lang === 'en' ? '-translate-x-full' : 'translate-x-full'
-        }`}
+        }\`}
       >
         <div className="flex items-center justify-between p-4 border-b border-blue-900/40 shrink-0">
           <h2 className="text-lg font-black text-white">{lang === 'en' ? 'Main Menu' : 'القائمة الرئيسية'}</h2>
@@ -119,16 +123,16 @@ export function GlobalSidebar({ activeTab, setActiveTab, lang, isOpen, setIsOpen
                 </div>
               </button>
               {openSections[section.id] && (
-                <div className={`${lang === 'en' ? 'pl-11 pr-2' : 'pr-11 pl-2'} space-y-1 mt-1`}>
+                <div className={\`\${lang === 'en' ? 'pl-11 pr-2' : 'pr-11 pl-2'} space-y-1 mt-1\`}>
                   {section.items.map((item) => (
                     <button
                       key={item.id}
                       onClick={() => handleTabSelect(item.id)}
-                      className={`w-full flex items-center gap-2.5 p-2 text-xs font-bold rounded-lg transition-colors ${
+                      className={\`w-full flex items-center gap-2.5 p-2 text-xs font-bold rounded-lg transition-colors \${
                         activeTab === item.id 
                           ? 'bg-blue-500/20 text-blue-400' 
                           : 'text-slate-400 hover:bg-[#111a2f] hover:text-white'
-                      }`}
+                      }\`}
                     >
                       <item.icon className="w-3.5 h-3.5" />
                       <span className="truncate w-full text-start">{item.label}</span>
@@ -143,3 +147,6 @@ export function GlobalSidebar({ activeTab, setActiveTab, lang, isOpen, setIsOpen
     </>
   );
 }
+`;
+
+fs.writeFileSync('src/components/Admin/GlobalSidebar.tsx', code);

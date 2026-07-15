@@ -34,7 +34,7 @@ import { NICHES } from '../data';
 import { isModuleEnabled, isFeatureEnabled } from '../core/moduleLoader';
 import { DollarExchangePricing } from '../modules/games_hyper/DollarExchangePricing';
 import { exportOrdersToCSV, printOrder } from "../core/exportUtils";
-import { Plus, Edit2, Building, Truck, Undo2, Trash2, Package, Sparkles, TrendingUp, AlertTriangle, CheckCircle, Smartphone, Layers, UploadCloud, Image as ImageIcon, Coins, MessageSquare, Settings, Sliders, ClipboardList, CheckCircle2, Trash, Check as CheckIcon, X as XIcon, User, MapPin, Calendar, AlertCircle, Wallet, FileText, Award, Lightbulb, BarChart3, PieChart as PieChartIcon, Shield, CreditCard, Users, ShieldCheck, Zap, ShoppingCart, Building2 } from 'lucide-react';
+import { Menu, Plus, Edit2, Building, Truck, Undo2, Trash2, Package, Sparkles, TrendingUp, AlertTriangle, CheckCircle, Smartphone, Layers, UploadCloud, Image as ImageIcon, Coins, MessageSquare, Settings, Sliders, ClipboardList, CheckCircle2, Trash, Check as CheckIcon, X as XIcon, User, MapPin, Calendar, AlertCircle, Wallet, FileText, Award, Lightbulb, BarChart3, PieChart as PieChartIcon, Shield, CreditCard, Users, ShieldCheck, Zap, ShoppingCart, Building2 } from 'lucide-react';
 
 import { PieChart, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Cell, Pie } from 'recharts';
 
@@ -257,14 +257,16 @@ export default function AdminDashboard({
 }: AdminDashboardProps) {
   const lang = localStorage.getItem('store_lang') || 'ar';
   // Main admin control panel navigation tabs
-  const [activeTab, setActiveTab] = useState<'products' | 'categories' | 'orders' | 'slides' | 'configuration' | 'stats' | 'staff' | 'accounting' | 'trial_balance' | 'financial_statements' | 'fiscal_closing' | 'sales_invoices' | 'purchase_invoices' | 'cash_accounts' | 'employees'>(() => {
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<'inventory' | 'categories' | 'orders' | 'slides' | 'configuration' | 'stats' | 'staff' | 'accounting' | 'trial_balance' | 'financial_statements' | 'fiscal_closing' | 'sales_invoices' | 'purchase_invoices' | 'cash_accounts' | 'employees' | 'advanced_reports' | 'cost_centers' | 'fixed_assets' | 'customers' | 'suppliers' | 'sales_returns' | 'purchase_returns' | 'roles_permissions' | 'inventory'>(() => {
+    return 'stats'; // Always default to stats for dashboard
     if (userSession?.role === 'staff') {
-      if (userSession.permissions?.canEditInventory) return 'products';
+      if (userSession.permissions?.canEditInventory) return 'inventory';
       if (userSession.permissions?.canManageOrders) return 'orders';
       if (userSession.permissions?.canViewFinance) return 'stats';
       return 'orders';
     }
-    return 'products';
+    return 'inventory';
   });
   
   // Advanced reporting & reconciliation states
@@ -1044,7 +1046,7 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
     setProductIsDigitalService(!!p.is_digital_service);
     setProductDigitalServiceType(p.digital_service_type || 'direct');
     setProductDigitalCategory(p.digital_category || 'game');
-    setActiveTab('products');
+    setActiveTab('inventory');
     triggerNotification('تم نسخ بيانات الصنف للتعديل الفوري', 'info');
   };
 
@@ -1409,15 +1411,20 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
 
   return (
     <div className="flex bg-[#030712] min-h-screen text-white" dir={lang === 'en' ? 'ltr' : 'rtl'}>
-      <GlobalSidebar activeTab={activeTab} setActiveTab={setActiveTab} lang={lang} />
+      <GlobalSidebar activeTab={activeTab} setActiveTab={setActiveTab} lang={lang} isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} />
       <div className="flex-1 overflow-x-hidden p-6 md:p-8 space-y-8" id="admin-dashboard-root">
       
       {/* Page Title & Navigation Tabs row */}
       <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 border-b border-blue-900/40 pb-6">
         <div>
-          <h2 className="text-xl font-extrabold text-transparent bg-clip-text bg-gradient-to-l from-yellow-400 via-amber-300 to-yellow-400 tracking-tight" id="dashboard-title">
-            لوحة الإدارة الفنية والتحكم المتكاملة VIP 🛠️
-          </h2>
+          <div className="flex items-center gap-3">
+            <button onClick={() => setIsSidebarOpen(true)} className="p-2 bg-[#0b1329] text-slate-400 hover:text-white rounded-xl border border-blue-900/40 transition-colors">
+              <Menu className="w-5 h-5" />
+            </button>
+            <h2 className="text-xl font-extrabold text-transparent bg-clip-text bg-gradient-to-l from-yellow-400 via-amber-300 to-yellow-400 tracking-tight" id="dashboard-title">
+              لوحة الإدارة الفنية والتحكم المتكاملة VIP 🛠️
+            </h2>
+          </div>
           <div className="flex flex-wrap gap-2 items-center mt-2">
             <p className="text-xs text-slate-400" id="dashboard-subtitle">
               لديك سيطرة مطلقة على المخزون والأقسام، الإشراف على طلبات عملائك، تعديل إعلانات الواجهة، وبناء هوية المتجر واللوجو فورياً.
@@ -1452,7 +1459,9 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
         </div>
       )}
 
-      {/* METRICS & OVERVIEWS */}
+      {activeTab === 'stats' && (
+      <div className="space-y-6">
+        {/* METRICS & OVERVIEWS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6" id="dashboard-stats-grid">
         <div className="bg-[#0b1329] p-5 rounded-2xl border border-blue-900/35 hover:border-yellow-500/20 transition-all">
           <div className="flex items-center justify-between">
@@ -1513,9 +1522,50 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
         </div>
       </div>
 
-      {/* PRODUCTS MANAGING TAB */}
-      {activeTab === "products" && hasInventoryPermission && (
-        <InventoryTab formatPrice={formatPrice || ((p) => p.toLocaleString())} />
+      
+        
+        {/* Recent Activities / Orders Table */}
+        <div className="bg-[#0b1329] p-6 rounded-2xl border border-blue-900/40">
+          <h3 className="text-lg font-bold text-white mb-4">آخر النشاطات والطلبات</h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm text-left rtl:text-right text-slate-400">
+              <thead className="text-xs text-slate-300 uppercase bg-[#1e293b]">
+                <tr>
+                  <th className="px-6 py-3">رقم الطلب</th>
+                  <th className="px-6 py-3">العميل</th>
+                  <th className="px-6 py-3">المبلغ</th>
+                  <th className="px-6 py-3">الحالة</th>
+                  <th className="px-6 py-3">التاريخ</th>
+                </tr>
+              </thead>
+              <tbody>
+                {orders.slice(0, 5).map(o => (
+                  <tr key={o.id} className="border-b border-blue-900/20 hover:bg-[#1e293b]/50">
+                    <td className="px-6 py-4 font-medium text-white">{o.id}</td>
+                    <td className="px-6 py-4 text-white">{o.customerName || 'غير مسجل'}</td>
+                    <td className="px-6 py-4 text-emerald-400 font-bold">{formatPrice ? formatPrice(o.totalPrice) : o.totalPrice}</td>
+                    <td className="px-6 py-4">
+                      <span className={`px-2 py-1 rounded-full text-[10px] font-bold ${
+                        o.status.includes('ملغي') ? 'bg-red-500/20 text-red-400' :
+                        o.status.includes('مكتمل') || o.status.includes('تسليم') ? 'bg-emerald-500/20 text-emerald-400' :
+                        'bg-amber-500/20 text-amber-400'
+                      }`}>
+                        {o.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-xs text-slate-500">{new Date(o.date).toLocaleDateString('ar-SA')}</td>
+                  </tr>
+                ))}
+                {orders.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-8 text-center text-slate-500">لا توجد طلبات حديثة</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
       )}
       {activeTab === "categories" && hasInventoryPermission && (
         <CategoriesTab />
@@ -1995,7 +2045,32 @@ ${duplicatesToClean.map(d => `- ${d.name} (${d.code || 'بدون كود'})`).joi
       {activeTab === 'fiscal_closing' && hasFinancePermission && (
         <FiscalClosingView />
       )}
-      {activeTab === 'stats' && hasFinancePermission && (() => {
+      
+      {activeTab === 'inventory' && hasInventoryPermission && (
+        <InventoryTab formatPrice={formatPrice || ((p) => p.toLocaleString())} />
+      )}
+      {activeTab === 'fixed_assets' && hasFinancePermission && (
+        <FixedAssetsTab />
+      )}
+      {activeTab === 'cost_centers' && hasFinancePermission && (
+        <CostCentersTab />
+      )}
+      {activeTab === 'customers' && hasFinancePermission && (
+        <CustomersTab />
+      )}
+      {activeTab === 'suppliers' && hasFinancePermission && (
+        <SuppliersTab />
+      )}
+      {activeTab === 'sales_returns' && hasFinancePermission && (
+        <SalesReturnsTab />
+      )}
+      {activeTab === 'purchase_returns' && hasFinancePermission && (
+        <PurchaseReturnsTab />
+      )}
+      {activeTab === 'roles_permissions' && isSuperUser && (
+        <RolesTab />
+      )}
+{activeTab === 'advanced_reports' && hasFinancePermission && (() => {
         // 1. Calculations for reconciliation Ledger
         const filteredReconciliationOrders = orders.filter(order => {
           // Fund Box filter
