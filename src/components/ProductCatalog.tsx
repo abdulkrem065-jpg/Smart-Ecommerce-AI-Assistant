@@ -495,6 +495,18 @@ export default function ProductCatalog({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedProductForDetails, setSelectedProductForDetails] = useState<Product | null>(null);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const searchContainerRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node)) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // --- Voice Search / Speech Recognition States & Logic ---
   const [isListening, setIsListening] = useState(false);
@@ -640,8 +652,10 @@ export default function ProductCatalog({
   // Filter products safely for optionals
   const filteredProducts = products.filter(p => {
     const desc = p.description || '';
+    const code = p.code || '';
     const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          desc.toLowerCase().includes(searchQuery.toLowerCase());
+                          desc.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          code.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = selectedCategory === 'all' || p.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
@@ -653,7 +667,7 @@ export default function ProductCatalog({
       <div className={`flex flex-col xl:flex-row gap-4 items-stretch xl:items-center justify-between ${lang === 'en' ? 'text-left' : 'text-right'}`} id="catalog-controls">
         
         {/* Search Input bar */}
-        <div className="relative flex-1 max-w-xl flex flex-col gap-1.5">
+        <div className="relative flex-1 max-w-xl flex flex-col gap-1.5" ref={searchContainerRef}>
           <div className="relative w-full flex items-center">
             <span className={`absolute ${lang === 'en' ? 'left-4' : 'right-4'} top-1/2 -translate-y-1/2 text-slate-400 z-10`}>
               <Search className="w-4 h-4" />
@@ -664,6 +678,7 @@ export default function ProductCatalog({
               value={searchQuery}
               onChange={(e) => {
                 setSearchQuery(e.target.value);
+                setShowSuggestions(true);
                 if (voiceStatus && !e.target.value) {
                   setVoiceStatus(null);
                 }
@@ -671,6 +686,7 @@ export default function ProductCatalog({
               className={`w-full ${lang === 'en' ? 'pl-11 pr-28' : 'pl-28 pr-11'} py-2.5 bg-[#0b1329] border border-blue-900/60 rounded-xl text-base md:text-xs text-white placeholder:text-slate-550 outline-none focus:border-yellow-500/50 transition-all font-sans`}
               id="catalog-search-input"
               onFocus={(e) => {
+                setShowSuggestions(true);
                 setTimeout(() => {
                   e.target.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 }, 250);
@@ -733,6 +749,50 @@ export default function ProductCatalog({
               )}
             </div>
           </div>
+
+          {/* Autocomplete Dropdown */}
+          <AnimatePresence>
+            {showSuggestions && searchQuery.trim() && filteredProducts.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="absolute top-full mt-2 w-full z-50 bg-[#060b18] border border-blue-900/50 rounded-xl shadow-2xl max-h-64 overflow-y-auto"
+              >
+                {filteredProducts.slice(0, 5).map(product => (
+                  <div 
+                    key={product.id}
+                    className="flex items-center gap-3 p-3 hover:bg-slate-800/50 cursor-pointer transition-colors border-b border-blue-900/20 last:border-b-0"
+                    onClick={() => {
+                      setSearchQuery(product.name);
+                      setShowSuggestions(false);
+                      setSelectedProductForDetails(product);
+                    }}
+                  >
+                    <img 
+                      src={product.image} 
+                      className="w-10 h-10 rounded-lg object-cover bg-slate-900" 
+                      alt={product.name}
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=500&q=80';
+                      }}
+                    />
+                    <div className="flex-1 overflow-hidden">
+                      <h4 className="text-white text-xs font-bold truncate">{highlightText(product.name, searchQuery)}</h4>
+                      {product.code && (
+                        <span className="text-[10px] text-slate-500 font-mono block mt-0.5">
+                          {lang === 'en' ? 'Code:' : 'الكود:'} {highlightText(product.code, searchQuery)}
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-yellow-400 font-bold text-xs whitespace-nowrap">
+                      {getProductDisplay(product).mainText}
+                    </div>
+                  </div>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Voice Prompt Status Banner */}
           {voiceStatus && (

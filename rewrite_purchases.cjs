@@ -1,14 +1,16 @@
-import React, { useState } from 'react';
-import { useStore } from '../../../store';
+const fs = require('fs');
+
+const code = `import React, { useState } from 'react';
+import { useStore } from '../../../store/useStore';
 import { Search, Plus, Eye, Trash2, X, Printer, Percent, Truck, Landmark } from 'lucide-react';
 import { t } from '../../../core/translations';
 import { PurchaseInvoice, PurchaseItem } from '../../../core/types';
-import { ConfirmModal } from '../../ConfirmModal';
+import { ConfirmModal } from '../../ui/ConfirmModal';
 import { formatCurrency, formatDate } from '../../../core/utils';
 
 export function PurchaseInvoicesTab() {
   const lang = localStorage.getItem('store_lang') || 'ar';
-  const { purchaseInvoices, products, suppliers, createPurchaseInvoice, tenantConfig } = useStore();
+  const { purchaseInvoices, products, suppliers, createPurchaseInvoice, deletePurchaseInvoice, tenantConfig } = useStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
 
@@ -42,7 +44,7 @@ export function PurchaseInvoicesTab() {
     const prod = products.find(p => p.id === selectedProductId);
     if (!prod) return;
     
-    const cost = manualCost ? parseFloat(manualCost) : prod.price;
+    const cost = manualCost ? parseFloat(manualCost) : prod.costPrice || prod.price;
     
     const existing = items.find(i => i.productId === selectedProductId);
     if (existing) {
@@ -164,7 +166,7 @@ export function PurchaseInvoicesTab() {
 
       <div className="bg-[#0b1329] rounded-xl shadow-lg border border-blue-900/40 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className={`w-full ${lang === 'en' ? 'text-left' : 'text-right'}`}>
+          <table className={\`w-full \${lang === 'en' ? 'text-left' : 'text-right'}\`}>
             <thead className="bg-[#060b18] border-b border-blue-900/40">
               <tr>
                 <th className="p-4 text-xs font-bold text-slate-400">{t('invoiceId', lang)}</th>
@@ -300,7 +302,7 @@ export function PurchaseInvoicesTab() {
                     >
                       <option value="">{lang === 'en' ? 'Select Product' : 'اختر منتج'}</option>
                       {products.map(p => (
-                        <option key={p.id} value={p.id}>{p.name} - {p.price}</option>
+                        <option key={p.id} value={p.id}>{p.name} - {p.costPrice || p.price}</option>
                       ))}
                     </select>
                     <input 
@@ -364,19 +366,19 @@ export function PurchaseInvoicesTab() {
               <div className="flex flex-wrap gap-4">
                 <button 
                   onClick={() => setEnableDiscount(!enableDiscount)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold transition-all ${enableDiscount ? 'bg-indigo-600 text-white' : 'bg-[#060b18] text-slate-400 border border-blue-900/40 hover:bg-[#0f172a]'}`}
+                  className={\`flex items-center gap-2 px-4 py-2 rounded-lg font-bold transition-all \${enableDiscount ? 'bg-indigo-600 text-white' : 'bg-[#060b18] text-slate-400 border border-blue-900/40 hover:bg-[#0f172a]'}\`}
                 >
                   <Percent className="w-4 h-4" /> {lang === 'en' ? 'Discount' : 'خصم'}
                 </button>
                 <button 
                   onClick={() => setEnableDelivery(!enableDelivery)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold transition-all ${enableDelivery ? 'bg-blue-600 text-white' : 'bg-[#060b18] text-slate-400 border border-blue-900/40 hover:bg-[#0f172a]'}`}
+                  className={\`flex items-center gap-2 px-4 py-2 rounded-lg font-bold transition-all \${enableDelivery ? 'bg-blue-600 text-white' : 'bg-[#060b18] text-slate-400 border border-blue-900/40 hover:bg-[#0f172a]'}\`}
                 >
                   <Truck className="w-4 h-4" /> {lang === 'en' ? 'Delivery' : 'توصيل'}
                 </button>
                 <button 
                   onClick={() => setEnableTax(!enableTax)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold transition-all ${enableTax ? 'bg-orange-600 text-white' : 'bg-[#060b18] text-slate-400 border border-blue-900/40 hover:bg-[#0f172a]'}`}
+                  className={\`flex items-center gap-2 px-4 py-2 rounded-lg font-bold transition-all \${enableTax ? 'bg-orange-600 text-white' : 'bg-[#060b18] text-slate-400 border border-blue-900/40 hover:bg-[#0f172a]'}\`}
                 >
                   <Landmark className="w-4 h-4" /> {lang === 'en' ? 'Tax' : 'ضريبة'}
                 </button>
@@ -427,7 +429,7 @@ export function PurchaseInvoicesTab() {
                 </div>
                 {enableDiscount && (
                   <div className="flex justify-between text-sm text-indigo-400">
-                    <span>{lang === 'en' ? 'Discount' : 'الخصم'} ({discountType === 'percentage' ? `${discountValue}%` : formatCurrency(discountValue, tenantConfig?.currency || 'SAR', lang)}):</span>
+                    <span>{lang === 'en' ? 'Discount' : 'الخصم'} ({discountType === 'percentage' ? \`\${discountValue}%\` : formatCurrency(discountValue, tenantConfig?.currency || 'SAR', lang)}):</span>
                     <span>- {formatCurrency(discountAmount, tenantConfig?.currency || 'SAR', lang)}</span>
                   </div>
                 )}
@@ -488,7 +490,7 @@ export function PurchaseInvoicesTab() {
               {/* Header */}
               <div className="flex justify-between items-start border-b-2 border-slate-200 pb-6 mb-6">
                 <div>
-                  <h1 className="text-3xl font-black text-slate-800 mb-2">{tenantConfig?.siteName || 'اسم المتجر'}</h1>
+                  <h1 className="text-3xl font-black text-slate-800 mb-2">{tenantConfig?.name || 'اسم المتجر'}</h1>
                   <p className="text-sm text-slate-500">{lang === 'en' ? 'Tax No' : 'الرقم الضريبي'}: 1234567890</p>
                   <p className="text-sm text-slate-500">{lang === 'en' ? 'Purchase Invoice' : 'فاتورة شراء'}</p>
                 </div>
@@ -575,10 +577,12 @@ export function PurchaseInvoicesTab() {
         title={t('confirmDelete', lang)}
         message={t('confirmDeleteMsg', lang)}
         onConfirm={() => {
-          if (itemToDelete) console.log("Delete not supported for PI");
+          if (itemToDelete) deletePurchaseInvoice(itemToDelete);
         }}
         onCancel={() => setItemToDelete(null)}
       />
     </div>
   );
 }
+`
+fs.writeFileSync('src/components/Admin/tabs/PurchaseInvoicesTab.tsx', code);

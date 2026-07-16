@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+const fs = require('fs');
+
+const code = `import React, { useState } from 'react';
 import { useStore } from '../../../store';
 import { Search, Plus, Eye, Trash2, X, Printer, Percent, Truck, Landmark } from 'lucide-react';
 import { t } from '../../../core/translations';
@@ -6,9 +8,9 @@ import { SalesReturn, ReturnItem } from '../../../core/types';
 import { ConfirmModal } from '../../ConfirmModal';
 import { formatCurrency, formatDate } from '../../../core/utils';
 
-export default function SalesReturnsTab() {
+export function SalesReturnsTab() {
   const lang = localStorage.getItem('store_lang') || 'ar';
-  const { salesReturns, orders, createSalesReturn, tenantConfig } = useStore();
+  const { salesReturns, orders, createSalesReturn, deleteSalesReturn, tenantConfig } = useStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
 
@@ -150,7 +152,7 @@ export default function SalesReturnsTab() {
 
       <div className="bg-[#0b1329] rounded-xl shadow-lg border border-blue-900/40 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className={`w-full ${lang === 'en' ? 'text-left' : 'text-right'}`}>
+          <table className={\`w-full \${lang === 'en' ? 'text-left' : 'text-right'}\`}>
             <thead className="bg-[#060b18] border-b border-blue-900/40">
               <tr>
                 <th className="p-4 text-xs font-bold text-slate-400">{t('returnId', lang)}</th>
@@ -292,19 +294,19 @@ export default function SalesReturnsTab() {
               <div className="flex flex-wrap gap-4">
                 <button 
                   onClick={() => setEnableDiscount(!enableDiscount)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold transition-all ${enableDiscount ? 'bg-red-600 text-white' : 'bg-[#060b18] text-slate-400 border border-blue-900/40 hover:bg-[#0f172a]'}`}
+                  className={\`flex items-center gap-2 px-4 py-2 rounded-lg font-bold transition-all \${enableDiscount ? 'bg-red-600 text-white' : 'bg-[#060b18] text-slate-400 border border-blue-900/40 hover:bg-[#0f172a]'}\`}
                 >
                   <Percent className="w-4 h-4" /> {lang === 'en' ? 'Discount Deduction' : 'خصم'}
                 </button>
                 <button 
                   onClick={() => setEnableDelivery(!enableDelivery)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold transition-all ${enableDelivery ? 'bg-blue-600 text-white' : 'bg-[#060b18] text-slate-400 border border-blue-900/40 hover:bg-[#0f172a]'}`}
+                  className={\`flex items-center gap-2 px-4 py-2 rounded-lg font-bold transition-all \${enableDelivery ? 'bg-blue-600 text-white' : 'bg-[#060b18] text-slate-400 border border-blue-900/40 hover:bg-[#0f172a]'}\`}
                 >
                   <Truck className="w-4 h-4" /> {lang === 'en' ? 'Delivery Deduction' : 'توصيل'}
                 </button>
                 <button 
                   onClick={() => setEnableTax(!enableTax)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold transition-all ${enableTax ? 'bg-orange-600 text-white' : 'bg-[#060b18] text-slate-400 border border-blue-900/40 hover:bg-[#0f172a]'}`}
+                  className={\`flex items-center gap-2 px-4 py-2 rounded-lg font-bold transition-all \${enableTax ? 'bg-orange-600 text-white' : 'bg-[#060b18] text-slate-400 border border-blue-900/40 hover:bg-[#0f172a]'}\`}
                 >
                   <Landmark className="w-4 h-4" /> {lang === 'en' ? 'Tax Deduction' : 'ضريبة'}
                 </button>
@@ -355,7 +357,7 @@ export default function SalesReturnsTab() {
                 </div>
                 {enableDiscount && (
                   <div className="flex justify-between text-sm text-red-400">
-                    <span>{lang === 'en' ? 'Discount Deduction' : 'خصم مسترجع'} ({discountType === 'percentage' ? `${discountValue}%` : formatCurrency(discountValue, tenantConfig?.currency || 'SAR', lang)}):</span>
+                    <span>{lang === 'en' ? 'Discount Deduction' : 'خصم مسترجع'} ({discountType === 'percentage' ? \`\${discountValue}%\` : formatCurrency(discountValue, tenantConfig?.currency || 'SAR', lang)}):</span>
                     <span>- {formatCurrency(discountAmount, tenantConfig?.currency || 'SAR', lang)}</span>
                   </div>
                 )}
@@ -416,7 +418,7 @@ export default function SalesReturnsTab() {
               {/* Header */}
               <div className="flex justify-between items-start border-b-2 border-slate-200 pb-6 mb-6">
                 <div>
-                  <h1 className="text-3xl font-black text-slate-800 mb-2">{tenantConfig?.siteName || 'اسم المتجر'}</h1>
+                  <h1 className="text-3xl font-black text-slate-800 mb-2">{tenantConfig?.name || 'اسم المتجر'}</h1>
                   <p className="text-sm text-slate-500">{lang === 'en' ? 'Tax No' : 'الرقم الضريبي'}: 1234567890</p>
                   <p className="text-sm text-slate-500">{lang === 'en' ? 'Sales Return' : 'مرتجع مبيعات'}</p>
                 </div>
@@ -513,3 +515,5 @@ export default function SalesReturnsTab() {
     </div>
   );
 }
+`
+fs.writeFileSync('src/components/Admin/tabs/SalesReturnsTab.tsx', code);
